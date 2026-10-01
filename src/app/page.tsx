@@ -16,7 +16,15 @@ function Dot({ tone }: { tone: 'ok' | 'warn' | 'off' }) {
   return <span aria-hidden className={`inline-block size-2.5 shrink-0 rounded-full ${colour}`} />;
 }
 
-function Row({ label, value, tone }: { label: string; value: string; tone?: 'ok' | 'warn' | 'off' }) {
+function Row({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'ok' | 'warn' | 'off';
+}) {
   return (
     <li className="flex min-h-11 items-center gap-3 px-4 py-2.5">
       {tone && <Dot tone={tone} />}
@@ -55,7 +63,12 @@ function ApiRows({ status }: { status: ApiStatus }) {
         tone={status.state === 'ok' ? 'ok' : 'warn'}
       />
       {Object.entries(status.checks).map(([name, ok]) => (
-        <Row key={name} label={checkLabel(name)} value={ok ? 'Connected' : 'Down'} tone={ok ? 'ok' : 'warn'} />
+        <Row
+          key={name}
+          label={checkLabel(name)}
+          value={ok ? 'Connected' : 'Down'}
+          tone={ok ? 'ok' : 'warn'}
+        />
       ))}
       <Row label="API version" value={status.version} />
       <Row label="API uptime" value={formatUptime(status.uptimeSeconds)} />
@@ -73,8 +86,8 @@ export default async function StatusPage() {
         <p className="text-[15px] font-semibold text-primary-text">Sotto</p>
         <h1 className="text-[34px] leading-tight font-bold tracking-tight">Building in the open</h1>
         <p className="text-muted-foreground">
-          Private AI for your team’s memos and meetings. This page is the always-on demo. It
-          updates every time new work is merged.
+          Private AI for your team’s memos and meetings. This page is the always-on demo. It updates
+          every time new work is merged.
         </p>
       </header>
 

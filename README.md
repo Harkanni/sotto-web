@@ -20,13 +20,13 @@ Start the API from `sotto-api` (`pnpm deps:up && pnpm dev`) to see live checks, 
 
 ## Scripts
 
-| Command | Does |
-| --- | --- |
-| `pnpm dev` / `pnpm build` / `pnpm start` | Next.js |
-| `pnpm lint` / `pnpm format` / `pnpm typecheck` | ESLint / Prettier / TypeScript |
-| `pnpm test` | Vitest unit tests |
-| `pnpm e2e` | Playwright on iPhone and desktop viewports (needs `pnpm build` first) |
-| `docker build -t sotto-web .` | Standalone image, non-root |
+| Command                                        | Does                                                                  |
+| ---------------------------------------------- | --------------------------------------------------------------------- |
+| `pnpm dev` / `pnpm build` / `pnpm start`       | Next.js                                                               |
+| `pnpm lint` / `pnpm format` / `pnpm typecheck` | ESLint / Prettier / TypeScript                                        |
+| `pnpm test`                                    | Vitest unit tests                                                     |
+| `pnpm e2e`                                     | Playwright on iPhone and desktop viewports (needs `pnpm build` first) |
+| `docker build -t sotto-web .`                  | Standalone image, non-root                                            |
 
 ## Rules
 

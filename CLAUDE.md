@@ -16,13 +16,13 @@ If `../sotto-platform` isn't there, clone it: `git clone https://github.com/Hark
 
 ## Layout
 
-| Path | Holds |
-| --- | --- |
-| `src/app/(app)` | Product shell: Home, Docs, Ask, Meetings, Profile — one navigation stack per tab |
-| `src/app/(marketing)` | Landing, pricing, security (Phase 8) |
-| `src/components/ui` | shadcn components restyled to the Sotto design system |
-| `src/styles/tokens.css` | Colour, type, radius and material tokens (light + dark) |
-| `src/lib/api` | Generated OpenAPI client + TanStack Query hooks |
+| Path                    | Holds                                                                            |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `src/app/(app)`         | Product shell: Home, Docs, Ask, Meetings, Profile — one navigation stack per tab |
+| `src/app/(marketing)`   | Landing, pricing, security (Phase 8)                                             |
+| `src/components/ui`     | shadcn components restyled to the Sotto design system                            |
+| `src/styles/tokens.css` | Colour, type, radius and material tokens (light + dark)                          |
+| `src/lib/api`           | Generated OpenAPI client + TanStack Query hooks                                  |
 
 ## Rules for this repo
 
