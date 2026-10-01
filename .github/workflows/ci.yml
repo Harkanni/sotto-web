@@ -41,6 +41,7 @@ jobs:
 
   check:
     runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: pnpm/action-setup@v6.1.0
@@ -57,9 +58,11 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - name: Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Playwright browser
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps chromium
       - name: End-to-end (iPhone + desktop)
+        timeout-minutes: 5
         run: pnpm e2e
       - uses: actions/upload-artifact@v7.0.1
         if: failure()

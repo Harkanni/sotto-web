@@ -9,7 +9,9 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
   use: { baseURL: 'http://localhost:3000', trace: 'retain-on-failure' },
   projects: [
-    { name: 'iphone', use: { ...devices['iPhone 15'] } },
+    // iPhone viewport, touch and mobile UA, rendered by Chromium (WebKit's CI deps are slow and
+    // flaky to install). Safari-specific checks get their own job later.
+    { name: 'iphone', use: { ...devices['iPhone 15'], browserName: 'chromium' } },
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
