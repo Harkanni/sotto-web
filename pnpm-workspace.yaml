@@ -1,0 +1,6 @@
+# Single package, but pnpm 10 reads build-script approvals from here.
+onlyBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - esbuild
+  - sharp
+  - unrs-resolver
