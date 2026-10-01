@@ -1,0 +1,87 @@
+@import 'tailwindcss';
+
+/*
+ * Sotto design tokens (docs/BRIEF.md §8). Values mirror iOS 18 / macOS system colours, adjusted
+ * where Apple's defaults fail WCAG AA. Phase 2 maps these onto shadcn/ui's names and adds the
+ * manual light/dark switch; for now the OS setting decides.
+ */
+:root {
+  --background: #f2f2f7;
+  --card: #ffffff;
+  --elevated: #ffffff;
+  --foreground: #000000;
+  --muted-foreground: #6c6c70;
+  --fill: rgb(118 118 128 / 0.12);
+  --separator: rgb(60 60 67 / 0.29);
+  --primary: #5856d6;
+  --primary-text: #5856d6;
+  --destructive: #d70015;
+  --success: #248a3d;
+  --radius-card: 12px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #000000;
+    --card: #1c1c1e;
+    --elevated: #2c2c2e;
+    --foreground: #ffffff;
+    --muted-foreground: rgb(235 235 245 / 0.6);
+    --fill: rgb(118 118 128 / 0.24);
+    --separator: rgb(84 84 88 / 0.6);
+    --primary: #5e5ce6;
+    --primary-text: #7d7aff;
+    --success: #30d158;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-card: var(--card);
+  --color-elevated: var(--elevated);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-fill: var(--fill);
+  --color-separator: var(--separator);
+  --color-primary: var(--primary);
+  --color-primary-text: var(--primary-text);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, var(--font-inter), system-ui, sans-serif;
+  --radius-card: var(--radius-card);
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  /* Body text never below 16px (brief §9). */
+  font-size: 17px;
+  line-height: 1.47;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary-text);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

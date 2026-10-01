@@ -21,3 +21,4 @@ __pycache__/
 .DS_Store
 .idea/
 *.log
+next-env.d.ts
