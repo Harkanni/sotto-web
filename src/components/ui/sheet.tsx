@@ -346,6 +346,8 @@ function SheetPresentation({
       <Dialog.Content
         ref={panelRef}
         forceMount
+        // On its way out: keyboard shortcuts work again at once (src/components/shell/shortcuts).
+        data-closing={!open || undefined}
         aria-modal
         onOpenAutoFocus={(e) => {
           // Focus the sheet itself, not its first button, so nothing looks pre-selected.
@@ -442,6 +444,7 @@ function DialogPresentation({
         <Dialog.Content
           ref={panelRef}
           forceMount
+          data-closing={!open || undefined}
           className={cn(
             'pointer-events-auto relative flex max-h-[min(720px,90dvh)] w-full max-w-[480px] flex-col overflow-hidden rounded-sheet bg-card pt-5 shadow-menu outline-none',
             '[--surface:var(--card)]',

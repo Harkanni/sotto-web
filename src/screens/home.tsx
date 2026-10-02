@@ -71,7 +71,8 @@ function SampleNotice() {
     <div className="sample-notice mx-[var(--gutter)] flex lg:[column-span:all] items-start gap-3 rounded-card bg-primary-tint p-4">
       <div className="min-w-0 flex-1">
         <p className="text-headline text-primary-text">You’re exploring a sample workspace</p>
-        <p className="mt-1 text-callout text-muted-foreground">
+        {/* Muted grey drops below 4.5:1 on the indigo tint; this keeps AA in both themes. */}
+        <p className="mt-1 text-callout text-foreground/75">
           Kestrel Labs and everything in it is made up to show the design. Your own workspace
           arrives in Phase 3.
         </p>

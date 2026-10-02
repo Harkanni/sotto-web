@@ -183,7 +183,10 @@ type Tab = 'summary' | 'transcript' | 'actions' | 'chapters';
 function MeetingHeading({ meeting }: { meeting: Meeting }) {
   return (
     <header className="flex flex-col gap-2 px-[var(--gutter)] pt-1 pb-5">
-      <h2 className="text-title-2 text-balance">{meeting.title}</h2>
+      {/* Screen's own h1 (read and focused after a push) carries this title. */}
+      <p aria-hidden className="text-title-2 text-balance">
+        {meeting.title}
+      </p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="text-subhead text-muted-foreground">
           {dayAndTime(meeting.startedAt)}, {duration(meeting.durationSec)}

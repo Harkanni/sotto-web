@@ -16,7 +16,8 @@ const base = process.env.BASE_URL ?? 'http://localhost:3000';
 const browser = await chromium.launch(
   process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
 );
-const { defaultBrowserType: _ignored, ...iphone } = devices['iPhone 15'];
+const iphone = { ...devices['iPhone 15'] };
+delete iphone.defaultBrowserType;
 const ctx = await browser.newContext(iphone);
 const page = await ctx.newPage();
 const errors = [];

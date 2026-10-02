@@ -97,7 +97,7 @@ export function useOnline(): boolean {
   );
 }
 
-type Connection = 'offline' | 'back' | null;
+export type Connection = 'offline' | 'back' | null;
 
 /**
  * The offline banner (brief §9). On phones it rises from behind the tab bar as a slim strip,
@@ -128,6 +128,11 @@ export const OfflineBanner = memo(function OfflineBanner() {
     document.documentElement.toggleAttribute('data-offline', state !== null);
   }, [state]);
 
+  return <OfflineStrip state={state} />;
+});
+
+/** The strip (or pill) itself: "Offline…", "Back online.", or nothing. */
+export function OfflineStrip({ state }: { state: Connection }) {
   // Keeps the last message while the strip slides away.
   const [shownText, setShownText] = useState('');
   const text =
@@ -153,4 +158,4 @@ export const OfflineBanner = memo(function OfflineBanner() {
       </div>
     </>
   );
-});
+}

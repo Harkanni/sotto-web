@@ -152,6 +152,7 @@ function PalettePanel({
         <Dialog.Content
           ref={panelRef}
           forceMount
+          data-closing={!open || undefined}
           aria-describedby={undefined}
           onCloseAutoFocus={(e) => {
             // Opening something moves focus to that screen; don't drag it back to the old one.

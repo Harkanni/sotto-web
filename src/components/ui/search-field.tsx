@@ -31,7 +31,8 @@ export function SearchField({
 
   return (
     <div role="search" className={cn('flex items-center', className)}>
-      <label className="relative flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-input bg-fill pr-1 pl-2 text-muted-foreground">
+      {/* 36 px to look like iOS's field; the hit area reaches 44 px (the ::before). */}
+      <label className="relative flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-input bg-fill pr-1 pl-2 text-muted-foreground before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']">
         <Search aria-hidden className="size-[18px] shrink-0" strokeWidth={2} />
         <input
           ref={inputRef}
@@ -54,7 +55,7 @@ export function SearchField({
               inputRef.current?.blur();
             }
           }}
-          className="h-full min-w-0 flex-1 bg-transparent text-[17px] leading-[22px] tracking-[var(--tracking-body)] text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
+          className="relative h-full min-w-0 flex-1 bg-transparent text-[17px] leading-[22px] tracking-[var(--tracking-body)] text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:appearance-none"
         />
         {value && (
           <button

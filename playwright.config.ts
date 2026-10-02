@@ -7,7 +7,12 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
-  use: { baseURL: 'http://localhost:3000', trace: 'retain-on-failure' },
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'retain-on-failure',
+    // A machine without Playwright's own browsers (the agent sandbox) points at its Chromium.
+    launchOptions: process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {},
+  },
   projects: [
     // iPhone viewport, touch and mobile UA, rendered by Chromium (WebKit's CI deps are slow and
     // flaky to install). Safari-specific checks get their own job later.

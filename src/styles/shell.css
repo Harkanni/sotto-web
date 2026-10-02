@@ -262,6 +262,11 @@
     pointer-events: none;
   }
 
+  /* Titles take focus after a push so screen readers start there; it isn't a control. */
+  [data-screen-title]:focus-visible {
+    outline: none;
+  }
+
   .large-title {
     padding: 0 var(--gutter) 8px;
     /* One line, truncated, like iOS. */

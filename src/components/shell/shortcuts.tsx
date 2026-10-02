@@ -71,7 +71,7 @@ function isTyping(target: EventTarget | null) {
 
 /** A sheet, dialog, menu or the palette is open: single keys belong to it. */
 function overlayOpen() {
-  return document.querySelector('[role="dialog"], [role="menu"]') !== null;
+  return document.querySelector('[role="dialog"]:not([data-closing]), [role="menu"]') !== null;
 }
 
 /** The screen the keyboard works on: the list pane on wide windows, else the top screen. */

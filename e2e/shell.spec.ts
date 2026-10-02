@@ -1,0 +1,162 @@
+import AxeBuilder from '@axe-core/playwright';
+import { expect, test, type Page } from '@playwright/test';
+
+/**
+ * The app shell against brief §9: tabs keep their stacks, screens push and pop, the + sheet
+ * opens, the palette works with the keyboard, every main screen passes axe, and every control
+ * on a phone is a 44 px target.
+ */
+
+const SCREENS = [
+  '/home',
+  '/docs',
+  '/docs/d_launch',
+  '/ask',
+  '/ask/t_risks',
+  '/meetings',
+  '/meetings/m_crit',
+  '/profile',
+  '/profile/appearance',
+];
+
+async function open(page: Page, path: string) {
+  await page.goto(path);
+  // Instant sample data, so tests never wait on the simulated latency.
+  await page.evaluate(() =>
+    localStorage.setItem(
+      'sotto.dev.sample',
+      JSON.stringify({ latency: 'instant', state: 'normal' }),
+    ),
+  );
+  await page.goto(path);
+  await page.locator('.tab-root[data-active] .stack-layer').last().waitFor();
+}
+
+/** The screen on top of the active tab. */
+const top = (page: Page) => page.locator('.tab-root[data-active] .stack-layer').last();
+
+test.describe('phone', () => {
+  test.skip(({ isMobile }) => !isMobile, 'Phone layout only');
+
+  test('tabs keep their stacks; re-tapping a tab pops to its root', async ({ page }) => {
+    await open(page, '/docs');
+    await top(page).locator('a[href="/docs/d_launch"]').first().click();
+    await expect(page).toHaveURL(/\/docs\/d_launch$/);
+    await expect(
+      top(page).getByRole('heading', { name: 'Lagos launch plan', level: 1 }),
+    ).toBeAttached();
+
+    await page.locator('.tab-bar a[data-tab="home"]').click();
+    await expect(page).toHaveURL(/\/home$/);
+    await page.locator('.tab-bar a[data-tab="docs"]').click();
+    await expect(page).toHaveURL(/\/docs\/d_launch$/);
+
+    await page.locator('.tab-bar a[data-tab="docs"]').click();
+    await expect(page).toHaveURL(/\/docs$/);
+  });
+
+  test('back returns to the list, and the browser back button agrees', async ({ page }) => {
+    await open(page, '/meetings');
+    await top(page).locator('a[href="/meetings/m_crit"]').first().click();
+    await expect(page).toHaveURL(/\/meetings\/m_crit$/);
+    await top(page).locator('[data-back]').click();
+    await expect(page).toHaveURL(/\/meetings$/);
+    await page.goForward();
+    await expect(page).toHaveURL(/\/meetings\/m_crit$/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/meetings$/);
+  });
+
+  test('the + button opens "Add to Sotto"', async ({ page }) => {
+    await open(page, '/home');
+    await page.getByRole('button', { name: 'Add to Sotto' }).click();
+    const sheet = page.getByRole('dialog', { name: 'Add to Sotto' });
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole('button', { name: /Upload files/ })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(sheet).toBeHidden();
+  });
+
+  test('every control is at least 44 px', async ({ page }) => {
+    for (const path of SCREENS) {
+      await open(page, path);
+      const small = await page.evaluate(() => {
+        const roots = [
+          document.querySelector('.tab-root[data-active] .stack-layer:last-of-type'),
+          document.querySelector('.tab-bar'),
+        ].filter((r): r is Element => r !== null);
+        const out: string[] = [];
+        for (const root of roots) {
+          for (const el of root.querySelectorAll<HTMLElement>(
+            'a[href], button, [role="button"], [role="radio"], [role="switch"], summary, label',
+          )) {
+            const r = el.getBoundingClientRect();
+            const cs = getComputedStyle(el);
+            if (!r.width || cs.visibility === 'hidden' || cs.pointerEvents === 'none') continue;
+            if (Number(cs.opacity) === 0) continue;
+            // A transparent ::before can extend a small visual to a full hit area.
+            const before = getComputedStyle(el, '::before');
+            const extended = before.content !== 'none' && before.position === 'absolute';
+            const w = extended
+              ? r.width - parseFloat(before.left) - parseFloat(before.right)
+              : r.width;
+            const h = extended
+              ? r.height - parseFloat(before.top) - parseFloat(before.bottom)
+              : r.height;
+            if (el.tagName === 'LABEL' && !el.querySelector('input')) continue;
+            if (w < 43.5 || h < 43.5)
+              out.push(`${el.outerHTML.slice(0, 80)} ${Math.round(w)}×${Math.round(h)}`);
+          }
+        }
+        return out;
+      });
+      expect(small, path).toEqual([]);
+    }
+  });
+});
+
+test.describe('desktop', () => {
+  test.skip(({ isMobile }) => isMobile, 'Desktop layout only');
+
+  test('⌘K finds a document and opens it beside the list', async ({ page }) => {
+    await open(page, '/home');
+    await page.keyboard.press('ControlOrMeta+k');
+    const palette = page.getByRole('dialog', { name: 'Search and commands' });
+    await expect(palette).toBeVisible();
+    await page.keyboard.type('pricing');
+    await expect(palette.locator('[cmdk-item][aria-selected="true"]')).toContainText(
+      'Pricing review notes',
+    );
+    await page.keyboard.press('Enter');
+    await expect(page).toHaveURL(/\/docs\/d_pricing$/);
+    await expect(palette).toBeHidden();
+  });
+
+  test('keyboard shortcuts: ? for the sheet, G then M for Meetings', async ({ page }) => {
+    await open(page, '/home');
+    await page.keyboard.press('Shift+Slash');
+    await expect(page.getByRole('dialog', { name: 'Keyboard shortcuts' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('g');
+    await page.keyboard.press('m');
+    await expect(page).toHaveURL(/\/meetings$/);
+  });
+});
+
+test('main screens pass axe (WCAG 2.1 AA)', async ({ page }) => {
+  for (const path of SCREENS) {
+    await open(page, path);
+    await page.waitForTimeout(400);
+    const results = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+      // Hidden tabs and covered screens stay in the DOM, skipped by content-visibility.
+      .include('.tab-root[data-active] .stack-layer:last-of-type')
+      .analyze();
+    expect(
+      results.violations.map(
+        (v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`,
+      ),
+      path,
+    ).toEqual([]);
+  }
+});

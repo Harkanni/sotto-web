@@ -33,6 +33,26 @@ const preview: Preview = {
   ],
   parameters: {
     layout: 'centered',
+    // The sizes Sotto is designed for (brief §9): phone, tablet, desktop.
+    viewport: {
+      options: {
+        iphone15: {
+          name: 'iPhone 15',
+          styles: { width: '393px', height: '852px' },
+          type: 'mobile',
+        },
+        ipadAir: {
+          name: 'iPad Air',
+          styles: { width: '820px', height: '1180px' },
+          type: 'tablet',
+        },
+        desktop: {
+          name: 'Desktop',
+          styles: { width: '1440px', height: '900px' },
+          type: 'desktop',
+        },
+      },
+    },
     backgrounds: { disable: true },
     controls: { expanded: true },
     a11y: { test: 'error' },

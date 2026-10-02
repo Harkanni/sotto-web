@@ -102,7 +102,8 @@ export function AvatarStack({
         <span
           aria-hidden
           className={cn(
-            'grid place-items-center rounded-full bg-fill-strong font-semibold text-muted-foreground ring-2 ring-card',
+            // Muted grey falls under 4.5:1 on the fill; 75% foreground holds AA in both themes.
+            'grid place-items-center rounded-full bg-fill-strong font-semibold text-foreground/75 ring-2 ring-card',
             size === 24 ? '-ml-1.5 size-6 text-[12px]' : '-ml-2 size-8 text-[12px]',
           )}
         >

@@ -45,7 +45,6 @@ function report(files: File[]) {
  */
 export function DropOverlay() {
   const [visible, setVisible] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let depth = 0;
@@ -100,6 +99,13 @@ export function DropOverlay() {
     };
   }, []);
 
+  return <DropTarget visible={visible} />;
+}
+
+/** The full-window drop target itself, shown while files are dragged over the app. */
+export function DropTarget({ visible }: { visible: boolean }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+
   // The target rises to meet the files.
   useEffect(() => {
     if (!visible || prefersReducedMotion()) return;
@@ -118,7 +124,7 @@ export function DropOverlay() {
     >
       <div
         ref={cardRef}
-        className="flex h-full flex-col items-center justify-center gap-4 rounded-[24px] border-2 border-dashed border-primary/45 bg-primary-tint dark:border-primary/70 text-center"
+        className="flex h-full flex-col items-center justify-center gap-4 rounded-[24px] border-2 border-dashed border-primary/45 bg-primary-tint text-center dark:border-primary/70"
       >
         <span className="grid size-16 place-items-center rounded-full bg-primary text-primary-foreground shadow-fab">
           <Upload aria-hidden className="size-7" strokeWidth={2.25} />

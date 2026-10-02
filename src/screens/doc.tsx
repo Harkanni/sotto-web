@@ -93,7 +93,10 @@ function DocHeading({ d }: { d: Doc }) {
       <div className="flex items-start gap-3">
         <KindIcon kind={d.kind} size={44} />
         <div className="min-w-0 flex-1">
-          <h2 className="text-title-2 text-balance">{d.title}</h2>
+          {/* Screen's own h1 (read and focused after a push) carries this title. */}
+          <p aria-hidden className="text-title-2 text-balance">
+            {d.title}
+          </p>
           <p className="mt-1 text-subhead text-muted-foreground">
             {docKindLabel(d.kind)}, {d.pages} {d.pages === 1 ? 'page' : 'pages'},{' '}
             {fileSize(d.sizeKb)}
