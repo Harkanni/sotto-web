@@ -26,12 +26,13 @@ sample data is labelled on screen; the web app never touches the database.
 
 ## Next task
 
-1. Watch CI on PR #2 (check, stories, smoke, secrets); fix anything red.
-2. Final rendered-UI review: every screen on phone, tablet and desktop in light and dark, plus
-   the interactions (push/pop, swipe, long-press, sheet, palette, offline). Fix inconsistencies.
-3. sotto-platform companion PR: STATUS.md (Phase 2 done, PR #2), ADR 0007 (CI uses IAM access
-   keys, not OIDC), ADR 0008 (client-side stack navigation over pushState).
-4. Mark PR #2 ready for review (the owner merges).
+Phase 2 is complete and ready for review. Nothing is left for the agent to do on it.
+
+1. The owner reviews and merges [sotto-web#2](https://github.com/Harkanni/sotto-web/pull/2), then
+   [sotto-platform#2](https://github.com/Harkanni/sotto-platform/pull/2) (STATUS + ADRs 0007/0008).
+2. Owner to-dos noted in STATUS: re-run `terraform apply` so the `sotto/worker` ECR repository
+   exists (sotto-api's `images` failed on it); decide on the ADR 0007 follow-ups.
+3. Then Phase 3 (accounts and workspaces) starts in sotto-api and sotto-web.
 
 ## Checklist
 
@@ -54,8 +55,9 @@ sample data is labelled on screen; the web app never touches the database.
 - [x] Unit tests (routes, springs, format, token contrast + spring sync) and shell e2e (tabs,
       back/history, + sheet, palette, shortcuts, axe on every main screen, 44 px targets) (`689a5cc`)
 - [x] Story tests: render + axe in light and dark, 92 pass; CI `stories` job (`9ad2250`)
-- [ ] CI green on PR #2
-- [ ] Final rendered-UI review; STATUS.md companion PR; PR ready for review
+- [x] Perf: one document, meeting and chat screen pre-rendered at idle, so first pushes run warm (`682e878`)
+- [x] CI green on PR #2: check (lint, format, types, unit, build, e2e), stories, smoke, secrets (`4687cbc`)
+- [x] Final rendered-UI review (below); STATUS companion PR [sotto-platform#2](https://github.com/Harkanni/sotto-platform/pull/2); PR #2 ready for review
 
 ## What exists (files)
 
