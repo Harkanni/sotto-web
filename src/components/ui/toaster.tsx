@@ -17,7 +17,11 @@ export function Toaster() {
       theme={resolvedTheme === 'dark' ? 'dark' : 'light'}
       position="bottom-center"
       offset={{ bottom: 24 }}
-      mobileOffset={{ bottom: 'calc(var(--tabbar-space) + 84px)', left: 12, right: 12 }}
+      mobileOffset={{
+        bottom: 'calc(var(--tabbar-space) + var(--strip-space) + 84px)',
+        left: 12,
+        right: 12,
+      }}
       gap={8}
       visibleToasts={3}
       duration={5000}

@@ -215,9 +215,11 @@ function Processing() {
                         aria-valuemax={100}
                         className="h-1.5 flex-1 overflow-hidden rounded-full bg-fill"
                       >
+                        {/* Slides rather than stretches: a compositor-only change that keeps
+                            the rounded end round. */}
                         <span
-                          className="block h-full rounded-full bg-primary transition-[width] duration-700"
-                          style={{ width: `${pct}%` }}
+                          className="block h-full rounded-full bg-primary transition-[translate] duration-700 ease-out"
+                          style={{ translate: `${pct - 100}% 0` }}
                         />
                       </span>
                       <span className="shrink-0 text-footnote text-muted-foreground">
@@ -242,7 +244,7 @@ function CheckCircle({ checked }: { checked: boolean }) {
     <span
       aria-hidden
       className={cn(
-        'grid size-[26px] shrink-0 place-items-center rounded-full border-2 transition-[background-color,border-color,transform] duration-[var(--duration-standard)] ease-standard',
+        'grid size-[26px] shrink-0 place-items-center rounded-full border-2 transition-[background-color,border-color,scale] duration-[var(--duration-standard)] ease-standard',
         checked
           ? 'scale-100 border-primary bg-primary text-primary-foreground'
           : 'border-faint-foreground',
@@ -250,7 +252,7 @@ function CheckCircle({ checked }: { checked: boolean }) {
     >
       <Check
         className={cn(
-          'size-4 transition-[opacity,transform] duration-200',
+          'size-4 transition-[opacity,scale] duration-200',
           checked ? 'scale-100 opacity-100' : 'scale-50 opacity-0',
         )}
         strokeWidth={3}

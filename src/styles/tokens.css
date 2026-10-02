@@ -118,6 +118,8 @@
   --safe-left: env(safe-area-inset-left, 0px);
   /* Space content must leave for the tab bar on phones (zero where there is none). */
   --tabbar-space: calc(var(--tabbar-height) + var(--safe-bottom));
+  /* The offline strip above the tab bar (phones), when it's showing. */
+  --strip-space: 0px;
 
   /* ── Motion ───────────────────────────────────────────────────────────── */
   /* Springs traced as linear() easings by src/lib/motion/spring.ts (test/tokens.test.ts keeps
@@ -258,10 +260,17 @@
   --primary-text: light-dark(#5856d6, #9a98ff);
 }
 
+/* The offline strip sits above the tab bar on phones (the + button and toasts make room). */
+:root[data-offline] {
+  --strip-space: 32px;
+}
+
 /* Phones only: tablets and desktops have a sidebar instead of a tab bar. */
 @media (min-width: 768px) {
-  :root {
+  :root,
+  :root[data-offline] {
     --tabbar-space: 0px;
+    --strip-space: 0px;
     --gutter: 20px;
   }
 }

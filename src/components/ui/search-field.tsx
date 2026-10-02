@@ -31,12 +31,7 @@ export function SearchField({
 
   return (
     <div role="search" className={cn('flex items-center', className)}>
-      <label
-        className={cn(
-          'relative flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-input bg-fill pr-1 pl-2 text-muted-foreground',
-          'transition-[margin] duration-[var(--duration-standard)] ease-standard',
-        )}
-      >
+      <label className="relative flex h-9 min-w-0 flex-1 items-center gap-1.5 rounded-input bg-fill pr-1 pl-2 text-muted-foreground">
         <Search aria-hidden className="size-[18px] shrink-0" strokeWidth={2} />
         <input
           ref={inputRef}
@@ -90,7 +85,7 @@ export function SearchField({
         }}
         className={cn(
           'h-11 shrink-0 overflow-hidden pl-3 text-[17px] text-primary-text select-none',
-          'transition-[max-width,opacity,transform] duration-[var(--duration-standard)] ease-standard',
+          'transition-[max-width,opacity,translate] duration-[var(--duration-standard)] ease-standard',
           active
             ? 'max-w-24 opacity-100'
             : 'pointer-events-none max-w-0 translate-x-2 pl-0 opacity-0',

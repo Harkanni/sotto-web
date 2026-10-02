@@ -73,7 +73,7 @@ export function SegmentedControl<T extends string>({
             )}
             <span
               className={cn(
-                'truncate transition-[opacity,transform] duration-200',
+                'truncate transition-[opacity,scale] duration-200',
                 !selected && 'group-active/seg:opacity-40',
                 selected && 'group-active/seg:scale-95',
               )}

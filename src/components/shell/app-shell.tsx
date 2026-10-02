@@ -13,6 +13,7 @@ import { CommandPalette } from './command-palette';
 import { DropOverlay } from './drop-overlay';
 import { Fab } from './fab';
 import { MoveSheet, RenameSheet } from './item-sheets';
+import { ServiceWorker } from './service-worker';
 import { OfflineBanner, ThemeColorSync, useVisualViewport } from './system';
 import { ShortcutsSheet, useKeyboardShortcuts } from './shortcuts';
 import { Sidebar } from './sidebar';
@@ -38,7 +39,6 @@ function useDocumentTitle(pathname: string) {
 const Overlays = memo(function Overlays() {
   return (
     <>
-      <OfflineBanner />
       <AddSheet />
       <MoveSheet />
       <RenameSheet />
@@ -47,6 +47,7 @@ const Overlays = memo(function Overlays() {
       <DropOverlay />
       <Toaster />
       <ThemeColorSync />
+      <ServiceWorker />
     </>
   );
 });
@@ -113,6 +114,7 @@ export function AppShell() {
             </Activity>
           ))}
         </main>
+        <OfflineBanner />
         <TabBar active={active} />
         <Fab hidden={active === 'ask'} />
       </div>

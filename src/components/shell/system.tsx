@@ -1,9 +1,8 @@
 'use client';
 
-import { CloudOff } from 'lucide-react';
+import { Cloud, CloudOff } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { cn } from '@/lib/utils';
+import { memo, useEffect, useState, useSyncExternalStore } from 'react';
 
 /** Keeps the browser chrome colour in step with an explicit light or dark choice. */
 export function ThemeColorSync() {
@@ -98,36 +97,60 @@ export function useOnline(): boolean {
   );
 }
 
+type Connection = 'offline' | 'back' | null;
+
 /**
- * The offline banner (brief §9): a pill under the status bar while there's no connection. The
- * shell and every screen keep working; data loads when the connection returns.
+ * The offline banner (brief §9). On phones it rises from behind the tab bar as a slim strip,
+ * nudging the + button up, so it never covers a button; on wider windows it's a pill at the
+ * bottom of the content. When the connection returns it says so, briefly, then slides away.
  */
-export function OfflineBanner() {
+export const OfflineBanner = memo(function OfflineBanner() {
   const online = useOnline();
-  // Ignore blips shorter than a second.
-  const [settled, setSettled] = useState(false);
+  const [state, setState] = useState<Connection>(null);
+
   useEffect(() => {
-    const t = setTimeout(() => setSettled(!online), online ? 0 : 1000);
+    // Ignore blips shorter than a second; "Back online" only follows a real outage.
+    const t = setTimeout(
+      () => setState((prev) => (online ? (prev === 'offline' ? 'back' : null) : 'offline')),
+      online ? 0 : 1000,
+    );
     return () => clearTimeout(t);
   }, [online]);
-  const shown = !online && settled;
+
+  useEffect(() => {
+    if (state !== 'back') return;
+    const t = setTimeout(() => setState(null), 1800);
+    return () => clearTimeout(t);
+  }, [state]);
+
+  // Lets the + button, toasts and the composer make room for the strip.
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-offline', state !== null);
+  }, [state]);
+
+  // Keeps the last message while the strip slides away.
+  const [shownText, setShownText] = useState('');
+  const text =
+    state === 'offline'
+      ? 'Offline. Showing what’s saved on this device.'
+      : state === 'back'
+        ? 'Back online.'
+        : null;
+  if (text && text !== shownText) setShownText(text);
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className={cn(
-        'pointer-events-none fixed inset-x-0 top-[calc(var(--safe-top)+6px)] z-[var(--z-banner)] flex justify-center px-4',
-        'transition-[transform,opacity] duration-[var(--duration-standard)] ease-standard',
-        shown ? 'translate-y-0 opacity-100' : '-translate-y-[140%] opacity-0',
-      )}
-    >
-      {shown && (
-        <span className="material-thick surface-elevated flex items-center gap-2 rounded-full px-4 py-2 text-callout font-medium shadow-menu">
-          <CloudOff aria-hidden className="size-4.5 text-muted-foreground" />
-          You’re offline. Showing what’s saved.
-        </span>
-      )}
-    </div>
+    <>
+      <div aria-hidden className="offline-strip" data-shown={state ?? undefined}>
+        {state === 'back' ? (
+          <Cloud aria-hidden className="size-4 text-primary-text" strokeWidth={2} />
+        ) : (
+          <CloudOff aria-hidden className="size-4 text-muted-foreground" strokeWidth={2} />
+        )}
+        <span className="truncate">{shownText}</span>
+      </div>
+      <div role="status" aria-live="polite" className="sr-only">
+        {text}
+      </div>
+    </>
   );
-}
+});

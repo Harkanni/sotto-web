@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import localFont from 'next/font/local';
 import { Providers } from '@/components/providers';
 import { BOOT_SCRIPT } from '@/lib/prefs/boot-script';
+import { startupImages } from '@/lib/pwa/splash';
 import '@/styles/globals.css';
 
 // Apple devices render SF through -apple-system; everyone else gets Inter (brief §8). Inter is
@@ -21,7 +22,13 @@ export const metadata: Metadata = {
   description: 'Private AI for your team’s memos and meetings.',
   applicationName: 'Sotto',
   robots: { index: false, follow: false },
-  appleWebApp: { capable: true, title: 'Sotto', statusBarStyle: 'black-translucent' },
+  appleWebApp: {
+    capable: true,
+    title: 'Sotto',
+    statusBarStyle: 'black-translucent',
+    // One per iPhone and iPad size, light and dark (public/splash, from pnpm generate:assets).
+    startupImage: startupImages(),
+  },
   formatDetection: { telephone: false, email: false, address: false },
 };
 

@@ -51,13 +51,37 @@ const FALLBACK: NavSnapshot = {
   seq: 0,
 };
 
+let renderedElsewhere: NavSnapshot | null = null;
+
+/**
+ * What the HTML on screen was rendered for. Normally the current URL. Offline, the service
+ * worker may answer with a page saved for another address of the same section (it marks it
+ * with `__sottoRendered`); hydrating that page as itself, then moving to the real address,
+ * avoids a hydration mismatch.
+ */
+function hydrationSnapshot(): NavSnapshot {
+  const rendered = (window as Window & { __sottoRendered?: unknown }).__sottoRendered;
+  const current = getSnapshot();
+  if (typeof rendered !== 'string' || rendered === current.href) return current;
+  if (!renderedElsewhere) {
+    const tab = tabOf(rendered);
+    renderedElsewhere = {
+      ...FALLBACK,
+      href: rendered,
+      pathname: rendered,
+      tabs: tabsFor(tab, rendered),
+    };
+  }
+  return renderedElsewhere;
+}
+
 /** The current app location. Updates synchronously when navigating. */
 export function useNav(): NavSnapshot {
   const server = use(ServerSnapshot) ?? FALLBACK;
   return useSyncExternalStore(subscribe, getSnapshot, () =>
     // On the client the store already reads window.location, which matches what the server
     // rendered, so hydration can use it directly and skip a second render.
-    typeof window === 'undefined' ? server : getSnapshot(),
+    typeof window === 'undefined' ? server : hydrationSnapshot(),
   );
 }
 

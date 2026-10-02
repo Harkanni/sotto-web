@@ -25,7 +25,7 @@ export function Switch({ className, ...props }: React.ComponentProps<typeof Swit
       <SwitchPrimitive.Thumb
         className={cn(
           'block h-[27px] w-[27px] rounded-full bg-white shadow-[0_3px_8px_rgb(0_0_0/0.15),0_3px_1px_rgb(0_0_0/0.06)]',
-          'transition-[transform,width] duration-[var(--duration-standard)] ease-standard',
+          'transition-[translate,width] duration-[var(--duration-standard)] ease-standard',
           'data-[state=checked]:translate-x-5',
           // Pressed: the thumb widens towards the middle, like iOS.
           'group-active/switch:w-[33px] group-active/switch:data-[state=checked]:translate-x-3.5',

@@ -1,4 +1,5 @@
-// Regenerates every icon from the brand SVGs in assets/brand. Run after changing the mark:
+// Regenerates every icon and launch screen from the brand SVGs in assets/brand. Run after
+// changing the mark (Node 22.18+, which runs the TypeScript device list directly):
 //   pnpm generate:assets
 // Outputs are committed, so builds never depend on this script.
 import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
@@ -60,4 +61,28 @@ await writeFile(out('public/icons/icon-192.png'), await png('mark.svg', 192));
 await writeFile(out('public/icons/icon-512.png'), await png('mark.svg', 512));
 await writeFile(out('public/icons/maskable-512.png'), await png('mark-fullbleed.svg', 512));
 
-console.log('Icons written: src/app/{icon.svg,favicon.ico,apple-icon.png}, public/icons/*.png');
+// iOS launch screens: the mark centred on the app's background, light and dark, for every
+// iPhone and iPad size (src/lib/pwa/splash.ts lists them and builds the <link> tags).
+const { splashFiles, SPLASH_SCHEMES } = await import('../src/lib/pwa/splash.ts');
+await mkdir(out('public/splash'), { recursive: true });
+const marks = new Map();
+for (const file of splashFiles()) {
+  const size = 96 * file.device.ratio;
+  if (!marks.has(size)) marks.set(size, await png('mark.svg', size));
+  const image = await sharp({
+    create: {
+      width: file.width,
+      height: file.height,
+      channels: 3,
+      background: SPLASH_SCHEMES[file.scheme],
+    },
+  })
+    .composite([{ input: marks.get(size), gravity: 'center' }])
+    .png({ compressionLevel: 9, palette: true })
+    .toBuffer();
+  await writeFile(out(`public${file.url}`), image);
+}
+
+console.log(
+  'Icons written: src/app/{icon.svg,favicon.ico,apple-icon.png}, public/icons/*.png, public/splash/*.png',
+);
