@@ -247,6 +247,11 @@
       transform: none;
     }
   }
+  /* While the large title shows, the hidden inline one takes no room, so the back button can
+     say all of "Meetings"; it shortens only once the title moves into the bar. */
+  .screen[data-large-title]:not([data-collapsed]) .navbar-title {
+    max-width: 0;
+  }
 
   /* Marks where the bar should turn solid: drawn a bar-height above where it sits, so it leaves
      the scroller's top edge exactly as the content passes under the bar. */
