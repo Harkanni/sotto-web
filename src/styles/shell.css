@@ -1,0 +1,283 @@
+/*
+ * App shell layout: the surface (which scales back behind sheets), sidebar, tab stacks, screens,
+ * nav bars, tab bar and + button. Phones get one layered stack per tab; tablets add a sidebar;
+ * wide windows (≥ 1024 px) lay the same layers out as list and detail panes.
+ */
+
+@layer components {
+  [data-app-shell] {
+    position: fixed;
+    inset: 0;
+    background: var(--background);
+    /* Behind a scaled-back surface (a sheet is open) the page is black, like iOS. */
+    &:has(.shell-surface[data-receded]) {
+      background: #000;
+    }
+  }
+
+  .shell-surface {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+    background: var(--background);
+    transform-origin: 50% 0;
+    @media (min-width: 768px) {
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    }
+  }
+
+  .shell-main {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    grid-column: -2 / -1;
+  }
+
+  .tab-root,
+  .tab-stack {
+    position: absolute;
+    inset: 0;
+  }
+  .tab-stack {
+    overflow: hidden;
+  }
+
+  /* ── Layers ─────────────────────────────────────────────────────────────────────────── */
+  .stack-layer {
+    position: absolute;
+    inset: 0;
+    background: var(--background);
+    contain: layout style;
+    /* Pushed screens cast a soft shadow onto the screen they cover. */
+    &:not(:first-of-type) {
+      box-shadow: var(--elevation-edge);
+    }
+    /* Covered screens stay mounted (state, scroll) but aren't painted. */
+    &:not(:last-of-type) {
+      visibility: hidden;
+    }
+  }
+  .tab-stack[data-swiping] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .stack-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    background: var(--scrim);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .stack-placeholder {
+    display: none;
+  }
+
+  @media (min-width: 1024px) {
+    .stack-layer {
+      visibility: hidden;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+    .stack-layer[data-pane='list'] {
+      visibility: visible;
+      right: auto;
+      width: var(--list-pane-width);
+      box-shadow: inset calc(var(--hairline) * -1) 0 0 var(--separator) !important;
+    }
+    .stack-layer[data-pane='detail'] {
+      visibility: visible;
+      left: var(--list-pane-width);
+    }
+    .stack-layer[data-pane='full'] {
+      visibility: visible;
+    }
+    .stack-scrim {
+      display: none;
+    }
+    .stack-layer[data-parent-beside] [data-back] {
+      display: none;
+    }
+    .stack-placeholder {
+      position: absolute;
+      inset: 0 0 0 var(--list-pane-width);
+      display: grid;
+      place-items: center;
+      padding: 32px;
+    }
+  }
+
+  /* ── Screen: one scroller per screen ────────────────────────────────────────────────── */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    /* Vertical panning stays native; horizontal drags reach the swipe gestures. */
+    touch-action: pan-y pinch-zoom;
+    scrollbar-gutter: stable;
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    &[data-surface='plain'] {
+      background: var(--card);
+    }
+  }
+
+  .screen-content {
+    flex: 1 0 auto;
+    /* Room to scroll the last row clear of the tab bar and the + button. */
+    padding-bottom: calc(var(--tabbar-space) + var(--screen-bottom-extra, 96px));
+  }
+  .screen[data-has-footer] .screen-content {
+    padding-bottom: 24px;
+  }
+
+  /* ── Nav bar ────────────────────────────────────────────────────────────────────────── */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-navbar);
+    flex: none;
+    padding-top: var(--safe-top);
+  }
+  .navbar-bg {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+    box-shadow: inset 0 calc(var(--hairline) * -1) 0 var(--separator);
+  }
+  .navbar-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    height: var(--navbar-height);
+    padding-inline: 8px;
+  }
+  .navbar-title {
+    max-width: min(60vw, 420px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 600;
+    letter-spacing: var(--tracking-body);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+      opacity var(--duration-fast) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
+  }
+  .navbar-leading {
+    display: flex;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+  .navbar-trailing {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
+  }
+  /* The bar's material and inline title appear once content scrolls under it, and always on
+     screens without a large title once anything has scrolled. */
+  .screen[data-collapsed] {
+    .navbar-bg {
+      opacity: 1;
+    }
+  }
+  .screen[data-collapsed][data-large-title],
+  .screen:not([data-large-title]) {
+    .navbar-title {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .large-title {
+    padding: 0 var(--gutter) 8px;
+    /* One line, truncated, like iOS. */
+    h1 {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      outline: none;
+    }
+  }
+
+  /* Pinned to the bottom of the screen, above the tab bar and the keyboard. */
+  .screen-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--z-navbar);
+    flex: none;
+    margin-top: auto;
+    padding-bottom: max(var(--tabbar-space), var(--keyboard-inset, 0px));
+    transition: padding-bottom var(--duration-base) var(--ease-out);
+  }
+
+  /* ── Tab bar (phones) ───────────────────────────────────────────────────────────────── */
+  .tab-bar {
+    position: absolute;
+    inset: auto 0 0 0;
+    z-index: var(--z-tabbar);
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    height: var(--tabbar-space);
+    padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+    box-shadow: inset 0 var(--hairline) 0 var(--separator);
+    /* The keyboard covers the tab bar, as on iOS; the composer rides above the keyboard. */
+    transition: transform var(--duration-base) var(--ease-out);
+    @media (min-width: 768px) {
+      display: none;
+    }
+  }
+  [data-keyboard-open] .tab-bar {
+    transform: translateY(100%);
+  }
+
+  /* ── + button ───────────────────────────────────────────────────────────────────────── */
+  .fab {
+    position: absolute;
+    z-index: var(--z-fab);
+    right: calc(16px + var(--safe-right));
+    bottom: calc(var(--tabbar-space) + 16px);
+  }
+  :root[data-hand='left'] .fab {
+    right: auto;
+    left: calc(16px + var(--safe-left));
+    @media (min-width: 768px) {
+      left: calc(var(--sidebar-width) + 16px);
+    }
+  }
+  @media (min-width: 768px) {
+    .fab {
+      bottom: calc(16px + var(--safe-bottom));
+    }
+  }
+
+  /* ── Sidebar (tablets and desktops) ─────────────────────────────────────────────────── */
+  .sidebar {
+    display: none;
+    @media (min-width: 768px) {
+      position: relative;
+      z-index: var(--z-tabbar);
+      display: flex;
+      flex-direction: column;
+      grid-column: 1;
+      min-height: 0;
+      padding: var(--safe-top) 0 var(--safe-bottom) var(--safe-left);
+      box-shadow: inset calc(var(--hairline) * -1) 0 0 var(--separator);
+    }
+  }
+}

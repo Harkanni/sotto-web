@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import './tokens.css';
+@import './shell.css';
 
 /* Dark utilities follow the explicit theme attribute that next-themes sets. */
 @custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
@@ -100,16 +101,17 @@
   --radius-full: 9999px;
 
   --shadow-*: initial;
-  --shadow-fab: var(--shadow-fab);
-  --shadow-menu: var(--shadow-menu);
-  --shadow-sheet: var(--shadow-sheet);
-  --shadow-card: var(--shadow-card);
+  --shadow-fab: var(--elevation-fab);
+  --shadow-menu: var(--elevation-menu);
+  --shadow-sheet: var(--elevation-sheet);
+  --shadow-card: var(--elevation-card);
 
-  --ease-standard: var(--ease-standard);
-  --ease-snappy: var(--ease-snappy);
-  --ease-push: var(--ease-push);
-  --ease-out: var(--ease-out);
-  --ease-in-out: var(--ease-in-out);
+  --ease-*: initial;
+  --ease-standard: var(--spring-standard);
+  --ease-snappy: var(--spring-snappy);
+  --ease-push: var(--spring-push);
+  --ease-out: var(--curve-out);
+  --ease-in-out: var(--curve-in-out);
 
   --animate-shimmer: shimmer 1.6s linear infinite;
   --animate-spin: spin 0.8s linear infinite;
@@ -130,6 +132,12 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes spinner-pulse {
+  50% {
+    opacity: 0.35;
   }
 }
 
@@ -211,6 +219,38 @@
   }
 }
 
+/* ── Components ────────────────────────────────────────────────────────────────────────── */
+@layer components {
+  /* Mixed from the surface it sits on (brief §8): 92% surface in light, 88% in dark. A container
+     can set --surface when it isn't a card (the grouped background, an elevated menu…). */
+  .skeleton {
+    --skeleton-base: light-dark(
+      color-mix(in oklab, var(--surface, var(--card)) 92%, var(--foreground)),
+      color-mix(in oklab, var(--surface, var(--card)) 88%, var(--foreground))
+    );
+    --skeleton-shine: light-dark(
+      color-mix(in oklab, var(--surface, var(--card)) 97%, var(--foreground)),
+      color-mix(in oklab, var(--surface, var(--card)) 82%, var(--foreground))
+    );
+    background-color: var(--skeleton-base);
+    background-image: linear-gradient(
+      100deg,
+      transparent 35%,
+      var(--skeleton-shine) 50%,
+      transparent 65%
+    );
+    background-size: 250% 100%;
+    background-repeat: no-repeat;
+    animation: shimmer 1.6s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton {
+      animation: none;
+      background-image: none;
+    }
+  }
+}
+
 /* ── Utilities ─────────────────────────────────────────────────────────────────────────── */
 
 /* Translucent bar material (brief §8), solid where blur is missing or transparency is reduced. */
@@ -275,12 +315,16 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Press feedback that starts instantly and releases with a spring (brief §8: scale 0.97). */
+/* Press feedback (brief §8): scale to 0.97 at once, spring back on release. Colour changes ease
+   over 150 ms. Components add their own colours; this owns the timing. */
 @utility pressable {
-  transition: transform var(--duration-snappy) var(--ease-snappy);
+  transition-property: transform, background-color, box-shadow, color, opacity;
+  transition-duration: var(--duration-snappy), 150ms, 150ms, 150ms, 150ms;
+  transition-timing-function:
+    var(--ease-snappy), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
   &:active:not(:disabled, [aria-disabled='true'], [aria-busy='true']) {
     transform: scale(0.97);
-    transition-duration: 60ms;
+    transition-duration: 70ms;
     transition-timing-function: var(--ease-out);
   }
 }

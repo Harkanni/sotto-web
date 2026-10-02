@@ -80,16 +80,16 @@
   --material-filter: saturate(180%) blur(20px);
 
   /* ── Shadows ──────────────────────────────────────────────────────────── */
-  --shadow-fab:
+  --elevation-fab:
     0 1px 2px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.5)),
     0 6px 16px light-dark(rgb(88 86 214 / 0.32), rgb(0 0 0 / 0.55));
-  --shadow-menu:
+  --elevation-menu:
     0 0 0 0.5px light-dark(rgb(0 0 0 / 0.04), rgb(255 255 255 / 0.06)),
     0 10px 38px light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.6));
-  --shadow-sheet: 0 -1px 12px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.5));
+  --elevation-sheet: 0 -1px 12px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.5));
   /* The left edge of a pushed screen (iOS casts a soft shadow onto the screen it covers). */
-  --shadow-edge: -6px 0 24px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.5));
-  --shadow-card: 0 1px 2px light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0));
+  --elevation-edge: -6px 0 24px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.5));
+  --elevation-card: 0 1px 2px light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0));
 
   /* ── Type ─────────────────────────────────────────────────────────────── */
   /* Tracking differs by face: SF (Apple platforms) is spaced for UIKit's tracking table, Inter
@@ -121,8 +121,8 @@
 
   /* ── Motion ───────────────────────────────────────────────────────────── */
   /* Springs traced as linear() easings by src/lib/motion/spring.ts (test/tokens.test.ts keeps
-     these in sync). Pair each easing with its duration. */
-  --ease-standard: linear(
+     these in sync). Pair each easing with its duration. Tailwind exposes them as --ease-*. */
+  --spring-standard: linear(
     0,
     0.0453,
     0.1531,
@@ -153,7 +153,7 @@
     1
   );
   --duration-standard: 442ms;
-  --ease-snappy: linear(
+  --spring-snappy: linear(
     0,
     0.0757,
     0.2359,
@@ -178,7 +178,7 @@
     1
   );
   --duration-snappy: 350ms;
-  --ease-push: linear(
+  --spring-push: linear(
     0,
     0.038,
     0.1249,
@@ -213,8 +213,8 @@
   );
   --duration-push: 496ms;
   /* Plain fades (opacity only): quick in, gentle out. */
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --curve-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --curve-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --duration-fast: 150ms;
   --duration-base: 220ms;
   --duration-slow: 300ms;
