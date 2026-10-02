@@ -26,18 +26,12 @@ sample data is labelled on screen; the web app never touches the database.
 
 ## Next task
 
-**Storybook stories for every component and state** (Button is done), then:
-
-1. `playwright.stories.config.ts` + `e2e-stories/` (every story renders without errors and
-   passes axe, in light and dark).
-2. Unit tests: `test/routes.test.ts`, `test/spring.test.ts`, `test/format.test.ts`,
-   `test/tokens.test.ts` (contrast ratios + CSS spring curves in sync with `springEasing`).
-3. E2E: update `e2e/status.spec.ts` (`/` now redirects to `/home`; use `/status`), add
-   `e2e/shell.spec.ts` (tabs, push/back, sheet, palette, axe, 44 px targets). Local runs need
-   `CHROMIUM_PATH`-style `launchOptions.executablePath` from env.
-4. CI: smoke job greps `localhost:3000/status`; add a `stories` job; get everything green.
-5. Final rendered-UI review (phone/tablet/desktop × light/dark), then STATUS.md companion PR in
-   sotto-platform (also ADR 0007 access keys, ADR 0008 client-side navigation), mark PR #2 ready.
+1. Watch CI on PR #2 (check, stories, smoke, secrets); fix anything red.
+2. Final rendered-UI review: every screen on phone, tablet and desktop in light and dark, plus
+   the interactions (push/pop, swipe, long-press, sheet, palette, offline). Fix inconsistencies.
+3. sotto-platform companion PR: STATUS.md (Phase 2 done, PR #2), ADR 0007 (CI uses IAM access
+   keys, not OIDC), ADR 0008 (client-side stack navigation over pushState).
+4. Mark PR #2 ready for review (the owner merges).
 
 ## Checklist
 
@@ -56,9 +50,11 @@ sample data is labelled on screen; the web app never touches the database.
 - [x] Back labels use the hidden title's room (`80d8846`)
 - [x] Storybook setup + Button state matrix; `pressed:`/`hovered:` preview variants (`27acfda`)
 - [x] `UI_DESIGN_SYSTEM.md`, this file, `scripts/smoothness.mjs` (`pnpm smoothness`)
-- [ ] Stories for every remaining component and state
-- [ ] Story tests (render + axe, light and dark)
-- [ ] Unit tests and e2e shell tests; CI green
+- [x] Stories for every component and state: 46 stories (`689a5cc`)
+- [x] Unit tests (routes, springs, format, token contrast + spring sync) and shell e2e (tabs,
+      back/history, + sheet, palette, shortcuts, axe on every main screen, 44 px targets) (`689a5cc`)
+- [x] Story tests: render + axe in light and dark, 92 pass; CI `stories` job (`9ad2250`)
+- [ ] CI green on PR #2
 - [ ] Final rendered-UI review; STATUS.md companion PR; PR ready for review
 
 ## What exists (files)
