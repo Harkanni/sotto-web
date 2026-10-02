@@ -419,6 +419,28 @@ export const TabStack = memo(function TabStack({
     };
   }, []);
 
+  // A tab woken in the background (the shell does this at idle) stays rendered, unseen, while
+  // its first data arrives, so it's laid out with its content; content-visibility then keeps
+  // that layout, and the first visit only restyles.
+  const activeAtMount = useRef(active);
+  useEffect(() => {
+    const root = rootRef.current?.parentElement;
+    if (activeAtMount.current || !root) return;
+    root.setAttribute('data-warming', '');
+    let idle: number | undefined;
+    const timer = setTimeout(() => {
+      const done = () => root.removeAttribute('data-warming');
+      if (typeof window.requestIdleCallback === 'function')
+        idle = window.requestIdleCallback(done, { timeout: 1000 });
+      else done();
+    }, 600);
+    return () => {
+      clearTimeout(timer);
+      if (idle !== undefined) window.cancelIdleCallback?.(idle);
+      root.removeAttribute('data-warming');
+    };
+  }, []);
+
   // Tapping the active tab again: pop to the root, or scroll the root to the top.
   useEffect(() => {
     if (!active) return;

@@ -53,6 +53,12 @@
     &:not([data-active]) {
       content-visibility: hidden;
     }
+    /* Laid out once in the background, unseen (see TabStack). Opacity, unlike visibility, isn't
+       inherited, so ending the warm-up doesn't restyle the whole tab again. */
+    &[data-warming]:not([data-active]) {
+      content-visibility: visible;
+      opacity: 0;
+    }
     &[data-active] {
       z-index: 1;
     }

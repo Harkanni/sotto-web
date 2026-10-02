@@ -1,6 +1,6 @@
 'use client';
 
-import { Activity, memo, useEffect, useState } from 'react';
+import { Activity, memo, startTransition, useEffect, useState } from 'react';
 import type { Tab } from '@/lib/nav/routes';
 import { useNav } from '@/lib/nav/hooks';
 import { DEFAULT_TITLE, TABS, parseStack, tabOf } from '@/lib/nav/routes';
@@ -68,6 +68,38 @@ export function AppShell() {
   // scroll positions intact.
   const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set([active]));
   if (!visited.has(active)) setVisited(new Set(visited).add(active));
+
+  // Once the first screen has settled, wake the other tabs one at a time while nothing else is
+  // happening: their effects mount and their data loads in the background, so even the first
+  // visit to a tab is the cheap switch (a style change) rather than a reveal.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let idle: number | undefined;
+    let remaining = TABS.length - 1;
+    const wakeNext = () => {
+      const run = () => {
+        if (cancelled) return;
+        startTransition(() =>
+          setVisited((prev) => {
+            const tab = TABS.find((t) => !prev.has(t));
+            return tab ? new Set(prev).add(tab) : prev;
+          }),
+        );
+        // A gap between tabs keeps each wake-up small.
+        if (--remaining > 0) timer = setTimeout(wakeNext, 300);
+      };
+      if (typeof window.requestIdleCallback === 'function')
+        idle = window.requestIdleCallback(run, { timeout: 4000 });
+      else timer = setTimeout(run, 200);
+    };
+    timer = setTimeout(wakeNext, 1500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      if (idle !== undefined) window.cancelIdleCallback?.(idle);
+    };
+  }, []);
 
   useEffect(() => startNavigation(), []);
   useVisualViewport();
