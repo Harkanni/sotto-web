@@ -300,6 +300,8 @@ frames, with no network request.
 - No `:has()` in selectors (it re-checks the document on every DOM change).
 - Hidden tabs and covered screens use `content-visibility: hidden`, which keeps their layout;
   tabs are woken and laid out at idle so a first visit is a style change.
+- One document, meeting and chat screen are pre-rendered at idle in a hidden `<Activity>`, so
+  the first push of each kind runs warm instead of compiling its code mid-tap.
 - Navigation is client-side over `history.pushState`: no server round trip per screen.
 - Rows, bars and overlays are memoised; swipe buttons render only once a swipe starts.
 - No layout reads during animations (ResizeObserver widths, CSS-positioned sentinels).

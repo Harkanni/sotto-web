@@ -36,8 +36,9 @@ await page.evaluate(() => {
   localStorage.setItem('sotto.dev.sample', JSON.stringify({ latency: 'instant', state: 'normal' }));
 });
 await page.reload({ waitUntil: 'networkidle' });
-// Let the shell wake the other tabs at idle, as it would while someone reads the first screen.
-await page.waitForTimeout(4500);
+// Let the shell wake the other tabs and warm the item screens at idle, as it would while
+// someone reads the first screen (SETTLE_MS shortens it, to measure a cold start).
+await page.waitForTimeout(Number(process.env.SETTLE_MS ?? 9000));
 await cdp.send('Emulation.setCPUThrottlingRate', { rate: throttle });
 
 await page.evaluate(() => {

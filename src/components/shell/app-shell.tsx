@@ -13,6 +13,7 @@ import { CommandPalette } from './command-palette';
 import { DropOverlay } from './drop-overlay';
 import { Fab } from './fab';
 import { MoveSheet, RenameSheet } from './item-sheets';
+import { ScreenWarmup } from './screen-warmup';
 import { ServiceWorker } from './service-worker';
 import { OfflineBanner, ThemeColorSync, useVisualViewport } from './system';
 import { ShortcutsSheet, useKeyboardShortcuts } from './shortcuts';
@@ -151,6 +152,7 @@ export function AppShell() {
         <Fab hidden={active === 'ask'} />
       </div>
       <Overlays />
+      <ScreenWarmup renderScreen={renderScreen} />
       {/* Screen readers hear where they landed after every navigation. */}
       <div aria-live="polite" aria-atomic className="sr-only">
         {title}
