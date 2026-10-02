@@ -66,3 +66,19 @@ export function useActiveTab(): Tab {
   const { pathname } = useNav();
   return tabOf(pathname) ?? 'home';
 }
+
+/**
+ * The key of the screen pushed on top of `key` in its tab, if any — for highlighting the open
+ * item in a list pane. Re-renders only when that changes, not on every navigation.
+ */
+export function useChildKey(tab: Tab, key: string): string | null {
+  const select = () => {
+    const href = getSnapshot().tabs[tab];
+    const path = href.split('?')[0]!;
+    if (!path.startsWith(key + '/')) return null;
+    const rest = path.slice(key.length + 1).split('/');
+    // A tab's own items are one segment (/docs/d_1); others are /kind/id.
+    return `${key}/${rest[0]}${rest.length > 1 && ['doc', 'collection', 'meeting', 'thread'].includes(rest[0]!) ? `/${rest[1]}` : ''}`;
+  };
+  return useSyncExternalStore(subscribe, select, () => null);
+}

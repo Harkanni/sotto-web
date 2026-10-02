@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import type { Tab } from '@/lib/nav/routes';
 import { navigate, tabHref } from '@/lib/nav/store';
 import { cn } from '@/lib/utils';
@@ -16,7 +17,7 @@ export function selectTab(tab: Tab, active: Tab) {
  * The phone tab bar (brief §9): translucent, five items with icon and label, the active one in
  * indigo. Each tab keeps its own stack, so switching returns to where you left it.
  */
-export function TabBar({ active }: { active: Tab }) {
+export const TabBar = memo(function TabBar({ active }: { active: Tab }) {
   return (
     <nav aria-label="Tabs" className="tab-bar material-bar">
       {TAB_ITEMS.map(({ tab, label, icon: Icon }) => {
@@ -54,4 +55,4 @@ export function TabBar({ active }: { active: Tab }) {
       })}
     </nav>
   );
-}
+});

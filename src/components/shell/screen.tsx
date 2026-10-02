@@ -15,6 +15,11 @@ export type ScreenProps = {
   largeTitle?: boolean;
   /** Scrolls with the large title: a search field, filter chips. */
   header?: React.ReactNode;
+  /**
+   * A custom heading in place of the large title (a document's icon, name and details). The
+   * inline title appears in the bar once it scrolls away, as with a large title.
+   */
+  heading?: React.ReactNode;
   /** Buttons at the trailing end of the nav bar. */
   actions?: React.ReactNode;
   /** Replaces the back button. */
@@ -63,6 +68,7 @@ export function Screen({
   title,
   largeTitle,
   header,
+  heading,
   actions,
   leading,
   footer,
@@ -75,7 +81,7 @@ export function Screen({
   const navbarRef = useRef<HTMLElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(0);
-  const isLarge = largeTitle ?? (layer ? layer.depth === 0 : true);
+  const isLarge = heading ? true : (largeTitle ?? (layer ? layer.depth === 0 : true));
 
   const parent = layer?.parent ?? null;
   const parentTitle = useTitle(parent?.key, parent ? DEFAULT_TITLE[parent.kind] : '');
@@ -105,18 +111,18 @@ export function Screen({
     };
   }, [key, registerScroller]);
 
-  // Collapse: the large title (or the very top of the content) passing under the bar.
+  // Collapse: the large title (or the very top of the content) passing under the bar. The
+  // sentinel is drawn one bar-height higher than it sits (CSS), so no measuring is needed.
   useEffect(() => {
     const scroller = scrollerRef.current;
     const sentinel = sentinelRef.current;
-    const navbar = navbarRef.current;
-    if (!scroller || !sentinel || !navbar) return;
+    if (!scroller || !sentinel) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry) return;
         scroller.toggleAttribute('data-collapsed', !entry.isIntersecting);
       },
-      { root: scroller, rootMargin: `-${navbar.offsetHeight}px 0px 0px 0px`, threshold: 0 },
+      { root: scroller, threshold: 0 },
     );
     observer.observe(sentinel);
     return () => observer.disconnect();
@@ -146,19 +152,27 @@ export function Screen({
         </div>
       </header>
 
-      {isLarge ? (
+      {heading ? (
+        <>
+          <h1 tabIndex={-1} data-screen-title className="sr-only">
+            {title}
+          </h1>
+          {heading}
+          <div ref={sentinelRef} aria-hidden className="collapse-sentinel" />
+        </>
+      ) : isLarge ? (
         <div className="large-title">
           <h1 tabIndex={-1} data-screen-title className="text-large-title">
             {title}
           </h1>
-          <div ref={sentinelRef} aria-hidden className="h-px" />
+          <div ref={sentinelRef} aria-hidden className="collapse-sentinel" />
         </div>
       ) : (
         <>
           <h1 tabIndex={-1} data-screen-title className="sr-only">
             {title}
           </h1>
-          <div ref={sentinelRef} aria-hidden className="h-px" />
+          <div ref={sentinelRef} aria-hidden className="collapse-sentinel" />
         </>
       )}
 

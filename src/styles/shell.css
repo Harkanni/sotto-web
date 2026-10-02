@@ -10,9 +10,16 @@
     inset: 0;
     background: var(--background);
     /* Behind a scaled-back surface (a sheet is open) the page is black, like iOS. */
-    &:has(.shell-surface[data-receded]) {
+    &[data-receded] {
       background: #000;
     }
+  }
+
+  /* iOS: while the keyboard is up, pin the shell to the visible area (see system.tsx). */
+  :root[data-keyboard-open] [data-app-shell] {
+    top: var(--vv-top, 0px);
+    bottom: auto;
+    height: var(--vv-height, 100%);
   }
 
   .shell-surface {
@@ -40,6 +47,16 @@
     position: absolute;
     inset: 0;
   }
+  /* Tabs you're not on: kept alive, never rendered (and, under the active one, never hit). */
+  .tab-root {
+    z-index: 0;
+    &:not([data-active]) {
+      content-visibility: hidden;
+    }
+    &[data-active] {
+      z-index: 1;
+    }
+  }
   .tab-stack {
     overflow: hidden;
   }
@@ -54,9 +71,11 @@
     &:not(:first-of-type) {
       box-shadow: var(--elevation-edge);
     }
-    /* Covered screens stay mounted (state, scroll) but aren't painted. */
+    /* Covered screens stay mounted (state, scroll) but skip rendering entirely: no style, layout
+       or paint work, out of the focus order and the accessibility tree. Revealing one for a
+       transition only costs a paint. */
     &:not(:last-of-type) {
-      visibility: hidden;
+      content-visibility: hidden;
     }
   }
   .tab-stack[data-swiping] {
@@ -77,30 +96,47 @@
     display: none;
   }
 
+  /* While a screen slides, taps land on nothing (like iOS), without restyling either screen. */
+  .stack-blocker {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: none;
+  }
+  .tab-stack[data-transitioning] .stack-blocker {
+    display: block;
+  }
+
   @media (min-width: 1024px) {
     .stack-layer {
-      visibility: hidden;
+      content-visibility: hidden;
       transform: none !important;
       box-shadow: none !important;
     }
     .stack-layer[data-pane='list'] {
-      visibility: visible;
+      content-visibility: visible;
       right: auto;
       width: var(--list-pane-width);
       box-shadow: inset calc(var(--hairline) * -1) 0 0 var(--separator) !important;
     }
     .stack-layer[data-pane='detail'] {
-      visibility: visible;
+      content-visibility: visible;
       left: var(--list-pane-width);
     }
     .stack-layer[data-pane='full'] {
-      visibility: visible;
+      content-visibility: visible;
     }
     .stack-scrim {
       display: none;
     }
+    /* The parent is beside it in the list pane, so no back button. (!important: the button's
+       own display utility sits in a later layer.) */
     .stack-layer[data-parent-beside] [data-back] {
-      display: none;
+      display: none !important;
+    }
+    /* The narrow list pane drops decoration that steals width from titles. */
+    .stack-layer[data-pane='list'] .row-avatars {
+      display: none !important;
     }
     .stack-placeholder {
       position: absolute;
@@ -204,6 +240,15 @@
     }
   }
 
+  /* Marks where the bar should turn solid: drawn a bar-height above where it sits, so it leaves
+     the scroller's top edge exactly as the content passes under the bar. */
+  .collapse-sentinel {
+    position: relative;
+    top: calc(-1 * (var(--navbar-height) + var(--safe-top)));
+    height: 1px;
+    pointer-events: none;
+  }
+
   .large-title {
     padding: 0 var(--gutter) 8px;
     /* One line, truncated, like iOS. */
@@ -215,15 +260,19 @@
     }
   }
 
-  /* Pinned to the bottom of the screen, above the tab bar and the keyboard. */
+  /* Pinned to the bottom of the screen, above the tab bar (and the keyboard, which hides it). */
   .screen-footer {
     position: sticky;
     bottom: 0;
     z-index: var(--z-navbar);
     flex: none;
     margin-top: auto;
-    padding-bottom: max(var(--tabbar-space), var(--keyboard-inset, 0px));
-    transition: padding-bottom var(--duration-base) var(--ease-out);
+    padding-bottom: var(--tabbar-space);
+    /* Fades the content scrolling under the composer. */
+    background: linear-gradient(to bottom, transparent, var(--background) 22px);
+  }
+  :root[data-keyboard-open] .screen-footer {
+    padding-bottom: 6px;
   }
 
   /* ── Tab bar (phones) ───────────────────────────────────────────────────────────────── */

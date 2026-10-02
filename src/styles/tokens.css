@@ -111,7 +111,7 @@
   --navbar-height: 44px;
   --fab-size: 56px;
   --sidebar-width: 272px;
-  --list-pane-width: 352px;
+  --list-pane-width: 376px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);

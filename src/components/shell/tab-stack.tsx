@@ -135,7 +135,6 @@ const StackLayer = memo(function StackLayer({
   tab,
   entry,
   pane,
-  inert,
   parentBeside,
   register,
   registerScroller,
@@ -144,7 +143,6 @@ const StackLayer = memo(function StackLayer({
   tab: Tab;
   entry: StackEntry;
   pane: string;
-  inert: boolean;
   parentBeside: boolean;
   register: (key: string, el: HTMLElement | null) => void;
   registerScroller: LayerInfo['registerScroller'];
@@ -177,7 +175,6 @@ const StackLayer = memo(function StackLayer({
       // On wide windows a detail screen's parent sits in the list pane beside it, so its back
       // button hides (with CSS, so server and client markup agree).
       data-parent-beside={parentBeside ? '' : undefined}
-      inert={inert}
     >
       <LayerContext value={info}>{screen}</LayerContext>
       <div data-scrim aria-hidden className="stack-scrim" />
@@ -230,6 +227,17 @@ export const TabStack = memo(function TabStack({
   }
 
   const rootRef = useRef<HTMLDivElement>(null);
+  // The stack's width, kept current without ever forcing a layout mid-transition.
+  const widthRef = useRef(0);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) widthRef.current = entry.contentRect.width;
+    });
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
   const layerEls = useRef(new Map<string, HTMLElement>());
   const scrollers = useRef(new Map<string, HTMLElement>());
   const running = useRef<Running | null>(null);
@@ -247,12 +255,12 @@ export const TabStack = memo(function TabStack({
   const tracksFor = useCallback((topKey: string, underKey: string): Track[] => {
     const top = layerEls.current.get(topKey);
     const under = layerEls.current.get(underKey);
-    const width = rootRef.current?.clientWidth || window.innerWidth;
+    const width = widthRef.current || window.innerWidth;
     const tracks: Track[] = [];
     if (prefersReducedMotion()) {
       // Reduced motion: a crossfade, nothing moves.
       if (top) tracks.push({ el: top, style: (p) => ({ opacity: String(1 - p) }) });
-      if (under) tracks.push({ el: under, style: () => ({ visibility: 'visible' }) });
+      if (under) tracks.push({ el: under, style: () => ({ contentVisibility: 'visible' }) });
       return tracks;
     }
     if (top) {
@@ -263,7 +271,7 @@ export const TabStack = memo(function TabStack({
         el: under,
         style: (p) => ({
           transform: `translate3d(${-(1 - p) * width * PARALLAX}px,0,0)`,
-          visibility: 'visible',
+          contentVisibility: 'visible',
         }),
       });
       const scrim = under.querySelector<HTMLElement>(':scope > [data-scrim]');
@@ -272,17 +280,48 @@ export const TabStack = memo(function TabStack({
     return tracks;
   }, []);
 
-  /** Ends a transition: drop leaving layers, hand styling back to the stylesheet. */
-  const settle = useCallback((run: Running, { sync }: { sync: boolean }) => {
-    if (running.current === run) running.current = null;
-    const removeLeaving = () =>
-      setState((s) =>
-        s.layers.some((l) => l.exiting) ? { ...s, layers: s.layers.filter((l) => !l.exiting) } : s,
-      );
-    if (sync) removeLeaving();
-    else flushSync(removeLeaving);
-    run.driver.clear();
+  /**
+   * Keyboard and screen-reader users land somewhere sensible: on the new screen's title after a
+   * push; back on the row they came from after a pop. Only when focus was in this stack.
+   */
+  const moveFocus = useCallback((type: 'push' | 'pop', top: string, under: string) => {
+    const root = rootRef.current;
+    const active = document.activeElement;
+    if (!root || !(active === document.body || root.contains(active))) return;
+    const target = type === 'push' ? layerEls.current.get(top) : layerEls.current.get(under);
+    if (!target) return;
+    const origin =
+      type === 'pop' ? target.querySelector<HTMLElement>(`a[href="${CSS.escape(top)}"]`) : null;
+    (origin ?? target.querySelector<HTMLElement>('[data-screen-title]'))?.focus({
+      preventScroll: true,
+    });
   }, []);
+
+  /** Ends a transition: drop leaving layers, hand styling back to the stylesheet. */
+  const settle = useCallback(
+    (run: Running, { sync }: { sync: boolean }) => {
+      if (running.current === run) running.current = null;
+      rootRef.current?.removeAttribute('data-transitioning');
+      const removeLeaving = () =>
+        setState((s) =>
+          s.layers.some((l) => l.exiting)
+            ? { ...s, layers: s.layers.filter((l) => !l.exiting) }
+            : s,
+        );
+      if (sync) removeLeaving();
+      else flushSync(removeLeaving);
+      run.driver.clear();
+      if (run.type === 'pop') {
+        // The row that opened the screen fades back to normal now that we're back.
+        for (const el of layerEls.current.get(run.under)?.querySelectorAll('[data-just-opened]') ??
+          []) {
+          el.removeAttribute('data-just-opened');
+        }
+        if (!sync) moveFocus('pop', run.top, run.under);
+      }
+    },
+    [moveFocus],
+  );
 
   const start = useCallback(
     (type: 'push' | 'pop', top: string, under: string, gesture = false): Running => {
@@ -290,9 +329,14 @@ export const TabStack = memo(function TabStack({
       driver.set(type === 'push' ? 1 : 0);
       const run: Running = { type, top, under, driver, gesture };
       running.current = run;
+      rootRef.current?.setAttribute('data-transitioning', '');
+      // Focusing forces a layout: wait until the first frame of the push is on screen.
+      if (type === 'push') {
+        requestAnimationFrame(() => requestAnimationFrame(() => moveFocus('push', top, under)));
+      }
       return run;
     },
-    [tracksFor],
+    [tracksFor, moveFocus],
   );
 
   const animate = useCallback(
@@ -397,8 +441,9 @@ export const TabStack = memo(function TabStack({
       if (window.matchMedia(WIDE_QUERY).matches || !swipeBackEnabled()) return;
       const root = rootRef.current;
       if (!root) return;
-      const rect = root.getBoundingClientRect();
-      if (event.clientX - rect.left > EDGE) return;
+      // The stack starts after the sidebar on tablets; phones have no sidebar.
+      const left = window.innerWidth - (widthRef.current || window.innerWidth);
+      if (event.clientX - left > EDGE) return;
       const visible = stateRef.current.entries;
       if (visible.length < 2) return;
       const top = visible[visible.length - 1]!.key;
@@ -406,7 +451,7 @@ export const TabStack = memo(function TabStack({
 
       const startX = event.clientX;
       const startY = event.clientY;
-      const width = rect.width;
+      const width = widthRef.current || window.innerWidth;
       const tracker = new VelocityTracker();
       tracker.add(startX);
       let run: Running | null = null;
@@ -490,9 +535,7 @@ export const TabStack = memo(function TabStack({
     [animate, settle, start],
   );
 
-  const visibleKeys = useMemo(() => new Set(state.entries.map((e) => e.key)), [state.entries]);
   const panes = useMemo(() => panesFor(state.entries), [state.entries]);
-  const topKey = state.entries[state.entries.length - 1]?.key;
   const hasDetail = [...panes.values()].some((p) => p === 'detail' || p === 'full');
 
   return (
@@ -500,7 +543,6 @@ export const TabStack = memo(function TabStack({
       {state.layers.map((layer) => {
         const key = layer.entry.key;
         const pane = layer.exiting ? 'hidden' : (panes.get(key) ?? 'hidden');
-        const isTop = key === topKey && !layer.exiting;
         const own = parseStack(key);
         const parent = own.length > 1 ? own[own.length - 2]! : null;
         return (
@@ -509,8 +551,6 @@ export const TabStack = memo(function TabStack({
             tab={tab}
             entry={layer.entry}
             pane={pane}
-            // Phones show only the top screen; wide windows show the list and detail panes.
-            inert={layer.exiting || (wide ? pane === 'hidden' : !isTop) || !visibleKeys.has(key)}
             parentBeside={pane === 'detail' && parent !== null && panes.get(parent.key) === 'list'}
             register={registerLayer}
             registerScroller={registerScroller}
@@ -518,6 +558,7 @@ export const TabStack = memo(function TabStack({
           />
         );
       })}
+      <div aria-hidden className="stack-blocker" />
       {placeholder && !hasDetail && <div className="stack-placeholder">{placeholder}</div>}
     </div>
   );

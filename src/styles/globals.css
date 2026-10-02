@@ -135,6 +135,36 @@
   }
 }
 
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes bars {
+  0%,
+  100% {
+    transform: scaleY(0.45);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
 @keyframes spinner-pulse {
   50% {
     opacity: 0.35;
@@ -165,13 +195,15 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* The app shell owns scrolling: each screen is its own scroller, so the page never bounces. */
-  html:has([data-app-shell]) {
+  /* The app shell owns scrolling: each screen is its own scroller, so the page never bounces.
+     (data-app is set before first paint by the boot script; a :has() here would make every DOM
+     change re-check the whole document.) */
+  html[data-app] {
     overflow: hidden;
     overscroll-behavior: none;
     height: 100%;
   }
-  html:has([data-app-shell]) body {
+  html[data-app] body {
     overflow: hidden;
     height: 100%;
   }
@@ -248,6 +280,79 @@
       animation: none;
       background-image: none;
     }
+  }
+
+  :root[data-sample-notice='dismissed'] .sample-notice {
+    display: none;
+  }
+
+  /* Player scrubber: an indigo fill to the playhead, a white thumb that grows while dragged. */
+  .scrubber {
+    --track: var(--fill-strong);
+    &::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: linear-gradient(
+        to right,
+        var(--primary) var(--progress, 0%),
+        var(--track) var(--progress, 0%)
+      );
+    }
+    &::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      margin-top: -6px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow:
+        0 1px 4px rgb(0 0 0 / 0.25),
+        0 0 0 0.5px rgb(0 0 0 / 0.06);
+      transition: transform 150ms var(--ease-out);
+    }
+    &:active::-webkit-slider-thumb {
+      transform: scale(1.3);
+    }
+    &::-moz-range-track {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--track);
+    }
+    &::-moz-range-progress {
+      height: 6px;
+      border-radius: 3px;
+      background: var(--primary);
+    }
+    &::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border: 0;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgb(0 0 0 / 0.25);
+    }
+  }
+
+  /* Rows with actions: on mouse-and-trackpad screens the "…" button takes the chevron's place
+     (and appears on hover); on touch screens it stays hidden until focused. */
+  @media (hover: hover) and (pointer: fine) {
+    .list-row.has-more .row-chevron {
+      display: none;
+    }
+    .list-row.has-more .row-main {
+      padding-right: 52px;
+    }
+  }
+
+  /* The row that opened the screen above stays highlighted, and fades back when you return. */
+  .list-row [data-just-opened] {
+    background-color: var(--row-pressed);
+  }
+
+  /* Grouped list separators start where the text starts (not under the icon), like iOS. */
+  .list-row:not(:last-child) .row-main {
+    box-shadow: inset 0 calc(var(--hairline) * -1) 0 var(--separator);
   }
 }
 

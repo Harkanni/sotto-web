@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { ChevronsUpDown, Plus, Search } from 'lucide-react';
 import type { Tab } from '@/lib/nav/routes';
 import { cn } from '@/lib/utils';
@@ -43,7 +44,7 @@ function SidebarItem({
  * Tablet and desktop navigation (brief §9): workspace switcher, search (⌘K), the sections, and
  * the new-item button. Translucent like the tab bar.
  */
-export function Sidebar({ active }: { active: Tab }) {
+export const Sidebar = memo(function Sidebar({ active }: { active: Tab }) {
   return (
     <aside className="sidebar material-bar" aria-label="Sidebar">
       <div className="flex flex-col gap-1 px-3 pt-3">
@@ -94,4 +95,4 @@ export function Sidebar({ active }: { active: Tab }) {
       </div>
     </aside>
   );
-}
+});

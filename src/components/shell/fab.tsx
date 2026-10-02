@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import { Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { emitShellEvent } from './shell-events';
@@ -8,7 +9,7 @@ import { emitShellEvent } from './shell-events';
  * The floating + button (brief §9): 56 px, bottom-right (left for left-handed use), 16 px above
  * the tab bar, opening "Add to Sotto". Hidden on Ask, where the composer is the primary action.
  */
-export function Fab({ hidden }: { hidden: boolean }) {
+export const Fab = memo(function Fab({ hidden }: { hidden: boolean }) {
   return (
     <button
       type="button"
@@ -30,4 +31,4 @@ export function Fab({ hidden }: { hidden: boolean }) {
       <Plus className="size-7" strokeWidth={2.25} aria-hidden />
     </button>
   );
-}
+});

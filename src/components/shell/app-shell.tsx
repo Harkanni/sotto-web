@@ -1,12 +1,17 @@
 'use client';
 
-import { Activity, useEffect } from 'react';
+import { Activity, memo, useEffect, useState } from 'react';
+import type { Tab } from '@/lib/nav/routes';
 import { useNav } from '@/lib/nav/hooks';
 import { DEFAULT_TITLE, TABS, parseStack, tabOf } from '@/lib/nav/routes';
 import { startNavigation } from '@/lib/nav/store';
 import { useTitle } from '@/lib/nav/titles';
+import { Toaster } from '@/components/ui/toaster';
 import { renderScreen, renderPlaceholder } from '@/screens';
+import { AddSheet } from './add-sheet';
 import { Fab } from './fab';
+import { MoveSheet, RenameSheet } from './item-sheets';
+import { OfflineBanner, ThemeColorSync, useVisualViewport } from './system';
 import { Sidebar } from './sidebar';
 import { TabBar } from './tab-bar';
 import { TabStack } from './tab-stack';
@@ -26,6 +31,20 @@ function useDocumentTitle(pathname: string) {
   return title;
 }
 
+/** Sheets, toasts and banners: rendered once, never re-rendered by navigation. */
+const Overlays = memo(function Overlays() {
+  return (
+    <>
+      <OfflineBanner />
+      <AddSheet />
+      <MoveSheet />
+      <RenameSheet />
+      <Toaster />
+      <ThemeColorSync />
+    </>
+  );
+});
+
 /**
  * The product shell (brief §9): five tabs, each a stack kept alive in an <Activity> so its
  * screens, scroll positions and state survive tab switches. Phones get the tab bar and the +
@@ -36,7 +55,23 @@ export function AppShell() {
   const active = tabOf(nav.pathname) ?? 'home';
   const title = useDocumentTitle(nav.pathname);
 
+  // Tabs you haven't opened yet wait in a hidden <Activity> (pre-rendered at idle priority, no
+  // effects). Once opened, a tab stays live and is merely not rendered while you're elsewhere
+  // (content-visibility), so switching back is a style change, not a re-mount: instant, with
+  // scroll positions intact.
+  const [visited, setVisited] = useState<ReadonlySet<Tab>>(() => new Set([active]));
+  if (!visited.has(active)) setVisited(new Set(visited).add(active));
+
   useEffect(() => startNavigation(), []);
+  useVisualViewport();
+
+  // The shell owns scrolling (the boot script sets this too, before first paint).
+  useEffect(() => {
+    document.documentElement.dataset.app = '';
+    return () => {
+      delete document.documentElement.dataset.app;
+    };
+  }, []);
 
   // iOS Safari only applies :active styles on touch when a touchstart listener exists.
   useEffect(() => {
@@ -51,8 +86,12 @@ export function AppShell() {
         <Sidebar active={active} />
         <main className="shell-main" aria-label={title}>
           {TABS.map((tab) => (
-            <Activity key={tab} mode={tab === active ? 'visible' : 'hidden'} name={tab}>
-              <div className="tab-root" data-tab={tab}>
+            <Activity key={tab} mode={visited.has(tab) ? 'visible' : 'hidden'} name={tab}>
+              <div
+                className="tab-root"
+                data-tab={tab}
+                data-active={tab === active ? '' : undefined}
+              >
                 <TabStack
                   tab={tab}
                   href={nav.tabs[tab]}
@@ -70,6 +109,7 @@ export function AppShell() {
         <TabBar active={active} />
         <Fab hidden={active === 'ask'} />
       </div>
+      <Overlays />
       {/* Screen readers hear where they landed after every navigation. */}
       <div aria-live="polite" aria-atomic className="sr-only">
         {title}

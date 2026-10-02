@@ -1,44 +1,76 @@
 'use client';
 
-import { Screen } from '@/components/shell/screen';
-import { NavLink } from '@/lib/nav/link';
-import { DEFAULT_TITLE, pushPath, type StackEntry, type Tab } from '@/lib/nav/routes';
+import { EmptyState } from '@/components/widgets/async-widget';
+import type { IllustrationName } from '@/components/widgets/illustrations';
+import type { ScreenKind, StackEntry, Tab } from '@/lib/nav/routes';
+import { AskScreen, ThreadScreen } from './ask';
+import { DocScreen } from './doc';
+import { CollectionScreen, DocsScreen } from './docs';
+import { HomeScreen } from './home';
+import { MeetingScreen, MeetingsScreen } from './meetings';
+import {
+  AboutScreen,
+  AppearanceScreen,
+  ComponentsScreen,
+  DeveloperScreen,
+  LaterScreen,
+  NotFoundScreen,
+  ProfileScreen,
+  WidgetStatesScreen,
+} from './profile';
 
-function Rows({
-  from,
-  kind,
-  count,
-}: {
-  from: string;
-  kind: 'doc' | 'meeting' | 'thread';
-  count: number;
-}) {
-  return (
-    <ul className="mx-4 overflow-hidden rounded-card bg-card">
-      {Array.from({ length: count }, (_, i) => (
-        <li key={i} className="border-b-[0.5px] border-separator last:border-0">
-          <NavLink
-            href={pushPath(from, kind, `${kind[0]}${i + 1}`)}
-            className="flex min-h-11 items-center px-4 py-3 active:bg-row-pressed"
-          >
-            {DEFAULT_TITLE[kind]} {i + 1}
-          </NavLink>
-        </li>
-      ))}
-    </ul>
-  );
-}
+/** Which component draws each kind of screen. The URL decides the kind (src/lib/nav/routes). */
+const SCREENS: Record<ScreenKind, React.ComponentType> = {
+  home: HomeScreen,
+  docs: DocsScreen,
+  ask: AskScreen,
+  meetings: MeetingsScreen,
+  profile: ProfileScreen,
+  collection: CollectionScreen,
+  doc: DocScreen,
+  meeting: MeetingScreen,
+  thread: ThreadScreen,
+  appearance: AppearanceScreen,
+  developer: DeveloperScreen,
+  'widget-states': WidgetStatesScreen,
+  components: ComponentsScreen,
+  about: AboutScreen,
+  workspace: LaterScreen,
+  members: LaterScreen,
+  ai: LaterScreen,
+  usage: LaterScreen,
+  audit: LaterScreen,
+  'not-found': NotFoundScreen,
+};
 
 export function renderScreen(entry: StackEntry): React.ReactNode {
-  const title = entry.id ? `${DEFAULT_TITLE[entry.kind]} ${entry.id}` : DEFAULT_TITLE[entry.kind];
-  const kind = entry.kind === 'meetings' ? 'meeting' : entry.kind === 'ask' ? 'thread' : 'doc';
-  return (
-    <Screen title={title}>
-      <Rows from={entry.key} kind={kind} count={30} />
-    </Screen>
-  );
+  const Component = SCREENS[entry.kind];
+  return <Component />;
 }
 
+const PLACEHOLDERS: Partial<
+  Record<Tab, { illustration: IllustrationName; title: string; description: string }>
+> = {
+  docs: {
+    illustration: 'docs',
+    title: 'Select a document',
+    description: 'Its summary and text open here.',
+  },
+  ask: {
+    illustration: 'chats',
+    title: 'Select a chat',
+    description: 'Or ask something new below the list.',
+  },
+  meetings: {
+    illustration: 'recordings',
+    title: 'Select a meeting',
+    description: 'Its player, transcript and notes open here.',
+  },
+  profile: { illustration: 'tasks', title: 'Select a setting', description: 'Settings open here.' },
+};
+
+/** What the detail pane shows on wide windows before anything is selected. */
 export function renderPlaceholder(tab: Tab): React.ReactNode {
-  return <p className="text-muted-foreground">Select an item in {DEFAULT_TITLE[tab]}</p>;
+  const p = PLACEHOLDERS[tab];
+  return p ? <EmptyState {...p} /> : null;
 }
