@@ -11,6 +11,27 @@
     @slot;
   }
 }
+/* A press (the real :active), or [data-pressed]: Storybook's state matrix shows it without a
+   finger on the screen. */
+@custom-variant pressed {
+  &:active {
+    @slot;
+  }
+  &[data-pressed] {
+    @slot;
+  }
+}
+/* Hover where a pointer can hover, or [data-hovered] for the same previews. */
+@custom-variant hovered {
+  @media (hover: hover) {
+    &:hover {
+      @slot;
+    }
+  }
+  &[data-hovered] {
+    @slot;
+  }
+}
 
 @theme inline {
   /* Only Sotto's colours exist: Tailwind's palette is switched off. */
@@ -220,7 +241,8 @@
   }
 
   /* A 2px indigo ring, offset by 2px of whatever surface is behind it (brief §8). */
-  :focus-visible {
+  :focus-visible,
+  [data-focus-visible] {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
@@ -433,7 +455,7 @@
   transition-duration: var(--duration-snappy), 150ms, 150ms, 150ms, 150ms;
   transition-timing-function:
     var(--ease-snappy), var(--ease-out), var(--ease-out), var(--ease-out), var(--ease-out);
-  &:active:not(:disabled, [aria-disabled='true'], [aria-busy='true']) {
+  &:is(:active, [data-pressed]):not(:disabled, [aria-disabled='true'], [aria-busy='true']) {
     transform: scale(0.97);
     transition-duration: 70ms;
     transition-timing-function: var(--ease-out);

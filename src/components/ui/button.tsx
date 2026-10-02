@@ -26,21 +26,21 @@ export const buttonVariants = cva(
       variant: {
         primary: [
           'bg-primary text-primary-foreground',
-          'hover:bg-[color-mix(in_oklab,var(--primary),black_8%)]',
-          'active:bg-[color-mix(in_oklab,var(--primary),black_12%)]',
+          'hovered:bg-[color-mix(in_oklab,var(--primary),black_8%)]',
+          'pressed:bg-[color-mix(in_oklab,var(--primary),black_12%)]',
         ],
         secondary: [
           'bg-transparent text-primary-text shadow-[inset_0_0_0_1px_var(--primary-text)]',
-          'hover:bg-primary-tint active:bg-primary-tint-strong',
+          'hovered:bg-primary-tint pressed:bg-primary-tint-strong',
         ],
         ghost: [
           'bg-transparent text-primary-text',
-          'hover:bg-primary-tint active:bg-primary-tint-strong',
+          'hovered:bg-primary-tint pressed:bg-primary-tint-strong',
         ],
         destructive: [
           'bg-destructive text-destructive-foreground',
-          'hover:bg-[color-mix(in_oklab,var(--destructive),black_8%)]',
-          'active:bg-[color-mix(in_oklab,var(--destructive),black_12%)]',
+          'hovered:bg-[color-mix(in_oklab,var(--destructive),black_8%)]',
+          'pressed:bg-[color-mix(in_oklab,var(--destructive),black_12%)]',
         ],
       },
       size: {
