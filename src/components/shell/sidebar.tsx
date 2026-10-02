@@ -28,7 +28,7 @@ function SidebarItem({
       className={cn(
         'flex min-h-11 items-center gap-3 rounded-button px-3 text-[16px] leading-6 select-none can-hover:min-h-9',
         'transition-colors duration-150 hover:bg-fill-subtle active:bg-fill',
-        selected && 'bg-fill font-semibold text-primary-text hover:bg-fill',
+        selected && 'bg-fill font-semibold text-primary-text-strong hover:bg-fill',
       )}
     >
       <Icon
@@ -70,7 +70,7 @@ export const Sidebar = memo(function Sidebar({ active }: { active: Tab }) {
           type="button"
           onClick={() => emitShellEvent('open-palette')}
           aria-keyshortcuts="Meta+K Control+K /"
-          className="mt-2 flex min-h-10 items-center gap-2 rounded-input bg-fill px-3 text-left text-[16px] text-muted-foreground select-none hover:bg-fill-strong"
+          className="mt-2 flex min-h-10 items-center gap-2 rounded-input bg-fill px-3 text-left text-[16px] text-foreground/65 select-none hover:bg-fill-strong"
         >
           <Search aria-hidden className="size-4.5" />
           <span className="flex-1">Search</span>

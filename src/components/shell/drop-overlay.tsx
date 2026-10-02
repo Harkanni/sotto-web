@@ -131,7 +131,7 @@ export function DropTarget({ visible }: { visible: boolean }) {
         </span>
         <div>
           <p className="text-title-2">Drop to add to Sotto</p>
-          <p className="mt-1 text-callout text-muted-foreground">
+          <p className="mt-1 text-callout text-foreground/75">
             PDF, Word, text, Markdown and audio. Sample workspace: files stay on this device.
           </p>
         </div>

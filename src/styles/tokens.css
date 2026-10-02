@@ -40,6 +40,8 @@
   --primary-foreground: #ffffff;
   /* Text and outlines. Dark value is 4.94:1 on card; elevated surfaces lift it (below). */
   --primary-text: light-dark(#5856d6, #7d7aff);
+  /* Indigo text on a hover or pressed wash, or a selected fill: AA on any surface. */
+  --primary-text-strong: light-dark(#4b49c4, #9a98ff);
   --primary-tint: color-mix(in srgb, var(--primary) 8%, transparent); /* hover wash */
   --primary-tint-strong: color-mix(in srgb, var(--primary) 14%, transparent); /* pressed */
 

@@ -32,10 +32,12 @@ export const buttonVariants = cva(
         secondary: [
           'bg-transparent text-primary-text shadow-[inset_0_0_0_1px_var(--primary-text)]',
           'hovered:bg-primary-tint pressed:bg-primary-tint-strong',
+          'hovered:text-primary-text-strong pressed:text-primary-text-strong',
         ],
         ghost: [
           'bg-transparent text-primary-text',
           'hovered:bg-primary-tint pressed:bg-primary-tint-strong',
+          'hovered:text-primary-text-strong pressed:text-primary-text-strong',
         ],
         destructive: [
           'bg-destructive text-destructive-foreground',

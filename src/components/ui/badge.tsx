@@ -8,7 +8,9 @@ import { cn } from '@/lib/utils';
 const badgeVariants = cva(
   [
     'inline-flex h-5 shrink-0 items-center gap-1 rounded-full px-2 text-[12px] leading-4 font-semibold tracking-[0.01em] whitespace-nowrap',
-    'bg-[color-mix(in_srgb,var(--badge)_10%,transparent)] text-[var(--badge)] dark:bg-[color-mix(in_srgb,var(--badge)_16%,transparent)]',
+    // The tint is mixed with the surface underneath rather than left translucent, so the label
+    // holds AA on a selected or pressed row too (test/tokens.test.ts checks it on a card).
+    'bg-[color-mix(in_srgb,var(--badge)_10%,var(--surface,var(--card)))] text-[var(--badge)] dark:bg-[color-mix(in_srgb,var(--badge)_16%,var(--surface,var(--card)))]',
     '[&_svg]:size-3',
   ],
   {

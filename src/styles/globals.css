@@ -54,6 +54,7 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-text: var(--primary-text);
+  --color-primary-text-strong: var(--primary-text-strong);
   --color-primary-tint: var(--primary-tint);
   --color-primary-tint-strong: var(--primary-tint-strong);
   --color-destructive: var(--destructive);

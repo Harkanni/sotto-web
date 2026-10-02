@@ -6,7 +6,8 @@ export function Kbd({ children, className }: { children: React.ReactNode; classN
     <kbd
       className={cn(
         'inline-flex h-[22px] min-w-[22px] items-center justify-center rounded-[6px] bg-fill px-1.5',
-        'font-sans text-[13px] leading-none font-medium text-muted-foreground',
+        // Muted grey falls under 4.5:1 on the fill; 75% foreground holds AA everywhere.
+        'font-sans text-[13px] leading-none font-medium text-foreground/75',
         'shadow-[inset_0_-1px_0_var(--separator)]',
         className,
       )}
