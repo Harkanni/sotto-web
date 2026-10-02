@@ -33,3 +33,20 @@ If `../sotto-platform` isn't there, clone it: `git clone https://github.com/Hark
 - `main` only changes through PRs with green CI; the owner merges.
 - Every PR also updates `sotto-platform/docs/STATUS.md` (companion PR or note).
 - Only `.env.example` is committed. Never secrets.
+
+## Agent sandbox (no npm access)
+
+The cloud agent's sandbox can't reach npm, but it can download GitHub release assets. CI's `sync`
+job publishes `node_modules` to the `dev-cache` release, keyed by `package.json` + `pnpm-lock.yaml`.
+
+```bash
+GH_TOKEN=$GH_TOKEN scripts/agent-deps.sh   # restores the matching node_modules
+node_modules/.bin/next build               # then build, lint, test and screenshot locally
+```
+
+After changing dependencies, push and wait for `sync` to publish a new snapshot.
+
+## Resuming work
+
+Work in progress always lives on a pushed branch with an open PR whose description is a checklist.
+Continue from the first unchecked item; `sotto-platform/docs/STATUS.md` names the active PR.
