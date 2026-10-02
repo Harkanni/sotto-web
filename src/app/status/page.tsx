@@ -1,11 +1,14 @@
+import Link from 'next/link';
 import { checkLabel, fetchApiStatus, formatUptime, type ApiStatus } from '@/lib/status';
 
 // Always render on request: the page reports live status, so it must never be cached at build.
 export const dynamic = 'force-dynamic';
 
-const PHASES = [
-  { n: 1, name: 'Foundations and always-on demo', current: true },
-  { n: 2, name: 'Design system and app shell' },
+export const metadata = { title: 'System status' };
+
+const PHASES: { n: number; name: string; done?: boolean; current?: boolean }[] = [
+  { n: 1, name: 'Foundations and always-on demo', done: true },
+  { n: 2, name: 'Design system and app shell', current: true },
   { n: 3, name: 'Accounts and workspaces' },
   { n: 4, name: 'Uploads, recordings and transcripts' },
   { n: 5, name: 'Ask and search, with sources' },
@@ -37,9 +40,7 @@ function Row({
 function Group({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2" aria-label={title}>
-      <h2 className="px-4 text-[13px] font-normal tracking-wide text-muted-foreground uppercase">
-        {title}
-      </h2>
+      <h2 className="px-4 text-footnote text-muted-foreground">{title}</h2>
       <ul className="divide-y divide-separator overflow-hidden rounded-card bg-card">{children}</ul>
     </section>
   );
@@ -83,8 +84,8 @@ export default async function StatusPage() {
   return (
     <main className="mx-auto flex max-w-xl flex-col gap-8 px-4 pt-14 pb-16">
       <header className="space-y-3 px-4">
-        <p className="text-[15px] font-semibold text-primary-text">Sotto</p>
-        <h1 className="text-[34px] leading-tight font-bold tracking-tight">Building in the open</h1>
+        <p className="text-subhead font-semibold text-primary-text">Sotto</p>
+        <h1 className="text-large-title">Building in the open</h1>
         <p className="text-muted-foreground">
           Private AI for your team’s memos and meetings. This page is the always-on demo. It updates
           every time new work is merged.
@@ -101,14 +102,17 @@ export default async function StatusPage() {
           <Row
             key={phase.n}
             label={`${phase.n}. ${phase.name}`}
-            value={phase.current ? 'In progress' : 'Next'}
-            tone={phase.current ? 'ok' : 'off'}
+            value={phase.done ? 'Done' : phase.current ? 'In progress' : 'Next'}
+            tone={phase.done || phase.current ? 'ok' : 'off'}
           />
         ))}
       </Group>
 
-      <p className="px-4 text-[13px] text-muted-foreground">
-        Nothing here uses real customer data. Phase 2 replaces this page with the app shell.
+      <p className="px-4 text-footnote text-muted-foreground">
+        Nothing here uses real customer data.{' '}
+        <Link href="/home" className="text-primary-text underline-offset-2 hover:underline">
+          Open the app
+        </Link>
       </p>
     </main>
   );

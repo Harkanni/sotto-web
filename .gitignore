@@ -22,3 +22,6 @@ __pycache__/
 .idea/
 *.log
 next-env.d.ts
+
+storybook-static/
+*.tsbuildinfo

@@ -29,6 +29,28 @@ jobs:
         with:
           node-version: 24
       - run: pnpm install --no-frozen-lockfile
+      # The coding agent's sandbox can't reach npm, so it downloads this exact node_modules from
+      # a release asset to build and screenshot the UI locally. Keyed by package.json + lockfile.
+      - name: Publish node_modules snapshot (dev-cache release)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          KEY=$(cat package.json pnpm-lock.yaml | sha256sum | cut -c1-16)
+          NAME="node_modules-linux-x64-$KEY.tar.gz"
+          if ! gh release view dev-cache > /dev/null 2>&1; then
+            gh release create dev-cache --prerelease --title "dev-cache (CI tooling)" \
+              --notes "node_modules snapshots for the coding agent's sandbox, which can't reach npm. Safe to delete."
+          fi
+          if gh release view dev-cache --json assets -q '.assets[].name' | grep -qx "$NAME"; then
+            echo "Snapshot $NAME already published."
+          else
+            tar -czf "$RUNNER_TEMP/$NAME" node_modules
+            ls -lh "$RUNNER_TEMP/$NAME"
+            gh release upload dev-cache "$RUNNER_TEMP/$NAME" --clobber
+          fi
+          # Keep only the three newest snapshots.
+          gh release view dev-cache --json assets -q '.assets | sort_by(.createdAt) | reverse | .[3:] | .[].name' |
+            while read -r old; do gh release delete-asset dev-cache "$old" --yes; done
       - run: pnpm format
       - name: Commit regenerated files
         run: |
@@ -73,6 +95,37 @@ jobs:
             test-results
           retention-days: 7
 
+  # Every Storybook story renders cleanly and passes axe, in light and dark (brief §8).
+  stories:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: ${{ hashFiles('pnpm-lock.yaml') != '' && 'pnpm' || '' }}
+      - name: Install
+        run: |
+          if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile
+          else pnpm install --no-frozen-lockfile; fi
+      - run: pnpm build-storybook --quiet
+      - name: Playwright browser
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Story tests
+        timeout-minutes: 10
+        run: pnpm test:stories
+      - uses: actions/upload-artifact@v7.0.1
+        if: failure()
+        with:
+          name: story-test-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
   smoke:
     runs-on: ubuntu-24.04
     steps:
@@ -83,7 +136,7 @@ jobs:
         run: |
           docker run -d --name web -p 3000:3000 -e API_URL=http://127.0.0.1:9 sotto-web:ci
           for i in $(seq 1 30); do
-            if curl -fsS localhost:3000/healthz && curl -fsS localhost:3000/ | grep -q 'Building in the open'; then exit 0; fi
+            if curl -fsS localhost:3000/healthz && curl -fsS localhost:3000/status | grep -q 'Building in the open'; then exit 0; fi
             sleep 2
           done
           docker logs web; exit 1

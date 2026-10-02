@@ -1,0 +1,459 @@
+/*
+ * App shell layout: the surface (which scales back behind sheets), sidebar, tab stacks, screens,
+ * nav bars, tab bar and + button. Phones get one layered stack per tab; tablets add a sidebar;
+ * wide windows (≥ 1024 px) lay the same layers out as list and detail panes.
+ */
+
+@layer components {
+  [data-app-shell] {
+    position: fixed;
+    inset: 0;
+    background: var(--background);
+    /* Behind a scaled-back surface (a sheet is open) the page is black, like iOS. */
+    &[data-receded] {
+      background: #000;
+    }
+  }
+
+  /* iOS: while the keyboard is up, pin the shell to the visible area (see system.tsx). */
+  :root[data-keyboard-open] [data-app-shell] {
+    top: var(--vv-top, 0px);
+    bottom: auto;
+    height: var(--vv-height, 100%);
+  }
+
+  .shell-surface {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: hidden;
+    background: var(--background);
+    transform-origin: 50% 0;
+    @media (min-width: 768px) {
+      grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    }
+  }
+
+  .shell-main {
+    position: relative;
+    min-width: 0;
+    overflow: hidden;
+    grid-column: -2 / -1;
+  }
+
+  .tab-root,
+  .tab-stack {
+    position: absolute;
+    inset: 0;
+  }
+  /* Tabs you're not on: kept alive, never rendered (and, under the active one, never hit). */
+  .tab-root {
+    z-index: 0;
+    &:not([data-active]) {
+      content-visibility: hidden;
+    }
+    /* Laid out once in the background, unseen (see TabStack). Opacity, unlike visibility, isn't
+       inherited, so ending the warm-up doesn't restyle the whole tab again. */
+    &[data-warming]:not([data-active]) {
+      content-visibility: visible;
+      opacity: 0;
+    }
+    &[data-active] {
+      z-index: 1;
+    }
+  }
+  .tab-stack {
+    overflow: hidden;
+  }
+
+  /* ── Layers ─────────────────────────────────────────────────────────────────────────── */
+  .stack-layer {
+    position: absolute;
+    inset: 0;
+    background: var(--background);
+    contain: layout style;
+    /* Pushed screens cast a soft shadow onto the screen they cover. */
+    &:not(:first-of-type) {
+      box-shadow: var(--elevation-edge);
+    }
+    /* Covered screens stay mounted (state, scroll) but skip rendering entirely: no style, layout
+       or paint work, out of the focus order and the accessibility tree. Revealing one for a
+       transition only costs a paint. */
+    &:not(:last-of-type) {
+      content-visibility: hidden;
+    }
+  }
+  .tab-stack[data-swiping] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .stack-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    background: var(--scrim);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .stack-placeholder {
+    display: none;
+  }
+
+  /* While a screen slides, taps land on nothing (like iOS), without restyling either screen. */
+  .stack-blocker {
+    position: absolute;
+    inset: 0;
+    z-index: 40;
+    display: none;
+  }
+  .tab-stack[data-transitioning] .stack-blocker {
+    display: block;
+  }
+
+  @media (min-width: 1024px) {
+    .stack-layer {
+      content-visibility: hidden;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+    .stack-layer[data-pane='list'] {
+      content-visibility: visible;
+      right: auto;
+      width: var(--list-pane-width);
+      box-shadow: inset calc(var(--hairline) * -1) 0 0 var(--separator) !important;
+    }
+    .stack-layer[data-pane='detail'] {
+      content-visibility: visible;
+      left: var(--list-pane-width);
+    }
+    .stack-layer[data-pane='full'] {
+      content-visibility: visible;
+    }
+    .stack-scrim {
+      display: none;
+    }
+    /* The parent is beside it in the list pane, so no back button. (!important: the button's
+       own display utility sits in a later layer.) */
+    .stack-layer[data-parent-beside] [data-back] {
+      display: none !important;
+    }
+    /* The narrow list pane drops decoration that steals width from titles. */
+    .stack-layer[data-pane='list'] .row-avatars {
+      display: none !important;
+    }
+    .stack-placeholder {
+      position: absolute;
+      inset: 0 0 0 var(--list-pane-width);
+      display: grid;
+      place-items: center;
+      padding: 32px;
+    }
+  }
+
+  /* ── Screen: one scroller per screen ────────────────────────────────────────────────── */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    /* Vertical panning stays native; horizontal drags reach the swipe gestures. */
+    touch-action: pan-y pinch-zoom;
+    scrollbar-gutter: stable;
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
+    &[data-surface='plain'] {
+      background: var(--card);
+    }
+  }
+
+  .screen-content {
+    flex: 1 0 auto;
+    /* Room to scroll the last row clear of the tab bar and the + button. */
+    padding-bottom: calc(
+      var(--tabbar-space) + var(--strip-space) + var(--screen-bottom-extra, 96px)
+    );
+  }
+  .screen[data-has-footer] .screen-content {
+    padding-bottom: 24px;
+  }
+
+  /* ── Nav bar ────────────────────────────────────────────────────────────────────────── */
+  .navbar {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-navbar);
+    flex: none;
+    padding-top: var(--safe-top);
+  }
+  .navbar-bg {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity var(--duration-base) var(--ease-out);
+    box-shadow: inset 0 calc(var(--hairline) * -1) 0 var(--separator);
+  }
+  .navbar-row {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    height: var(--navbar-height);
+    padding-inline: 8px;
+  }
+  .navbar-title {
+    max-width: min(60vw, 420px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 600;
+    letter-spacing: var(--tracking-body);
+    text-align: center;
+    opacity: 0;
+    transform: translateY(4px);
+    transition:
+      opacity var(--duration-fast) var(--ease-out),
+      transform var(--duration-base) var(--ease-out);
+  }
+  .navbar-leading {
+    display: flex;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+  .navbar-trailing {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    min-width: 0;
+  }
+  /* The bar's material and inline title appear once content scrolls under it, and always on
+     screens without a large title once anything has scrolled. */
+  .screen[data-collapsed] {
+    .navbar-bg {
+      opacity: 1;
+    }
+  }
+  .screen[data-collapsed][data-large-title],
+  .screen:not([data-large-title]) {
+    .navbar-title {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  /* While the large title shows, the hidden inline one takes no room, so the back button can
+     say all of "Meetings"; it shortens only once the title moves into the bar. */
+  .screen[data-large-title]:not([data-collapsed]) .navbar-title {
+    max-width: 0;
+  }
+
+  /* Marks where the bar should turn solid: drawn a bar-height above where it sits, so it leaves
+     the scroller's top edge exactly as the content passes under the bar. */
+  .collapse-sentinel {
+    position: relative;
+    top: calc(-1 * (var(--navbar-height) + var(--safe-top)));
+    height: 1px;
+    pointer-events: none;
+  }
+
+  /* Titles take focus after a push so screen readers start there; it isn't a control. */
+  [data-screen-title]:focus-visible {
+    outline: none;
+  }
+
+  .large-title {
+    padding: 0 var(--gutter) 8px;
+    /* One line, truncated, like iOS. */
+    h1 {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      outline: none;
+    }
+  }
+
+  /* Pinned to the bottom of the screen, above the tab bar (and the keyboard, which hides it). */
+  .screen-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: var(--z-navbar);
+    flex: none;
+    margin-top: auto;
+    padding-bottom: calc(var(--tabbar-space) + var(--strip-space));
+    /* Fades the content scrolling under the composer. */
+    background: linear-gradient(to bottom, transparent, var(--background) 22px);
+  }
+  :root[data-keyboard-open] .screen-footer {
+    padding-bottom: 6px;
+  }
+
+  /* ── Tab bar (phones) ───────────────────────────────────────────────────────────────── */
+  .tab-bar {
+    position: absolute;
+    inset: auto 0 0 0;
+    z-index: var(--z-tabbar);
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    height: var(--tabbar-space);
+    padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+    box-shadow: inset 0 var(--hairline) 0 var(--separator);
+    /* The keyboard covers the tab bar, as on iOS; the composer rides above the keyboard. */
+    transition: transform var(--duration-base) var(--ease-out);
+    @media (min-width: 768px) {
+      display: none;
+    }
+  }
+  [data-keyboard-open] .tab-bar {
+    transform: translateY(100%);
+  }
+
+  /* ── Offline strip (phones) / pill (wider) ──────────────────────────────────────────── */
+  .offline-strip {
+    position: absolute;
+    inset: auto 0 var(--tabbar-space) 0;
+    /* Under the tab bar, so it slides out from behind it. */
+    z-index: calc(var(--z-tabbar) - 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 calc(16px + var(--safe-right)) 0 calc(16px + var(--safe-left));
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+    color: var(--muted-foreground);
+    background: var(--material-bar);
+    -webkit-backdrop-filter: var(--material-filter);
+    backdrop-filter: var(--material-filter);
+    box-shadow: inset 0 var(--hairline) 0 var(--separator);
+    transform: translateY(100%);
+    visibility: hidden;
+    transition:
+      transform var(--duration-standard) var(--ease-standard),
+      visibility 0s linear var(--duration-standard);
+    &[data-shown] {
+      transform: none;
+      visibility: visible;
+      transition: transform var(--duration-standard) var(--ease-standard);
+    }
+    @media (min-width: 768px) {
+      inset: auto 0 calc(16px + var(--safe-bottom)) var(--sidebar-width);
+      width: fit-content;
+      max-width: calc(100% - var(--sidebar-width) - 32px);
+      margin-inline: auto;
+      height: 36px;
+      padding: 0 14px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--elevated) 88%, transparent);
+      box-shadow: var(--shadow-menu);
+      z-index: var(--z-banner);
+      transform: translateY(calc(100% + 24px));
+    }
+  }
+  :root[data-keyboard-open] .offline-strip {
+    visibility: hidden;
+  }
+
+  /* ── + button ───────────────────────────────────────────────────────────────────────── */
+  .fab {
+    position: absolute;
+    z-index: var(--z-fab);
+    right: calc(16px + var(--safe-right));
+    bottom: calc(var(--tabbar-space) + 16px);
+    /* Rises with the offline strip (transition set with the button's other properties). */
+    translate: 0 calc(var(--strip-space) * -1);
+  }
+  :root[data-hand='left'] .fab {
+    right: auto;
+    left: calc(16px + var(--safe-left));
+    @media (min-width: 768px) {
+      left: calc(var(--sidebar-width) + 16px);
+    }
+  }
+  @media (min-width: 768px) {
+    .fab {
+      bottom: calc(16px + var(--safe-bottom));
+    }
+  }
+
+  /* ── Sidebar (tablets and desktops) ─────────────────────────────────────────────────── */
+  .sidebar {
+    display: none;
+    @media (min-width: 768px) {
+      position: relative;
+      z-index: var(--z-tabbar);
+      display: flex;
+      flex-direction: column;
+      grid-column: 1;
+      min-height: 0;
+      padding: var(--safe-top) 0 var(--safe-bottom) var(--safe-left);
+      box-shadow: inset calc(var(--hairline) * -1) 0 0 var(--separator);
+    }
+  }
+
+  /* ── Keyboard: rows that J and K land on stay clear of the bars ─────────────────────── */
+  [data-row] {
+    scroll-margin-top: calc(var(--navbar-height) + var(--safe-top) + 8px);
+    scroll-margin-bottom: calc(var(--tabbar-space) + 8px);
+  }
+
+  /* ── ⌘K palette ──────────────────────────────────────────────────────────────────────── */
+  /* Nearly opaque: results stay legible over any page, with just enough blur to feel lifted. */
+  .palette {
+    background-color: color-mix(in srgb, var(--elevated) 94%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(40px);
+    backdrop-filter: saturate(180%) blur(40px);
+    @media (prefers-reduced-transparency: reduce) {
+      background-color: var(--elevated);
+    }
+  }
+  .palette-list {
+    /* cmdk measures its content; the list eases to each new height as results change. */
+    height: var(--cmdk-list-height);
+    max-height: min(420px, 56dvh);
+    transition: height 180ms var(--ease-out);
+    scroll-padding-block: 8px;
+    & [cmdk-list-sizer] {
+      position: relative;
+    }
+    & [cmdk-group-heading] {
+      padding: 10px 10px 4px;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 600;
+      color: var(--muted-foreground);
+    }
+    & [cmdk-group]:first-of-type [cmdk-group-heading] {
+      padding-top: 6px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  /* ── Drag-and-drop target ───────────────────────────────────────────────────────────── */
+  .drop-overlay {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--background) 70%, transparent);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(140%);
+    transition:
+      opacity 160ms var(--ease-out),
+      visibility 0s linear 160ms;
+    &[data-visible] {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+      transition: opacity 160ms var(--ease-out);
+    }
+  }
+}

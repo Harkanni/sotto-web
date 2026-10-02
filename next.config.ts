@@ -18,6 +18,10 @@ const config: NextConfig = {
   async rewrites() {
     return [{ source: '/api/:path*', destination: `${apiUrl}/api/:path*` }];
   },
+  async redirects() {
+    // The app opens on Home. Not permanent: the root may become the marketing page (Phase 8).
+    return [{ source: '/', destination: '/home', permanent: false }];
+  },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }];
   },
