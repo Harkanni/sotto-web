@@ -13,6 +13,10 @@ type ShellEvents = {
   'open-add': undefined;
   /** Open the ⌘K palette. */
   'open-palette': undefined;
+  /** Open the ⌘K palette, or close it if it's open (⌘K itself). */
+  'toggle-palette': undefined;
+  /** Open the system file picker for documents or audio (the palette's Upload commands). */
+  'pick-files': 'files' | 'audio';
   /** Open the keyboard shortcuts sheet. */
   'open-shortcuts': undefined;
 };

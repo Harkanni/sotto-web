@@ -76,6 +76,8 @@ export function AskButton({ scopeLabel }: { scopeLabel: string }) {
         toggle ? (toggle.open ? 'Close Ask' : `Ask about ${scopeLabel}`) : `Ask about ${scopeLabel}`
       }
       aria-pressed={toggle ? toggle.open : undefined}
+      aria-keyshortcuts="A"
+      data-ask-toggle
       icon={<MessageCircle aria-hidden />}
       onClick={() => (toggle ? toggle.toggle() : navigate('/ask', { intent: 'none' }))}
       className={toggle?.open ? 'bg-primary-tint' : undefined}

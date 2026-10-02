@@ -118,9 +118,10 @@ function CloseButton() {
   return (
     <Dialog.Close
       aria-label="Close"
-      className="absolute top-2 right-2 z-10 grid size-11 place-items-center rounded-full text-muted-foreground select-none active:opacity-50"
+      className="group/close absolute top-2 right-2 z-10 grid size-11 place-items-center rounded-full text-muted-foreground outline-none select-none active:opacity-50"
     >
-      <span className="grid size-[30px] place-items-center rounded-full bg-fill">
+      {/* The focus ring hugs the visible circle, not the larger tap target around it. */}
+      <span className="grid size-[30px] place-items-center rounded-full bg-fill outline-offset-2 group-focus-visible/close:outline-2 group-focus-visible/close:outline-ring">
         <X aria-hidden className="size-4" strokeWidth={2.5} />
       </span>
     </Dialog.Close>

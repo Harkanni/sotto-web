@@ -64,6 +64,14 @@ export function AddSheet() {
   const audioRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => onShellEvent('open-add', () => setOpen(true)), []);
+  // Runs inside the user's click or keypress, which the browser requires to open a file picker.
+  useEffect(
+    () =>
+      onShellEvent('pick-files', (kind) =>
+        (kind === 'audio' ? audioRef : filesRef).current?.click(),
+      ),
+    [],
+  );
 
   function run(id: ActionId) {
     if (id === 'upload') filesRef.current?.click();

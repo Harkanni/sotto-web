@@ -21,7 +21,7 @@ import { personById } from '@/lib/sample/data';
 import { cn } from '@/lib/utils';
 import { useItemActions } from './item-actions';
 
-const KIND: Record<DocKind, { icon: typeof FileText; tint: string; label: string }> = {
+export const DOC_KINDS: Record<DocKind, { icon: typeof FileText; tint: string; label: string }> = {
   memo: {
     icon: ScrollText,
     tint: 'text-[#5856d6] bg-[#5856d6]/12 dark:text-[#9a98ff] dark:bg-[#5e5ce6]/24',
@@ -45,11 +45,11 @@ const KIND: Record<DocKind, { icon: typeof FileText; tint: string; label: string
 };
 
 export function docKindLabel(kind: DocKind) {
-  return KIND[kind].label;
+  return DOC_KINDS[kind].label;
 }
 
 export function KindIcon({ kind, size = 36 }: { kind: DocKind; size?: 36 | 44 }) {
-  const { icon: Icon, tint } = KIND[kind];
+  const { icon: Icon, tint } = DOC_KINDS[kind];
   return (
     <span
       aria-hidden
@@ -72,10 +72,12 @@ function TintIcon({ icon: Icon, tint }: { icon: typeof FileText; tint: string })
   );
 }
 
-const MEETING_TINT = 'text-[#5856d6] bg-[#5856d6]/12 dark:text-[#9a98ff] dark:bg-[#5e5ce6]/24';
-const THREAD_TINT = 'text-[#0040dd] bg-[#007aff]/12 dark:text-[#64d2ff] dark:bg-[#0a84ff]/24';
+export const MEETING_TINT =
+  'text-[#5856d6] bg-[#5856d6]/12 dark:text-[#9a98ff] dark:bg-[#5e5ce6]/24';
+export const THREAD_TINT =
+  'text-[#0040dd] bg-[#007aff]/12 dark:text-[#64d2ff] dark:bg-[#0a84ff]/24';
 
-function ownerName(id: string) {
+export function ownerName(id: string) {
   return personById(id)?.name ?? 'Someone';
 }
 

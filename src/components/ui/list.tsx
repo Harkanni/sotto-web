@@ -159,6 +159,7 @@ export function ListRowContent({
       <NavLink
         href={href}
         className={rowClass}
+        data-row=""
         aria-current={selected ? 'page' : undefined}
         onClick={(event) => {
           onClick?.(event);
@@ -175,7 +176,7 @@ export function ListRowContent({
   }
   if (onClick) {
     return (
-      <button type="button" className={rowClass} onClick={onClick} {...rowProps}>
+      <button type="button" className={rowClass} data-row="" onClick={onClick} {...rowProps}>
         {content}
       </button>
     );

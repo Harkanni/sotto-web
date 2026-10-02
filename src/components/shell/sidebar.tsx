@@ -2,6 +2,7 @@
 
 import { memo } from 'react';
 import { ChevronsUpDown, Plus, Search } from 'lucide-react';
+import { Kbd, ModKey } from '@/components/ui/kbd';
 import type { Tab } from '@/lib/nav/routes';
 import { cn } from '@/lib/utils';
 import { emitShellEvent } from './shell-events';
@@ -68,11 +69,17 @@ export const Sidebar = memo(function Sidebar({ active }: { active: Tab }) {
         <button
           type="button"
           onClick={() => emitShellEvent('open-palette')}
+          aria-keyshortcuts="Meta+K Control+K /"
           className="mt-2 flex min-h-10 items-center gap-2 rounded-input bg-fill px-3 text-left text-[16px] text-muted-foreground select-none hover:bg-fill-strong"
         >
           <Search aria-hidden className="size-4.5" />
           <span className="flex-1">Search</span>
-          <kbd className="font-sans text-footnote">⌘K</kbd>
+          <span aria-hidden className="flex gap-1">
+            <Kbd className="bg-fill-strong">
+              <ModKey />
+            </Kbd>
+            <Kbd className="bg-fill-strong">K</Kbd>
+          </span>
         </button>
       </div>
 
@@ -86,6 +93,7 @@ export const Sidebar = memo(function Sidebar({ active }: { active: Tab }) {
         <button
           type="button"
           onClick={() => emitShellEvent('open-add')}
+          aria-keyshortcuts="N"
           className="flex min-h-11 items-center gap-3 rounded-button px-3 text-[16px] leading-6 font-semibold text-primary-text select-none hover:bg-primary-tint active:bg-primary-tint-strong can-hover:min-h-9"
         >
           <Plus aria-hidden className="size-5.5" strokeWidth={2} />

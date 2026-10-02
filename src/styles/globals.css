@@ -249,6 +249,12 @@
     white-space: nowrap;
     border: 0;
   }
+
+  /* ⌘ on Apple devices, Ctrl elsewhere (the boot script sets data-platform before paint). */
+  :root:not([data-platform='apple']) .mod-apple,
+  :root[data-platform='apple'] .mod-other {
+    display: none;
+  }
 }
 
 /* ── Components ────────────────────────────────────────────────────────────────────────── */

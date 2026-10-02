@@ -329,4 +329,63 @@
       box-shadow: inset calc(var(--hairline) * -1) 0 0 var(--separator);
     }
   }
+
+  /* ── Keyboard: rows that J and K land on stay clear of the bars ─────────────────────── */
+  [data-row] {
+    scroll-margin-top: calc(var(--navbar-height) + var(--safe-top) + 8px);
+    scroll-margin-bottom: calc(var(--tabbar-space) + 8px);
+  }
+
+  /* ── ⌘K palette ──────────────────────────────────────────────────────────────────────── */
+  /* Nearly opaque: results stay legible over any page, with just enough blur to feel lifted. */
+  .palette {
+    background-color: color-mix(in srgb, var(--elevated) 94%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(40px);
+    backdrop-filter: saturate(180%) blur(40px);
+    @media (prefers-reduced-transparency: reduce) {
+      background-color: var(--elevated);
+    }
+  }
+  .palette-list {
+    /* cmdk measures its content; the list eases to each new height as results change. */
+    height: var(--cmdk-list-height);
+    max-height: min(420px, 56dvh);
+    transition: height 180ms var(--ease-out);
+    scroll-padding-block: 8px;
+    & [cmdk-list-sizer] {
+      position: relative;
+    }
+    & [cmdk-group-heading] {
+      padding: 10px 10px 4px;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 600;
+      color: var(--muted-foreground);
+    }
+    & [cmdk-group]:first-of-type [cmdk-group-heading] {
+      padding-top: 6px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+
+  /* ── Drag-and-drop target ───────────────────────────────────────────────────────────── */
+  .drop-overlay {
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--background) 70%, transparent);
+    -webkit-backdrop-filter: blur(12px) saturate(140%);
+    backdrop-filter: blur(12px) saturate(140%);
+    transition:
+      opacity 160ms var(--ease-out),
+      visibility 0s linear 160ms;
+    &[data-visible] {
+      visibility: visible;
+      opacity: 1;
+      pointer-events: auto;
+      transition: opacity 160ms var(--ease-out);
+    }
+  }
 }

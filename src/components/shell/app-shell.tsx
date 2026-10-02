@@ -9,9 +9,12 @@ import { useTitle } from '@/lib/nav/titles';
 import { Toaster } from '@/components/ui/toaster';
 import { renderScreen, renderPlaceholder } from '@/screens';
 import { AddSheet } from './add-sheet';
+import { CommandPalette } from './command-palette';
+import { DropOverlay } from './drop-overlay';
 import { Fab } from './fab';
 import { MoveSheet, RenameSheet } from './item-sheets';
 import { OfflineBanner, ThemeColorSync, useVisualViewport } from './system';
+import { ShortcutsSheet, useKeyboardShortcuts } from './shortcuts';
 import { Sidebar } from './sidebar';
 import { TabBar } from './tab-bar';
 import { TabStack } from './tab-stack';
@@ -39,6 +42,9 @@ const Overlays = memo(function Overlays() {
       <AddSheet />
       <MoveSheet />
       <RenameSheet />
+      <CommandPalette />
+      <ShortcutsSheet />
+      <DropOverlay />
       <Toaster />
       <ThemeColorSync />
     </>
@@ -64,6 +70,7 @@ export function AppShell() {
 
   useEffect(() => startNavigation(), []);
   useVisualViewport();
+  useKeyboardShortcuts(active);
 
   // The shell owns scrolling (the boot script sets this too, before first paint).
   useEffect(() => {
