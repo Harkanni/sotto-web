@@ -21,7 +21,11 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       { name: 'Ask', url: '/ask', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
-      { name: 'Meetings', url: '/meetings', icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }] },
+      {
+        name: 'Meetings',
+        url: '/meetings',
+        icons: [{ src: '/icons/icon-192.png', sizes: '192x192' }],
+      },
     ],
   };
 }
