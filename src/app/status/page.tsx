@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { checkLabel, fetchApiStatus, formatUptime, type ApiStatus } from '@/lib/status';
 
 // Always render on request: the page reports live status, so it must never be cached at build.
@@ -109,9 +110,9 @@ export default async function StatusPage() {
 
       <p className="px-4 text-footnote text-muted-foreground">
         Nothing here uses real customer data.{' '}
-        <a href="/home" className="text-primary-text underline-offset-2 hover:underline">
+        <Link href="/home" className="text-primary-text underline-offset-2 hover:underline">
           Open the app
-        </a>
+        </Link>
       </p>
     </main>
   );
