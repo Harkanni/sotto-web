@@ -20,6 +20,7 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build -o storybook-static",
     "test:stories": "playwright test -c playwright.stories.config.ts",
+    "smoothness": "node scripts/smoothness.mjs",
     "generate:assets": "node scripts/generate-assets.mjs"
   },
   "dependencies": {
