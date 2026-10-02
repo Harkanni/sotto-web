@@ -1,0 +1,267 @@
+/*
+ * Sotto design tokens (docs/BRIEF.md §8): colour, type, layout, radius, material and motion.
+ *
+ * Colours use light-dark(), so one declaration covers both themes. next-themes sets
+ * `color-scheme` on <html> (light, dark, or the OS choice), and every colour follows it. A
+ * subtree can force a scheme with `color-scheme: dark`. Every text pairing meets WCAG AA; the
+ * ratios are in the comments and checked in test/tokens.test.ts.
+ *
+ * Tailwind maps these onto utilities in globals.css (`bg-card`, `text-muted-foreground`,
+ * `text-body`, `rounded-card` …). Tailwind's default palette and type scale are switched off
+ * there, so only these values can be used.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --background: light-dark(#f2f2f7, #000000); /* grouped page background */
+  --card: light-dark(#ffffff, #1c1c1e); /* cells, cards, sheets */
+  --card-nested: light-dark(#f2f2f7, #2c2c2e); /* a well inside a card */
+  --elevated: light-dark(#ffffff, #2c2c2e); /* popovers and menus */
+
+  /* ── Text ─────────────────────────────────────────────────────────────── */
+  --foreground: light-dark(#000000, #ffffff);
+  /* 5.23:1 on card, 4.69:1 on background (light); 5.95:1 on card (dark). */
+  --muted-foreground: light-dark(#6c6c70, rgb(235 235 245 / 0.6));
+  /* Decoration only (chevrons, disabled glyphs). Never for text a user must read. */
+  --faint-foreground: light-dark(rgb(60 60 67 / 0.3), rgb(235 235 245 / 0.3));
+
+  /* ── Fills and lines ──────────────────────────────────────────────────── */
+  --fill: light-dark(rgb(118 118 128 / 0.12), rgb(118 118 128 / 0.24)); /* inputs, chips */
+  --fill-strong: light-dark(rgb(120 120 128 / 0.2), rgb(120 120 128 / 0.36)); /* pressed */
+  --fill-subtle: light-dark(rgb(116 116 128 / 0.08), rgb(118 118 128 / 0.18));
+  --separator: light-dark(rgb(60 60 67 / 0.29), rgb(84 84 88 / 0.6));
+  --separator-opaque: light-dark(#c6c6c8, #38383a);
+  --row-pressed: light-dark(#d1d1d6, #3a3a3c);
+
+  /* ── Accent ───────────────────────────────────────────────────────────── */
+  --primary: light-dark(#5856d6, #5e5ce6); /* fills; white text 5.65:1 / 5.06:1 */
+  --primary-foreground: #ffffff;
+  /* Text and outlines. Dark value is 4.94:1 on card; elevated surfaces lift it (below). */
+  --primary-text: light-dark(#5856d6, #7d7aff);
+  --primary-tint: color-mix(in srgb, var(--primary) 8%, transparent); /* hover wash */
+  --primary-tint-strong: color-mix(in srgb, var(--primary) 14%, transparent); /* pressed */
+
+  /* ── Status ───────────────────────────────────────────────────────────── */
+  --destructive: #d70015; /* fills with white text, 5.38:1 */
+  --destructive-foreground: #ffffff;
+  --destructive-text: light-dark(#d70015, #ff6961); /* 5.38:1 / 6.03:1 */
+  --destructive-icon: light-dark(#ff3b30, #ff453a); /* iOS red: icons only */
+  --success: light-dark(#248a3d, #30d158);
+  --success-text: light-dark(#1d7432, #30d158); /* 5.84:1 / 8.42:1 */
+  --warning: light-dark(#ff9500, #ff9f0a);
+  --warning-text: light-dark(#b33000, #ff9f0a); /* 5.36:1 on its tint / 8.28:1 */
+
+  /* Sensitivity labels (Docs). Text colours hold AA on their own 10% / 16% tint. */
+  --label-public: light-dark(#1d7432, #30d158);
+  --label-internal: light-dark(#616165, #aeaeb2);
+  --label-confidential: light-dark(#b33000, #ff9f0a);
+  --label-restricted: light-dark(#c00012, #ff6961);
+  --label-accent: light-dark(#4b49c4, #a3a1ff);
+
+  /* ── States ───────────────────────────────────────────────────────────── */
+  --ring: var(--primary-text);
+  --overlay: light-dark(rgb(0 0 0 / 0.22), rgb(0 0 0 / 0.48)); /* dim behind sheets */
+  --scrim: light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.32)); /* dim on a covered screen */
+  /* Skeletons are tinted from the widget's own surface (brief §8), stronger in dark. */
+  --skeleton: light-dark(
+    color-mix(in oklab, var(--card) 92%, var(--foreground)),
+    color-mix(in oklab, var(--card) 88%, var(--foreground))
+  );
+  --skeleton-highlight: light-dark(
+    color-mix(in oklab, var(--card) 97%, var(--foreground)),
+    color-mix(in oklab, var(--card) 82%, var(--foreground))
+  );
+
+  /* ── Materials (tab bar, nav bar, sidebar) ────────────────────────────── */
+  --material-bar: color-mix(in srgb, var(--card) 72%, transparent);
+  --material-thick: color-mix(in srgb, var(--elevated) 82%, transparent);
+  --material-filter: saturate(180%) blur(20px);
+
+  /* ── Shadows ──────────────────────────────────────────────────────────── */
+  --shadow-fab:
+    0 1px 2px light-dark(rgb(0 0 0 / 0.12), rgb(0 0 0 / 0.5)),
+    0 6px 16px light-dark(rgb(88 86 214 / 0.32), rgb(0 0 0 / 0.55));
+  --shadow-menu:
+    0 0 0 0.5px light-dark(rgb(0 0 0 / 0.04), rgb(255 255 255 / 0.06)),
+    0 10px 38px light-dark(rgb(0 0 0 / 0.16), rgb(0 0 0 / 0.6));
+  --shadow-sheet: 0 -1px 12px light-dark(rgb(0 0 0 / 0.08), rgb(0 0 0 / 0.5));
+  /* The left edge of a pushed screen (iOS casts a soft shadow onto the screen it covers). */
+  --shadow-edge: -6px 0 24px light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.5));
+  --shadow-card: 0 1px 2px light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0));
+
+  /* ── Type ─────────────────────────────────────────────────────────────── */
+  /* Tracking differs by face: SF (Apple platforms) is spaced for UIKit's tracking table, Inter
+     follows its own optical spacing. layout.tsx sets data-platform="apple" before paint. */
+  --tracking-large-title: -0.018em;
+  --tracking-title-1: -0.017em;
+  --tracking-title-2: -0.016em;
+  --tracking-title-3: -0.014em;
+  --tracking-body: -0.011em;
+  --tracking-callout: -0.009em;
+  --tracking-subhead: -0.006em;
+  --tracking-footnote: -0.002em;
+  --tracking-caption: 0em;
+
+  /* ── Layout ───────────────────────────────────────────────────────────── */
+  --gutter: 16px;
+  --hairline: 0.5px;
+  --tabbar-height: 49px;
+  --navbar-height: 44px;
+  --fab-size: 56px;
+  --sidebar-width: 272px;
+  --list-pane-width: 352px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  /* Space content must leave for the tab bar on phones (zero where there is none). */
+  --tabbar-space: calc(var(--tabbar-height) + var(--safe-bottom));
+
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  /* Springs traced as linear() easings by src/lib/motion/spring.ts (test/tokens.test.ts keeps
+     these in sync). Pair each easing with its duration. */
+  --ease-standard: linear(
+    0,
+    0.0453,
+    0.1531,
+    0.2901,
+    0.4335,
+    0.5688,
+    0.6877,
+    0.7867,
+    0.8652,
+    0.9246,
+    0.9672,
+    0.9961,
+    1.0141,
+    1.0239,
+    1.0279,
+    1.028,
+    1.0258,
+    1.0222,
+    1.0182,
+    1.0142,
+    1.0105,
+    1.0074,
+    1.0049,
+    1.0029,
+    1.0015,
+    1.0005,
+    0.9998,
+    1
+  );
+  --duration-standard: 442ms;
+  --ease-snappy: linear(
+    0,
+    0.0757,
+    0.2359,
+    0.4144,
+    0.5776,
+    0.7115,
+    0.8136,
+    0.8869,
+    0.9368,
+    0.9688,
+    0.9882,
+    0.9989,
+    1.0041,
+    1.006,
+    1.0061,
+    1.0053,
+    1.0042,
+    1.0032,
+    1.0022,
+    1.0015,
+    1.0009,
+    1
+  );
+  --duration-snappy: 350ms;
+  --ease-push: linear(
+    0,
+    0.038,
+    0.1249,
+    0.2324,
+    0.3437,
+    0.4493,
+    0.5445,
+    0.6276,
+    0.6984,
+    0.7575,
+    0.8064,
+    0.8462,
+    0.8784,
+    0.9043,
+    0.9249,
+    0.9413,
+    0.9542,
+    0.9644,
+    0.9724,
+    0.9786,
+    0.9834,
+    0.9872,
+    0.9902,
+    0.9924,
+    0.9942,
+    0.9955,
+    0.9966,
+    0.9974,
+    0.998,
+    0.9985,
+    1
+  );
+  --duration-push: 496ms;
+  /* Plain fades (opacity only): quick in, gentle out. */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 150ms;
+  --duration-base: 220ms;
+  --duration-slow: 300ms;
+
+  /* ── Stacking ─────────────────────────────────────────────────────────── */
+  --z-screen: 0;
+  --z-navbar: 10;
+  --z-tabbar: 20;
+  --z-fab: 30;
+  --z-banner: 35;
+  --z-overlay: 40;
+  --z-sheet: 50;
+  --z-popover: 60;
+  --z-toast: 70;
+  --z-palette: 80;
+}
+
+/* Explicit choices from Settings → Appearance (next-themes also sets color-scheme inline). */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* Apple platforms render SF, which UIKit tracks tighter at text sizes and looser at display. */
+:root[data-platform='apple'] {
+  --tracking-large-title: 0.011em;
+  --tracking-title-1: 0.012em;
+  --tracking-title-2: -0.012em;
+  --tracking-title-3: -0.02em;
+  --tracking-body: -0.024em;
+  --tracking-callout: -0.019em;
+  --tracking-subhead: -0.015em;
+  --tracking-footnote: -0.006em;
+  --tracking-caption: 0em;
+}
+
+/* Popovers and menus sit on #2C2C2E in dark mode, where the standard indigo text is 4.05:1. */
+.surface-elevated {
+  --primary-text: light-dark(#5856d6, #9a98ff);
+}
+
+/* Phones only: tablets and desktops have a sidebar instead of a tab bar. */
+@media (min-width: 768px) {
+  :root {
+    --tabbar-space: 0px;
+    --gutter: 20px;
+  }
+}

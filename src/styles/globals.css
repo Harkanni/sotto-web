@@ -1,86 +1,293 @@
 @import 'tailwindcss';
+@import './tokens.css';
 
-/*
- * Sotto design tokens (docs/BRIEF.md §8). Values mirror iOS 18 / macOS system colours, adjusted
- * where Apple's defaults fail WCAG AA. Phase 2 maps these onto shadcn/ui's names and adds the
- * manual light/dark switch; for now the OS setting decides.
- */
-:root {
-  --background: #f2f2f7;
-  --card: #ffffff;
-  --elevated: #ffffff;
-  --foreground: #000000;
-  --muted-foreground: #6c6c70;
-  --fill: rgb(118 118 128 / 0.12);
-  --separator: rgb(60 60 67 / 0.29);
-  --primary: #5856d6;
-  --primary-text: #5856d6;
-  --destructive: #d70015;
-  --success: #248a3d;
-  --radius-card: 12px;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #000000;
-    --card: #1c1c1e;
-    --elevated: #2c2c2e;
-    --foreground: #ffffff;
-    --muted-foreground: rgb(235 235 245 / 0.6);
-    --fill: rgb(118 118 128 / 0.24);
-    --separator: rgb(84 84 88 / 0.6);
-    --primary: #5e5ce6;
-    --primary-text: #7d7aff;
-    --success: #30d158;
-    color-scheme: dark;
+/* Dark utilities follow the explicit theme attribute that next-themes sets. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+/* Tailwind's `hover:` already applies only under (hover: hover). `can-hover:` is stricter: a
+   mouse or trackpad, for desktop-only affordances like the row "…" button appearing. */
+@custom-variant can-hover {
+  @media (hover: hover) and (pointer: fine) {
+    @slot;
   }
 }
 
 @theme inline {
+  /* Only Sotto's colours exist: Tailwind's palette is switched off. */
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
   --color-background: var(--background);
   --color-card: var(--card);
+  --color-card-nested: var(--card-nested);
   --color-elevated: var(--elevated);
   --color-foreground: var(--foreground);
   --color-muted-foreground: var(--muted-foreground);
+  --color-faint-foreground: var(--faint-foreground);
   --color-fill: var(--fill);
+  --color-fill-strong: var(--fill-strong);
+  --color-fill-subtle: var(--fill-subtle);
   --color-separator: var(--separator);
+  --color-separator-opaque: var(--separator-opaque);
+  --color-row-pressed: var(--row-pressed);
   --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-primary-text: var(--primary-text);
+  --color-primary-tint: var(--primary-tint);
+  --color-primary-tint-strong: var(--primary-tint-strong);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-text: var(--destructive-text);
+  --color-destructive-icon: var(--destructive-icon);
   --color-success: var(--success);
+  --color-success-text: var(--success-text);
+  --color-warning: var(--warning);
+  --color-warning-text: var(--warning-text);
+  --color-overlay: var(--overlay);
+  --color-ring: var(--ring);
+
+  --font-*: initial;
   --font-sans: -apple-system, BlinkMacSystemFont, var(--font-inter), system-ui, sans-serif;
-  --radius-card: var(--radius-card);
+  --font-mono: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* The type scale from brief §8 — and nothing else. Below 16px is for metadata only. */
+  --text-*: initial;
+  --text-large-title: 34px;
+  --text-large-title--line-height: 41px;
+  --text-large-title--letter-spacing: var(--tracking-large-title);
+  --text-large-title--font-weight: 700;
+  --text-title-1: 28px;
+  --text-title-1--line-height: 34px;
+  --text-title-1--letter-spacing: var(--tracking-title-1);
+  --text-title-1--font-weight: 700;
+  --text-title-2: 22px;
+  --text-title-2--line-height: 28px;
+  --text-title-2--letter-spacing: var(--tracking-title-2);
+  --text-title-2--font-weight: 700;
+  --text-title-3: 20px;
+  --text-title-3--line-height: 25px;
+  --text-title-3--letter-spacing: var(--tracking-title-3);
+  --text-title-3--font-weight: 600;
+  --text-headline: 17px;
+  --text-headline--line-height: 22px;
+  --text-headline--letter-spacing: var(--tracking-body);
+  --text-headline--font-weight: 600;
+  --text-body: 17px;
+  --text-body--line-height: 22px;
+  --text-body--letter-spacing: var(--tracking-body);
+  --text-callout: 16px;
+  --text-callout--line-height: 21px;
+  --text-callout--letter-spacing: var(--tracking-callout);
+  --text-subhead: 15px;
+  --text-subhead--line-height: 20px;
+  --text-subhead--letter-spacing: var(--tracking-subhead);
+  --text-footnote: 13px;
+  --text-footnote--line-height: 18px;
+  --text-footnote--letter-spacing: var(--tracking-footnote);
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-caption--letter-spacing: var(--tracking-caption);
+
+  --leading-reading: 1.5;
+
+  --radius-*: initial;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-button: 8px;
+  --radius-input: 10px;
+  --radius-card: 12px;
+  --radius-menu: 13px;
+  --radius-sheet: 16px;
+  --radius-full: 9999px;
+
+  --shadow-*: initial;
+  --shadow-fab: var(--shadow-fab);
+  --shadow-menu: var(--shadow-menu);
+  --shadow-sheet: var(--shadow-sheet);
+  --shadow-card: var(--shadow-card);
+
+  --ease-standard: var(--ease-standard);
+  --ease-snappy: var(--ease-snappy);
+  --ease-push: var(--ease-push);
+  --ease-out: var(--ease-out);
+  --ease-in-out: var(--ease-in-out);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-spin: spin 0.8s linear infinite;
+
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
 }
 
-html {
-  -webkit-text-size-adjust: 100%;
-  text-rendering: optimizeLegibility;
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  /* Body text never below 16px (brief §9). */
-  font-size: 17px;
-  line-height: 1.47;
-  -webkit-font-smoothing: antialiased;
-  min-height: 100dvh;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
-}
-
-:focus-visible {
-  outline: 2px solid var(--primary-text);
-  outline-offset: 2px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
   }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    /* Never fake bold or italic: Inter and SF have real ones. */
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    background: var(--background);
+  }
+
+  body {
+    min-height: 100dvh;
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    /* Body is 17px (brief §8); nothing a user needs to read goes below 16px. */
+    font-size: 17px;
+    line-height: 22px;
+    letter-spacing: var(--tracking-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* The app shell owns scrolling: each screen is its own scroller, so the page never bounces. */
+  html:has([data-app-shell]) {
+    overflow: hidden;
+    overscroll-behavior: none;
+    height: 100%;
+  }
+  html:has([data-app-shell]) body {
+    overflow: hidden;
+    height: 100%;
+  }
+
+  /* Inputs are 16px or larger so iOS Safari never zooms on focus (brief §9). */
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1em);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+
+  /* A 2px indigo ring, offset by 2px of whatever surface is behind it (brief §8). */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  button,
+  [role='button'] {
+    cursor: default;
+  }
+  a,
+  button {
+    -webkit-touch-callout: none;
+  }
+
+  /* Screen readers only, until focused (the "…" action button on rows, skip links). */
+  .sr-only-focusable:not(:focus, :focus-within) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────────────────────────── */
+
+/* Translucent bar material (brief §8), solid where blur is missing or transparency is reduced. */
+@utility material-bar {
+  background-color: var(--material-bar);
+  -webkit-backdrop-filter: var(--material-filter);
+  backdrop-filter: var(--material-filter);
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: var(--card);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@utility material-thick {
+  background-color: var(--material-thick);
+  -webkit-backdrop-filter: saturate(180%) blur(30px);
+  backdrop-filter: saturate(180%) blur(30px);
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background-color: var(--elevated);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background-color: var(--elevated);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Hairlines: half a pixel on high-density screens, which browsers round up to one on 1x. */
+@utility hairline-t {
+  box-shadow: inset 0 var(--hairline) 0 var(--separator);
+}
+@utility hairline-b {
+  box-shadow: inset 0 calc(var(--hairline) * -1) 0 var(--separator);
+}
+
+@utility pt-safe {
+  padding-top: var(--safe-top);
+}
+@utility pb-safe {
+  padding-bottom: var(--safe-bottom);
+}
+@utility pl-safe {
+  padding-left: var(--safe-left);
+}
+@utility pr-safe {
+  padding-right: var(--safe-right);
+}
+
+/* Long-form reading (answers, transcripts): ~1.5 line height and a comfortable measure. */
+@utility prose-reading {
+  font-size: 17px;
+  line-height: var(--leading-reading);
+  letter-spacing: var(--tracking-body);
+  max-width: 68ch;
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Press feedback that starts instantly and releases with a spring (brief §8: scale 0.97). */
+@utility pressable {
+  transition: transform var(--duration-snappy) var(--ease-snappy);
+  &:active:not(:disabled, [aria-disabled='true'], [aria-busy='true']) {
+    transform: scale(0.97);
+    transition-duration: 60ms;
+    transition-timing-function: var(--ease-out);
+  }
+}
+
+/* ── View transitions (theme crossfade) ────────────────────────────────────────────────── */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 280ms;
+  animation-timing-function: var(--ease-in-out);
 }
