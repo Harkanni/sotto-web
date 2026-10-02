@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Screen } from '@/components/shell/screen';
 import { useLayer } from '@/components/shell/stack-context';
 import { AsyncWidget, EmptyState } from '@/components/widgets/async-widget';
+import { useIsWide } from '@/lib/hooks/use-media-query';
 import { NavLink } from '@/lib/nav/link';
 import { useChildKey } from '@/lib/nav/hooks';
 import { pushPath } from '@/lib/nav/routes';
@@ -171,6 +172,8 @@ export function AskScreen() {
   const query = useThreads();
   const selected = useChildKey(tab, entry.key);
   const [scope, setScope] = useState('all');
+  // The list pane on wide windows is narrow: a short prompt keeps the composer one line tall.
+  const wide = useIsWide();
 
   const ask = (question: string) => {
     const thread = createLocalThread(question, scopeLabel(scope));
@@ -179,7 +182,17 @@ export function AskScreen() {
   };
 
   return (
-    <Screen title="Ask" footer={<Composer onSend={ask} scope={scope} onScopeChange={setScope} />}>
+    <Screen
+      title="Ask"
+      footer={
+        <Composer
+          onSend={ask}
+          scope={scope}
+          onScopeChange={setScope}
+          placeholder={wide ? 'Ask a question' : undefined}
+        />
+      }
+    >
       <AsyncWidget
         query={query}
         label="Recent chats"

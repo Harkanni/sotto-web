@@ -40,13 +40,14 @@ export function Composer({
   const ref = useRef<HTMLTextAreaElement>(null);
   const canSend = text.trim().length > 0;
 
-  // Grow with the text up to six lines, then scroll.
+  // Grow with the text up to six lines, then scroll. An empty field measures its placeholder,
+  // so a new placeholder (narrower windows get a shorter one) measures again too.
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 22 * 6 + 16)}px`;
-  }, [text]);
+  }, [text, placeholder]);
 
   const send = () => {
     const value = text.trim();
