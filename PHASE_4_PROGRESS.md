@@ -3,18 +3,18 @@
 The running record for Phase 4, kept current at every checkpoint. A new session follows the
 recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** below.
 
-| Repo           | Branch              | Pull request                                                 |
-| -------------- | ------------------- | ------------------------------------------------------------ |
-| sotto-api      | `feat/p4-ingestion` | draft, opened at M0 (merges first)                           |
-| sotto-web      | `feat/p4-ingestion` | draft, opened at M0                                          |
-| sotto-platform | `docs/p4-status`    | draft, opened at M0 (companion: STATUS, ADRs, Compose, demo) |
+| Repo           | Branch              | Pull request                                                                                                            |
+| -------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| sotto-api      | `feat/p4-ingestion` | [Harkanni/sotto-api#4](https://github.com/Harkanni/sotto-api/pull/4) (merges first)                                     |
+| sotto-web      | `feat/p4-ingestion` | [Harkanni/sotto-web#4](https://github.com/Harkanni/sotto-web/pull/4)                                                    |
+| sotto-platform | `docs/p4-status`    | [Harkanni/sotto-platform#4](https://github.com/Harkanni/sotto-platform/pull/4) (companion: STATUS, ADRs, Compose, demo) |
 
 ## Project status
 
 - **Current phase:** 4 — ingestion and meetings. Phases 0–3 are merged (sotto-api `5c4e4f0`,
   sotto-web `fbc5321`, sotto-platform `2f0ffd9`).
 - **Overall:** in progress.
-- **Current milestone:** M1.
+- **Current milestone:** M2.
 
 ## Requirements
 
@@ -62,7 +62,7 @@ Phase 3's carry-overs (ADRs 0012, 0013).
 - Live status: `GET /events` (SSE). Meetings: `GET /files/:id/transcript?q`,
   `GET /files/:id/insights`, `PUT /files/:id/position`, `GET /continue-listening`.
 - Data model: File, Transcript, TranscriptSegment, MeetingInsights, PlaybackPosition, Chunk,
-  ChunkEmbedding, EmbeddingIndex, AiModel; the **Next** tables added empty (`File.source`,
+  ChunkEmbedding, EmbeddingIndex; the **Next** tables added empty (`File.source`,
   Integration, RetentionPolicy, LegalHold).
 
 **Carried over from Phase 3**
@@ -115,9 +115,20 @@ worker ──Redis pub/sub──▶ api ──GET /events (SSE)──▶ browser
   the web the sample layer, Docs, Doc, Meetings, the + sheet and the drop target. Baseline on
   `main`: sotto-api builds and its 51 unit tests pass.
 
+- **M1 (sotto-api `c8bccdb`):** migration `20261003210000_files_and_meetings` (files,
+  transcripts, segments, insights, playback positions, chunks with a generated `tsvector` + GIN,
+  `chunk_embeddings` one row per model, `embedding_indexes`, the empty Next tables, a trigram
+  index for transcript search, CHECK constraints). `@sotto/db` `vectors.ts`: per-model partial
+  HNSW (cast to the model's size) and batched upserts, checked on real pgvector (PGlite): the
+  planner uses the partial index. New package `@sotto/storage` (presigned multipart, ListParts
+  resume, presigned reads, JSON docs, one-file prefix delete) checked against an S3 server
+  (moto). Contracts: `transcribe.progress`, richer requested/completed, stored transcript,
+  pages and peaks documents, insights, file events (filter fields stripped for browsers).
+  `AiModel` stays in Phase 6 with the catalog it serves.
+
 ## Work in progress
 
-M1: the schema and migration.
+M2: uploads and files API.
 
 ## Remaining work
 
@@ -125,9 +136,10 @@ Everything from M1 on (table above).
 
 ## Next steps
 
-1. M1 in sotto-api (`feat/p4-ingestion`): add the Phase 4 models to `schema.prisma`, write the
-   migration (pgvector, generated `tsvector`, per-model HNSW created by the worker), the storage
-   module and the new contracts; tests; commit and push.
+1. M2 in sotto-api: `StorageService` + config in the api; `files` module (access helpers that
+   reuse `visibleTo`, uploads, files CRUD, trash, retry, download); `GET /events` (Redis
+   pub/sub → SSE, filtered per viewer); audit; integration tests per role (S3 in CI);
+   `openapi.json`.
 
 ## Decisions
 
