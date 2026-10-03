@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 4 — ingestion and meetings. Phases 0–3 are merged (sotto-api `5c4e4f0`,
   sotto-web `fbc5321`, sotto-platform `2f0ffd9`).
 - **Overall:** in progress.
-- **Current milestone:** M2.
+- **Current milestone:** M4.
 
 ## Requirements
 
@@ -126,9 +126,24 @@ worker ──Redis pub/sub──▶ api ──GET /events (SSE)──▶ browser
   pages and peaks documents, insights, file events (filter fields stripped for browsers).
   `AiModel` stays in Phase 6 with the catalog it serves.
 
+- **M2 (sotto-api `9779b76`, CI green):** uploads (start, resume via ListParts, more part URLs,
+  complete with a part and size check, abort); files (list with filters, title search, keyset
+  cursors; get; rename, move, tags, pin, relabel; trash, restore, delete for good; retry;
+  short-lived download links, audited when saved, not when played). Access in SQL
+  (`fileVisibleTo` reusing `visibleTo`), unfiled like an open collection, only admins lower a
+  file from Restricted, chunks follow moves and labels. Deleting a collection trashes its files,
+  unfiled, visible only to owners and admins. `GET /events` (SSE) relays Redis events filtered per
+  viewer. CI's test job now has Redis and SeaweedFS.
+- **M3 (sotto-api `158b8c0`):** worker handlers (extract → pages.json → chunk → embed → READY;
+  audio → checksum → transcription request; progress; transcript rows → time-window chunks →
+  embed → notes → READY), retries with backoff, permanent failures with codes, dead-letter queue,
+  hourly trash purge. OpenAI-compatible embedding and chat adapters (Ollama, vLLM, TEI) built
+  from `provider:model` settings. Notes: the private chat model when configured, else labelled
+  basic notes; Restricted only reaches in-cluster models.
+
 ## Work in progress
 
-M2: uploads and files API.
+M4: the transcriber.
 
 ## Remaining work
 
@@ -136,14 +151,28 @@ Everything from M1 on (table above).
 
 ## Next steps
 
-1. M2 in sotto-api: `StorageService` + config in the api; `files` module (access helpers that
-   reuse `visibleTo`, uploads, files CRUD, trash, retry, download); `GET /events` (Redis
-   pub/sub → SSE, filtered per viewer); audit; integration tests per role (S3 in CI);
-   `openapi.json`.
+1. M4 in sotto-api `services/transcriber`: mirror the new contracts in `app/contracts.py`; a
+   queue consumer (transcribe.requested → download from S3 → ffmpeg to 16 kHz mono → engine →
+   transcript.json + peaks.json → transcribe.completed, with transcribe.progress); a
+   faster-whisper engine; Dockerfile with ffmpeg and a model cache; tests with the fake engine.
 
 ## Decisions
 
 Recorded as they're taken; the ones a later session must not undo become ADRs (0016 on).
+
+- **File access (ADR 0016, to write):** a file follows its collection; unfiled files are visible
+  to everyone, editable by their owner and admins; trashed unfiled files only by their owner and
+  admins; deleting a collection trashes its files unfiled. Lowering from Restricted is admin-only.
+  Permanent delete needs Manage, or ownership with Edit.
+- **Queues keep their Phase 1 declarations** (durable, no arguments): redeclaring a live queue
+  with new arguments fails, so dead-lettering is done by the worker (it parks messages in
+  `sotto.dead`) rather than by queue arguments.
+- **Vectors:** `chunk_embeddings` is model-agnostic; each model gets a partial HNSW index cast to
+  its size, created the first time it's used. The first model ever used serves searches.
+- **Chunks** never cross a page or a 90-second window, ~1,200 characters, one-sentence or
+  one-line overlap. Non-PDF formats have no page numbers (citations show none).
+- **Notes without a model** are rule-based and labelled ("basic notes"), never presented as AI.
+- **Live events carry no titles**; the API filters them per viewer and strips the filter fields.
 
 ## Missing specifications and outside dependencies
 
