@@ -79,6 +79,12 @@ export type ListRowProps = {
   onClick?: (event: React.MouseEvent) => void;
   chevron?: boolean;
   destructive?: boolean;
+  /**
+   * Reads as an item (normal text) though it responds to taps: rows that open a sheet about
+   * themselves (a person, a passkey). Without it, a tappable row that isn't a link is an action
+   * and reads in indigo ("Invite people").
+   */
+  plain?: boolean;
   /** Selected in the list pane next to its open detail (wide windows). */
   selected?: boolean;
   className?: string;
@@ -97,6 +103,7 @@ export function ListRowContent({
   onClick,
   chevron,
   destructive,
+  plain,
   selected,
   className,
   rowProps,
@@ -126,7 +133,7 @@ export function ListRowContent({
             className={cn(
               'block truncate text-body',
               destructive && 'text-destructive-text',
-              interactive && !destructive && !href && 'text-primary-text',
+              interactive && !destructive && !href && !plain && 'text-primary-text',
             )}
           >
             {title}

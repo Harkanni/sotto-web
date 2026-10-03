@@ -469,3 +469,23 @@
   animation-duration: 280ms;
   animation-timing-function: var(--ease-in-out);
 }
+
+/* ── Auth screens ──────────────────────────────────────────────────────────────────────── */
+/* A new stage (sign-in → "check your email") rises 12 px into place on the standard spring as
+   the answer to the action that caused it. The first stage on a page load never animates. */
+.auth-stage[data-animate] {
+  transition-property: opacity, translate;
+  transition-duration: var(--duration-base), var(--duration-standard);
+  transition-timing-function: var(--ease-out), var(--ease-standard);
+  @starting-style {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-stage[data-animate] {
+    @starting-style {
+      translate: none;
+    }
+  }
+}

@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  dateAndTime,
   dayAndTime,
   dayGroup,
+  dayHeading,
+  expiresLabel,
+  fullDate,
   dueLabel,
   duration,
   fileSize,
@@ -78,5 +82,36 @@ describe('due dates and times', () => {
   it('lower-cases relative phrases after "Updated"', () => {
     expect(updatedLabel(at(2, 10), now)).toBe('Updated 2 h ago');
     expect(updatedLabel(at(1, 10), now)).toBe('Updated yesterday');
+  });
+});
+
+describe('fullDate and dateAndTime', () => {
+  it('names the day, month and year', () => {
+    expect(fullDate(at(2, 9))).toBe('2 Oct 2026');
+    expect(dateAndTime(at(2, 14, 32))).toBe('2 Oct 2026 at 14:32');
+  });
+});
+
+describe('dayHeading', () => {
+  it('says today and yesterday, then the weekday and date (same year)', () => {
+    expect(dayHeading(at(2, 8), now)).toBe('Today');
+    expect(dayHeading(at(1, 23), now)).toBe('Yesterday');
+    expect(dayHeading(new Date(2026, 6, 14, 10).getTime(), now)).toBe('Tuesday 14 Jul');
+  });
+
+  it('adds the year for another year', () => {
+    expect(dayHeading(new Date(2025, 7, 12, 10).getTime(), now)).toBe('12 Aug 2025');
+  });
+});
+
+describe('expiresLabel', () => {
+  it('counts the days left', () => {
+    expect(expiresLabel(at(2, 18), now)).toBe('Expires today');
+    expect(expiresLabel(at(3, 9), now)).toBe('Expires tomorrow');
+    expect(expiresLabel(at(9, 12), now)).toBe('Expires in 7 days');
+  });
+
+  it('says when it has passed', () => {
+    expect(expiresLabel(at(2, 11), now)).toBe('Expired');
   });
 });

@@ -6,6 +6,7 @@ import {
   Bot,
   Building2,
   Check,
+  ChevronRight,
   CreditCard,
   Hand,
   Info,
@@ -22,15 +23,19 @@ import { useState, useSyncExternalStore } from 'react';
 import { Screen } from '@/components/shell/screen';
 import { useLayer } from '@/components/shell/stack-context';
 import { Avatar } from '@/components/ui/avatar';
-import { Badge, SensitivityBadge } from '@/components/ui/badge';
+import { SensitivityBadge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { List, ListRow, RowIcon } from '@/components/ui/list';
 import { SearchField } from '@/components/ui/search-field';
 import { SegmentedControl } from '@/components/ui/segmented-control';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
-import { toastPreview } from '@/components/ui/toaster';
 import { AsyncWidget, EmptyState } from '@/components/widgets/async-widget';
+import { useActiveWorkspace, useMe, useWorkspaces } from '@/lib/api/hooks';
+import { signOut } from '@/lib/auth/account';
 import { useChildKey } from '@/lib/nav/hooks';
+import { NavLink } from '@/lib/nav/link';
 import { navigateUp } from '@/lib/nav/store';
 import { HAND_STORAGE_KEY } from '@/lib/prefs/boot-script';
 import { setThemeSmoothly } from '@/lib/prefs/theme';
@@ -42,8 +47,9 @@ import {
   type SampleSettings,
   type SampleState,
 } from '@/lib/sample/api';
-import { ME, personById } from '@/lib/sample/data';
 import { resetSampleQueries } from '@/lib/sample/queries';
+import { ROLE_LABEL, atLeast } from '@/lib/roles';
+import { cn } from '@/lib/utils';
 import { useAppInfo } from '@/components/shell/app-info';
 import { RowsSkeleton } from './parts/rows';
 
@@ -59,11 +65,59 @@ function useReducedMotionSetting(): boolean {
   );
 }
 
+/** The account card at the top of Profile: who you are, opening your account settings. */
+function AccountCard({ href, selected }: { href: string; selected: boolean }) {
+  const me = useMe();
+  const user = me.data?.user;
+  return (
+    <NavLink
+      href={href}
+      aria-current={selected ? 'page' : undefined}
+      aria-label={user ? `Account: ${user.name || user.email}` : 'Account'}
+      className={cn(
+        'pressable mx-[var(--gutter)] flex items-center gap-4 rounded-card bg-card p-4 select-none',
+        'active:bg-row-pressed can-hover:hover:bg-fill-subtle',
+        'outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
+        selected && 'bg-fill',
+      )}
+    >
+      {user ? (
+        <Avatar name={user.name || user.email} src={user.image ?? undefined} size={64} />
+      ) : (
+        <Skeleton className="size-16 rounded-full" />
+      )}
+      <span className="min-w-0 flex-1">
+        {user ? (
+          <>
+            <span className="block truncate text-title-3">{user.name || 'Add your name'}</span>
+            <span className="block truncate text-callout text-muted-foreground">{user.email}</span>
+          </>
+        ) : (
+          <>
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="mt-2 h-4 w-52" />
+          </>
+        )}
+      </span>
+      <ChevronRight
+        aria-hidden
+        className="-mr-1 size-5 shrink-0 text-faint-foreground"
+        strokeWidth={2.25}
+      />
+    </NavLink>
+  );
+}
+
 export function ProfileScreen() {
   const { entry, tab } = useLayer();
-  const me = personById(ME)!;
+  const client = useQueryClient();
+  const workspace = useActiveWorkspace();
+  const workspaces = useWorkspaces();
   const selected = useChildKey(tab, entry.key);
   const { theme } = useTheme();
+  const [signingOut, setSigningOut] = useState(false);
+  const admin = atLeast(workspace?.role, 'admin');
+  const people = workspaces.data?.find((w) => w.active)?.members;
   const row = (path: string) => ({
     href: `${entry.key}/${path}`,
     selected: selected === `${entry.key}/${path}`,
@@ -72,33 +126,23 @@ export function ProfileScreen() {
   return (
     <Screen title="Profile">
       <div className="flex flex-col gap-7 pt-1">
-        <section
-          aria-label="Account"
-          className="mx-[var(--gutter)] flex items-center gap-4 rounded-card bg-card p-4"
-        >
-          <Avatar name={me.name} size={64} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-title-3">{me.name}</p>
-            <p className="truncate text-callout text-muted-foreground">{me.email}</p>
-            <Badge tone="accent" className="mt-1.5">
-              Sample account
-            </Badge>
-          </div>
-        </section>
+        <AccountCard {...row('account')} />
 
         <List header="Workspace">
           <ListRow
             leading={<RowIcon icon={Building2} tint="indigo" />}
-            title="Kestrel Labs"
-            detail="Sample"
+            title={workspace?.name ?? 'Workspace'}
+            detail={workspace ? ROLE_LABEL[workspace.role] : undefined}
             {...row('workspace')}
           />
-          <ListRow
-            leading={<RowIcon icon={Users} tint="blue" />}
-            title="Members"
-            detail="7"
-            {...row('members')}
-          />
+          {admin && (
+            <ListRow
+              leading={<RowIcon icon={Users} tint="blue" />}
+              title="Members"
+              detail={people}
+              {...row('members')}
+            />
+          )}
         </List>
 
         <List header="AI and data">
@@ -113,11 +157,13 @@ export function ProfileScreen() {
             title="Usage and billing"
             {...row('usage')}
           />
-          <ListRow
-            leading={<RowIcon icon={ScrollText} tint="gray" />}
-            title="Audit log"
-            {...row('audit')}
-          />
+          {admin && (
+            <ListRow
+              leading={<RowIcon icon={ScrollText} tint="gray" />}
+              title="Audit log"
+              {...row('audit')}
+            />
+          )}
         </List>
 
         <List header="App">
@@ -139,14 +185,20 @@ export function ProfileScreen() {
           />
         </List>
 
-        <List footer="Signing in and out arrives in Phase 3.">
+        <List>
           <ListRow
             leading={<RowIcon icon={LogOut} tint="red" />}
             title="Sign out"
             destructive
-            onClick={() =>
-              toastPreview('Sign-in arrives in Phase 3', 'This sample account can’t sign out.')
+            trailing={
+              signingOut ? <Spinner size={18} className="text-muted-foreground" /> : undefined
             }
+            rowProps={{ 'aria-busy': signingOut || undefined }}
+            onClick={() => {
+              if (signingOut) return;
+              setSigningOut(true);
+              void signOut(client);
+            }}
           />
         </List>
       </div>
@@ -250,7 +302,7 @@ function useSwipeSetting(): ['auto' | 'on' | 'off', (v: 'auto' | 'on' | 'off') =
 }
 
 const STATES: { value: SampleState; label: string; hint: string }[] = [
-  { value: 'normal', label: 'Normal', hint: 'The sample workspace' },
+  { value: 'normal', label: 'Normal', hint: 'Sample content as loaded' },
   { value: 'empty', label: 'Empty', hint: 'Every list comes back empty' },
   { value: 'error', label: 'Failing', hint: 'Every request fails, with a request ID' },
   { value: 'offline', label: 'Offline', hint: 'Every request fails as if offline' },
@@ -539,16 +591,6 @@ export function ComponentsScreen() {
 // ── Not built yet (labelled) ─────────────────────────────────────────────────────────
 
 const LATER: Record<string, { title: string; phase: number; what: string }> = {
-  workspace: {
-    title: 'Workspace',
-    phase: 3,
-    what: 'Rename the workspace, set its default sensitivity, and switch between workspaces.',
-  },
-  members: {
-    title: 'Members',
-    phase: 3,
-    what: 'Invite people, set roles, and control who can open each collection.',
-  },
   ai: {
     title: 'AI settings',
     phase: 6,
@@ -559,12 +601,11 @@ const LATER: Record<string, { title: string; phase: number; what: string }> = {
     phase: 6,
     what: 'Usage this month, your plan, and invoices (paid with Paystack).',
   },
-  audit: { title: 'Audit log', phase: 3, what: 'Who opened, shared or deleted what, and when.' },
 };
 
 export function LaterScreen() {
   const { entry } = useLayer();
-  const info = LATER[entry.kind] ?? { title: 'Coming soon', phase: 3, what: '' };
+  const info = LATER[entry.kind] ?? { title: 'Coming soon', phase: 4, what: '' };
   return (
     <Screen title={info.title} largeTitle={false}>
       <div className="mx-[var(--gutter)] mt-4 rounded-card bg-card">

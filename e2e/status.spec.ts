@@ -1,6 +1,20 @@
 import { expect, test } from '@playwright/test';
 
-test('the root opens the app', async ({ page }) => {
+test('the root opens sign-in for someone signed out', async ({ page }) => {
+  await page.goto('/');
+  await expect(page).toHaveURL(/\/sign-in$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Sign in to Sotto' })).toBeVisible();
+});
+
+test('an app address remembers where you were going', async ({ page }) => {
+  await page.goto('/docs/d_launch');
+  await expect(page).toHaveURL(/\/sign-in\?next=%2Fdocs%2Fd_launch$/);
+});
+
+test('the root opens the app with a session', async ({ page }) => {
+  await page
+    .context()
+    .addCookies([{ name: 'sotto.session_token', value: 'e2e', url: 'http://localhost:3000' }]);
   await page.goto('/');
   await expect(page).toHaveURL(/\/home$/);
 });

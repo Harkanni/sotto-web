@@ -10,6 +10,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Page } from '@/stories/frames';
+import { Avatar } from './avatar';
 import { SensitivityBadge } from './badge';
 import { List, ListRow, RowIcon } from './list';
 import { Switch } from './switch';
@@ -115,6 +116,42 @@ export const Actions: Story = {
         leading={<RowIcon icon={LogOut} tint="red" />}
         title="Sign out"
         destructive
+        onClick={() => {}}
+      />
+    </List>
+  ),
+};
+
+/**
+ * Rows that open a sheet about themselves read as items (`plain`), not indigo actions: people
+ * in Members, passkeys in Account.
+ */
+export const People: Story = {
+  args: { children: null },
+  render: () => (
+    <List header="3 people">
+      <ListRow
+        leading={<Avatar name="Ada Obi" />}
+        title="Ada Obi (you)"
+        subtitle="ada@kestrel.example"
+        detail="Owner"
+      />
+      <ListRow
+        plain
+        chevron
+        leading={<Avatar name="Tunde Bakare" />}
+        title="Tunde Bakare"
+        subtitle="tunde@kestrel.example"
+        detail="Member"
+        onClick={() => {}}
+      />
+      <ListRow
+        plain
+        chevron
+        leading={<Avatar name="Bisi Adeyemi" />}
+        title="Bisi Adeyemi"
+        subtitle="bisi@kestrel.example"
+        detail="Viewer"
         onClick={() => {}}
       />
     </List>

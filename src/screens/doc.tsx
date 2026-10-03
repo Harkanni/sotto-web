@@ -12,8 +12,9 @@ import { Skeleton, SkeletonText } from '@/components/ui/skeleton';
 import { AsyncWidget } from '@/components/widgets/async-widget';
 import { fileSize, updatedLabel } from '@/lib/format';
 import { navigateUp } from '@/lib/nav/store';
-import { COLLECTIONS, personById, type Doc } from '@/lib/sample/data';
+import { personById, type Doc } from '@/lib/sample/data';
 import { useDoc } from '@/lib/sample/queries';
+import { useSampleCollections } from '@/lib/sample/scope';
 import { useItemActions } from './parts/item-actions';
 import { AskButton, DetailWithAsk } from './parts/detail';
 import { KindIcon, docKindLabel } from './parts/rows';
@@ -87,7 +88,7 @@ function HeadingSkeleton() {
 
 function DocHeading({ d }: { d: Doc }) {
   const owner = personById(d.ownerId);
-  const collection = COLLECTIONS.find((c) => c.id === d.collectionId);
+  const collection = useSampleCollections().find((c) => c.sampleId === d.collectionId)?.collection;
   return (
     <header className="flex flex-col gap-4 px-[var(--gutter)] pt-1 pb-6">
       <div className="flex items-start gap-3">

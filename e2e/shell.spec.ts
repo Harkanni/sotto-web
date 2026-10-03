@@ -19,7 +19,65 @@ const SCREENS = [
   '/profile/appearance',
 ];
 
+/**
+ * The shell's own behaviour, independent of accounts: the API isn't running in this job, so a
+ * stand-in session cookie gets past the sign-in redirect and the few account endpoints the
+ * shell reads answer with a stand-in owner whose workspace loaded the sample content (which is
+ * what makes the labelled sample layer show). e2e/accounts.spec.ts covers the real sign-in
+ * against a running API.
+ */
+const SAMPLE = {
+  product: 'col_product',
+  customers: 'col_customers',
+  board: 'col_board',
+  handbook: 'col_handbook',
+};
+const STAND_IN = {
+  me: {
+    user: {
+      id: 'u_e2e',
+      email: 'ada@kestrel.test',
+      name: 'Ada Obi',
+      image: null,
+      handedness: 'right',
+    },
+    workspace: {
+      id: 'w_e2e',
+      name: 'Kestrel Labs',
+      role: 'owner',
+      sample: { collections: SAMPLE },
+    },
+    csrfToken: 'e2e',
+  },
+  collections: Object.entries({
+    col_board: 'Board and finance',
+    col_customers: 'Customers',
+    col_handbook: 'Handbook',
+    col_product: 'Product',
+  }).map(([id, name]) => ({
+    id,
+    name,
+    restricted: id === 'col_board',
+    access: 'manage',
+    createdAt: '2026-10-01T09:00:00.000Z',
+    updatedAt: '2026-10-01T09:00:00.000Z',
+  })),
+  workspaces: [{ id: 'w_e2e', name: 'Kestrel Labs', role: 'owner', active: true, members: 1 }],
+};
+
+async function standInApi(page: Page) {
+  for (const [path, body] of Object.entries(STAND_IN)) {
+    await page.route(`**/api/v1/${path}`, (route) => route.fulfill({ json: body }));
+  }
+}
+
 async function open(page: Page, path: string) {
+  await standInApi(page);
+  await page
+    .context()
+    .addCookies([
+      { name: 'sotto.session_token', value: 'e2e-shell', url: 'http://localhost:3000' },
+    ]);
   await page.goto(path);
   // Instant sample data, so tests never wait on the simulated latency.
   await page.evaluate(() =>

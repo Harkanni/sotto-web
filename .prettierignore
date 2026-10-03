@@ -3,3 +3,5 @@ pnpm-lock.yaml
 next-env.d.ts
 playwright-report
 test-results
+src/lib/api/schema.ts
+src/lib/api/openapi.json

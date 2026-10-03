@@ -4,6 +4,16 @@
 const weekdayFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'long' });
 const dayMonthFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' });
 const timeFmt = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' });
+const fullDateFmt = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+});
+const weekdayDayFmt = new Intl.DateTimeFormat('en-GB', {
+  weekday: 'long',
+  day: 'numeric',
+  month: 'short',
+});
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
@@ -100,4 +110,32 @@ export function updatedLabel(t: number, now = Date.now()): string {
     ? rel.charAt(0).toLowerCase() + rel.slice(1)
     : rel;
   return `Updated ${lower}`;
+}
+
+/** "3 Oct 2026". */
+export function fullDate(t: number): string {
+  return fullDateFmt.format(t);
+}
+
+/** "3 Oct 2026 at 14:32": an exact moment (audit details). */
+export function dateAndTime(t: number): string {
+  return `${fullDateFmt.format(t)} at ${timeFmt.format(t)}`;
+}
+
+/** A day's heading in a dated list: "Today", "Yesterday", "Tuesday 29 Sep", "12 Aug 2025". */
+export function dayHeading(t: number, now = Date.now()): string {
+  const days = Math.round((startOfDay(now) - startOfDay(t)) / DAY);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (new Date(t).getFullYear() === new Date(now).getFullYear()) return weekdayDayFmt.format(t);
+  return fullDateFmt.format(t);
+}
+
+/** An invite's time left: "Expires today", "Expires tomorrow", "Expires in 5 days", "Expired". */
+export function expiresLabel(t: number, now = Date.now()): string {
+  if (t <= now) return 'Expired';
+  const days = Math.round((startOfDay(t) - startOfDay(now)) / DAY);
+  if (days <= 0) return 'Expires today';
+  if (days === 1) return 'Expires tomorrow';
+  return `Expires in ${days} days`;
 }

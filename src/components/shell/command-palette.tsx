@@ -286,9 +286,9 @@ function Results({
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 rounded-[10px] bg-fill opacity-0"
       />
-      {loading && <Command.Loading label="Loading the sample workspace">{null}</Command.Loading>}
+      {loading && <Command.Loading label="Loading sample content">{null}</Command.Loading>}
       <Command.Empty className="px-3 pt-3 pb-1 text-subhead text-muted-foreground">
-        Nothing in the sample workspace matches “{search.trim()}”.
+        Nothing in the sample content matches “{search.trim()}”.
       </Command.Empty>
 
       {!!recentDocs?.length && (
@@ -406,10 +406,7 @@ function Results({
           title="Record a meeting"
           onSelect={() =>
             thenClose(() =>
-              toastPreview(
-                'Recording arrives in Phase 4',
-                'This sample workspace can’t record yet.',
-              ),
+              toastPreview('Recording arrives in Phase 4', 'Nothing is recorded yet.'),
             )
           }
         />
@@ -419,12 +416,7 @@ function Results({
           icon={<IconTile icon={PenLine} plain />}
           title="New note"
           onSelect={() =>
-            thenClose(() =>
-              toastPreview(
-                'Notes arrive in Phase 4',
-                'This sample workspace can’t save notes yet.',
-              ),
-            )
+            thenClose(() => toastPreview('Notes arrive in Phase 4', 'Nothing is saved yet.'))
           }
         />
         {resolvedTheme === 'dark' ? (
@@ -577,7 +569,7 @@ function Footer() {
   return (
     <div className="flex shrink-0 items-center gap-4 px-4 py-2.5 text-footnote text-muted-foreground shadow-[inset_0_0.5px_0_var(--separator)]">
       <span className="min-w-0 flex-1 truncate">
-        Searching titles in the sample workspace. Full search arrives in Phase 5.
+        Searching titles of the sample content. Full search arrives in Phase 5.
       </span>
       <span className="flex shrink-0 items-center gap-1.5 max-sm:hidden">
         <Kbd>↵</Kbd> Open

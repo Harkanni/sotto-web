@@ -1,9 +1,18 @@
 'use client';
 
-import { memo } from 'react';
-import { ChevronsUpDown, Plus, Search } from 'lucide-react';
+import { memo, useState } from 'react';
+import { Check, ChevronsUpDown, Plus, Search, Settings } from 'lucide-react';
+import { DropdownMenu } from 'radix-ui';
+import { CreateWorkspaceSheet, useSwitchWorkspace } from '@/components/account/workspace-actions';
+import { WorkspaceTile } from '@/components/account/workspace-tile';
 import { Kbd, ModKey } from '@/components/ui/kbd';
+import { menuContent, menuItem } from '@/components/ui/row-actions';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
+import { useActiveWorkspace, useWorkspaces } from '@/lib/api/hooks';
 import type { Tab } from '@/lib/nav/routes';
+import { navigate } from '@/lib/nav/store';
+import { ROLE_LABEL } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { emitShellEvent } from './shell-events';
 import { selectTab } from './tab-bar';
@@ -42,6 +51,107 @@ function SidebarItem({
 }
 
 /**
+ * The workspace you're in, and a menu to switch to another, make a new one, or open its
+ * settings. The list loads when the menu first opens.
+ */
+function WorkspaceSwitcher() {
+  const workspace = useActiveWorkspace();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const workspaces = useWorkspaces(menuOpen || Boolean(workspace));
+  const { switchTo, pendingId } = useSwitchWorkspace();
+  const people = workspaces.data?.find((w) => w.active)?.members;
+
+  return (
+    <>
+      <DropdownMenu.Root modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenu.Trigger
+          className="flex min-h-11 items-center gap-2.5 rounded-button px-2 text-left outline-offset-2 select-none hover:bg-fill-subtle focus-visible:outline-2 focus-visible:outline-ring active:bg-fill data-[state=open]:bg-fill can-hover:min-h-10"
+          aria-label={workspace ? `Workspace: ${workspace.name}` : 'Workspace'}
+        >
+          {workspace ? (
+            <WorkspaceTile name={workspace.name} />
+          ) : (
+            <Skeleton className="size-7 rounded-sm" />
+          )}
+          <span className="min-w-0 flex-1">
+            {workspace ? (
+              <>
+                <span className="block truncate text-[15px] leading-5 font-semibold">
+                  {workspace.name}
+                </span>
+                <span className="block truncate text-caption text-muted-foreground">
+                  {ROLE_LABEL[workspace.role]}
+                  {people !== undefined && `, ${people} ${people === 1 ? 'person' : 'people'}`}
+                </span>
+              </>
+            ) : (
+              <>
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="mt-1 h-3 w-16" />
+              </>
+            )}
+          </span>
+          <ChevronsUpDown aria-hidden className="size-4 text-muted-foreground" />
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content
+            align="start"
+            sideOffset={4}
+            collisionPadding={12}
+            className={cn(menuContent, 'w-[248px]')}
+          >
+            <DropdownMenu.Label className="px-3 pt-1.5 pb-1 text-footnote text-muted-foreground">
+              Workspaces
+            </DropdownMenu.Label>
+            {workspaces.data ? (
+              workspaces.data.map((w) => (
+                <DropdownMenu.Item
+                  key={w.id}
+                  className={menuItem}
+                  disabled={Boolean(pendingId)}
+                  onSelect={() => {
+                    if (!w.active) switchTo(w.id);
+                  }}
+                >
+                  <WorkspaceTile name={w.name} />
+                  <span className="min-w-0 flex-1 truncate">{w.name}</span>
+                  {pendingId === w.id ? (
+                    <Spinner size={16} className="text-muted-foreground" />
+                  ) : (
+                    w.active && (
+                      <Check
+                        aria-label="Active"
+                        className="size-5 text-primary-text"
+                        strokeWidth={2.25}
+                      />
+                    )
+                  )}
+                </DropdownMenu.Item>
+              ))
+            ) : (
+              <div className="flex min-h-11 items-center px-3" aria-busy>
+                <Spinner size={16} className="text-muted-foreground" />
+              </div>
+            )}
+            <DropdownMenu.Separator className="mx-1 my-1 h-px bg-separator" />
+            <DropdownMenu.Item className={menuItem} onSelect={() => setCreating(true)}>
+              <span className="flex-1">New workspace</span>
+              <Plus aria-hidden className="size-5 text-muted-foreground" />
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={menuItem} onSelect={() => navigate('/profile/workspace')}>
+              <span className="flex-1">Workspace settings</span>
+              <Settings aria-hidden className="size-5 text-muted-foreground" />
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
+      <CreateWorkspaceSheet open={creating} onOpenChange={setCreating} />
+    </>
+  );
+}
+
+/**
  * Tablet and desktop navigation (brief §9): workspace switcher, search (⌘K), the sections, and
  * the new-item button. Translucent like the tab bar.
  */
@@ -49,23 +159,7 @@ export const Sidebar = memo(function Sidebar({ active }: { active: Tab }) {
   return (
     <aside className="sidebar material-bar" aria-label="Sidebar">
       <div className="flex flex-col gap-1 px-3 pt-3">
-        <button
-          type="button"
-          className="flex min-h-11 items-center gap-2.5 rounded-button px-2 text-left select-none hover:bg-fill-subtle active:bg-fill can-hover:min-h-10"
-          aria-label="Workspace: Kestrel Labs (sample)"
-        >
-          <span
-            aria-hidden
-            className="grid size-7 place-items-center rounded-sm bg-primary text-[14px] font-bold text-primary-foreground"
-          >
-            K
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] leading-5 font-semibold">Kestrel Labs</span>
-            <span className="block text-caption text-muted-foreground">Sample workspace</span>
-          </span>
-          <ChevronsUpDown aria-hidden className="size-4 text-muted-foreground" />
-        </button>
+        <WorkspaceSwitcher />
         <button
           type="button"
           onClick={() => emitShellEvent('open-palette')}

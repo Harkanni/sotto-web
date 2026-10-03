@@ -8,8 +8,8 @@ export const metadata = { title: 'System status' };
 
 const PHASES: { n: number; name: string; done?: boolean; current?: boolean }[] = [
   { n: 1, name: 'Foundations and always-on demo', done: true },
-  { n: 2, name: 'Design system and app shell', current: true },
-  { n: 3, name: 'Accounts and workspaces' },
+  { n: 2, name: 'Design system and app shell', done: true },
+  { n: 3, name: 'Accounts and workspaces', current: true },
   { n: 4, name: 'Uploads, recordings and transcripts' },
   { n: 5, name: 'Ask and search, with sources' },
 ];

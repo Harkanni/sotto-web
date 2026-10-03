@@ -46,6 +46,7 @@ describe('parseStack', () => {
 
   it('accepts named screens only in their own tab', () => {
     expect(kinds('/profile/appearance')).toEqual(['profile', 'appearance']);
+    expect(kinds('/profile/account')).toEqual(['profile', 'account']);
     expect(kinds('/home/appearance')).toEqual(['home', 'not-found']);
   });
 

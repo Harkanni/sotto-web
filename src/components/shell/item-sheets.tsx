@@ -4,17 +4,22 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Check } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { SensitivityBadge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
 import * as api from '@/lib/sample/api';
 import { COLLECTIONS } from '@/lib/sample/data';
 import { keys } from '@/lib/sample/queries';
+import { useSampleCollections } from '@/lib/sample/scope';
 import { onScreenEvent } from '@/screens/parts/screen-events';
 
-/** "Move to…" for documents: pick a collection. Works on the sample workspace in memory. */
+/**
+ * "Move to…" for documents: pick a collection. Sample documents move between the sample
+ * collections you can see (in memory, until Phase 4 makes them files).
+ */
 export function MoveSheet() {
   const client = useQueryClient();
+  const collections = useSampleCollections();
   const [target, setTarget] = useState<{ id: string; title: string } | null>(null);
   const [open, setOpen] = useState(false);
   useEffect(
@@ -30,14 +35,14 @@ export function MoveSheet() {
   return (
     <Sheet open={open} onOpenChange={setOpen} title="Move to" description={target?.title}>
       <ul className="mx-[var(--gutter)] mb-2 overflow-hidden rounded-card bg-card-nested">
-        {COLLECTIONS.map((c) => (
+        {collections.map(({ sampleId, collection: c }) => (
           <li key={c.id} className="list-row">
             <button
               type="button"
-              aria-pressed={c.id === current}
+              aria-pressed={sampleId === current}
               onClick={() => {
                 if (!target) return;
-                api.moveDoc(target.id, c.id);
+                api.moveDoc(target.id, sampleId);
                 void client.invalidateQueries({ queryKey: keys.all });
                 setOpen(false);
                 toast(`Moved to ${c.name}`, { description: target.title });
@@ -47,13 +52,17 @@ export function MoveSheet() {
               <span className="row-main flex min-h-11 flex-1 items-center justify-between gap-3 py-2.5 pr-4">
                 <span className="flex flex-col">
                   <span className="text-body">{c.name}</span>
-                  <span className="text-subhead text-muted-foreground">{c.description}</span>
+                  <span className="text-subhead text-muted-foreground">
+                    {COLLECTIONS.find((s) => s.id === sampleId)?.description}
+                  </span>
                 </span>
                 <span className="flex items-center gap-2">
-                  <SensitivityBadge level={c.sensitivity} />
+                  {c.restricted && <Badge tone="danger">Restricted</Badge>}
                   <Check
                     aria-hidden
-                    className={c.id === current ? 'size-5 text-primary-text' : 'size-5 opacity-0'}
+                    className={
+                      sampleId === current ? 'size-5 text-primary-text' : 'size-5 opacity-0'
+                    }
                     strokeWidth={2.5}
                   />
                 </span>

@@ -77,8 +77,8 @@ export function AddSheet() {
     if (id === 'upload') filesRef.current?.click();
     else if (id === 'audio') audioRef.current?.click();
     else if (id === 'record')
-      toastPreview('Recording arrives in Phase 4', 'This sample workspace can’t record yet.');
-    else toastPreview('Notes arrive in Phase 4', 'This sample workspace can’t save notes yet.');
+      toastPreview('Recording arrives in Phase 4', 'Nothing is recorded yet.');
+    else toastPreview('Notes arrive in Phase 4', 'Nothing is saved yet.');
   }
 
   const picked = (input: HTMLInputElement, kind: string) => {
@@ -117,7 +117,7 @@ export function AddSheet() {
           ))}
         </div>
         <p className="px-[var(--gutter)] pt-2 pb-1 text-footnote text-muted-foreground">
-          Sample workspace: adding content arrives in Phase 4.
+          Preview: adding files, recordings and notes arrives in Phase 4.
         </p>
       </Sheet>
       <input
