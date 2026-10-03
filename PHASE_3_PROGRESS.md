@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 3 — accounts and workspaces. Phases 0–2 are merged (sotto-web `4b1d6b3`,
   sotto-platform `16d2a6c`).
 - **Overall:** in progress.
-- **Current milestone:** M3 — collections and permissions, audit log, sample content (sotto-api).
+- **Current milestone:** M4 — web: typed API client, auth client, session handling, sign-in.
 
 ## Requirements
 
@@ -47,8 +47,8 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
 | M0  | Recovery; permanent `CLAUDE.md` (all repos); this log; dependency snapshots for the sandbox                                | all       | done        |
 | M1  | Accounts schema + migration; Better Auth at `/api/auth/*`; mailer; session + CSRF guards; tenant client; `/me`; tests      | sotto-api | done        |
 | M2  | Workspaces, members, invites, roles; audit entries for each                                                                | sotto-api | done        |
-| M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | in progress |
-| M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | not started |
+| M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | done        |
+| M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | in progress |
 | M5  | Onboarding (name, workspace, invites, sample content) and invite acceptance                                                | sotto-web | not started |
 | M6  | Profile: account, passkeys, workspace + switcher, members and invites, audit log; collections and access sheet in Docs     | sotto-web | not started |
 | M7  | E2E for the done-when flow; stories; axe; smoothness; screenshots; demo config; STATUS; ADRs; PRs ready                    | all       | not started |
@@ -75,18 +75,21 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
 - **M2 (sotto-api `1d257c8`):** `/workspaces`, `/workspace`, `/members`, `/invites` (+ public
   preview and accept), each change audited; removing a member drops their grants and sessions'
   workspace.
+- **M3 (sotto-api `274ed84`):** collections (SQL-side visibility, per-person access),
+  `GET/PUT /collections/:id/permissions`, `GET /audit` (filters, cursor) + `GET /audit.csv`,
+  `POST /onboarding/sample-content`, `tenantTransaction()`. CI green on M1 and M2 (integration
+  tests on the pgvector service container, smoke, gitleaks).
 - Sandbox: both `node_modules` snapshots restored; `pnpm -r build` and the 28 existing sotto-api
   tests pass locally (pnpm needs `npm_config_manage_package_manager_versions=false`). Local
   Postgres 16 (+ stub `vector`) and Redis run for integration tests.
 
 ## Work in progress
 
-- **Task:** M3 in sotto-api — collections with SQL-side access filters, grants
-  (`PUT /collections/:id/permissions`), `GET /audit` + `GET /audit.csv`,
-  `POST /onboarding/sample-content`, `openapi.json`.
-- **Files:** `apps/api/src/collections/`, `apps/api/src/audit/` (service exists: `AuditService`,
-  `AUDIT_ACTIONS`), `apps/api/src/onboarding/`, `apps/api/src/workspaces/metadata.ts` (sample
-  collections are recorded there), integration tests in `apps/api/test/integration/`.
+- **Task:** M4 in sotto-web — `src/lib/api` (types generated from `../sotto-api/openapi.json`
+  with openapi-typescript, a fetch client that adds the CSRF token and turns errors into
+  `ApiError` with the request id, TanStack Query hooks), `src/lib/auth` (Better Auth client:
+  magic link, passkey, social, sign-out), a route guard (`proxy.ts`: no session cookie → sign-in),
+  and the `(auth)` sign-in screen built from the existing design system.
 
 ## Remaining work
 
@@ -96,9 +99,9 @@ flow.
 
 ## Next steps
 
-1. M3 (see Work in progress), then mark sotto-api#3's checklist and move to the web (M4):
-   generate `src/lib/api` types from sotto-api's `openapi.json`, add the auth client, the
-   sign-in screens and the session guard.
+1. M4 as above; then M5 (onboarding at `/welcome`, invite acceptance at `/invite/:id`).
+2. Supporting endpoints added beyond PLAN's list (recorded for the owner):
+   `GET /sign-in-methods`, `GET /invites/:id` (preview), `GET /collections/:id/permissions`.
 
 Decisions taken (each becomes an ADR in sotto-platform):
 
