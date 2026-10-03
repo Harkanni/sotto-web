@@ -3,18 +3,18 @@
 The running record for Phase 3, kept current at every checkpoint. A new session follows the
 recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** below.
 
-| Repo           | Branch             | Pull request                                                                        |
-| -------------- | ------------------ | ----------------------------------------------------------------------------------- |
-| sotto-api      | `feat/p3-accounts` | [Harkanni/sotto-api#3](https://github.com/Harkanni/sotto-api/pull/3) (merges first) |
-| sotto-web      | `feat/p3-accounts` | [Harkanni/sotto-web#3](https://github.com/Harkanni/sotto-web/pull/3)                |
-| sotto-platform | `docs/p3-status`   | companion: STATUS, ADRs, demo config (not opened yet)                               |
+| Repo           | Branch             | Pull request                                                                                                          |
+| -------------- | ------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| sotto-api      | `feat/p3-accounts` | [Harkanni/sotto-api#3](https://github.com/Harkanni/sotto-api/pull/3) (merges first)                                   |
+| sotto-web      | `feat/p3-accounts` | [Harkanni/sotto-web#3](https://github.com/Harkanni/sotto-web/pull/3)                                                  |
+| sotto-platform | `docs/p3-status`   | [Harkanni/sotto-platform#3](https://github.com/Harkanni/sotto-platform/pull/3) (companion: STATUS, ADRs, demo config) |
 
 ## Project status
 
 - **Current phase:** 3 — accounts and workspaces. Phases 0–2 are merged (sotto-web `4b1d6b3`,
   sotto-platform `16d2a6c`).
 - **Overall:** in progress.
-- **Current milestone:** M0 — recovery, permanent instructions, tooling.
+- **Current milestone:** M1 — accounts schema, Better Auth, guards and `/me` (sotto-api).
 
 ## Requirements
 
@@ -44,8 +44,8 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
 
 | #   | Milestone                                                                                                                  | Repo      | State       |
 | --- | -------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| M0  | Recovery; permanent `CLAUDE.md` (all repos); this log; dependency snapshots for the sandbox                                | all       | in progress |
-| M1  | Accounts schema + migration; Better Auth at `/api/auth/*`; mailer; session + CSRF guards; tenant client; `/me`; tests      | sotto-api | not started |
+| M0  | Recovery; permanent `CLAUDE.md` (all repos); this log; dependency snapshots for the sandbox                                | all       | done        |
+| M1  | Accounts schema + migration; Better Auth at `/api/auth/*`; mailer; session + CSRF guards; tenant client; `/me`; tests      | sotto-api | in progress |
 | M2  | Workspaces, members, invites, roles; audit entries for each                                                                | sotto-api | not started |
 | M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | not started |
 | M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | not started |
@@ -64,13 +64,36 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
   `openapi-typescript` added.
 - `CLAUDE.md` rewritten as the permanent instructions (recovery, architecture, UI rules,
   conventions, tests, git, documentation duties).
+- Permanent `CLAUDE.md` in sotto-api (`90917f6`) and sotto-platform (`09a2c44`, draft PR #3 with
+  STATUS for Phase 3). M0 done.
+- Sandbox: both `node_modules` snapshots restored; `pnpm -r build` and the 28 existing sotto-api
+  tests pass locally (pnpm needs `npm_config_manage_package_manager_versions=false`). Local
+  Postgres 16 (+ stub `vector`) and Redis run for integration tests.
 
 ## Work in progress
 
-- **Task:** M0 — align `sotto-api/CLAUDE.md` and `sotto-platform/CLAUDE.md` with the permanent
-  instructions; open the platform companion branch; wait for both `sync` jobs, then restore
-  `node_modules` in the sandbox.
-- **Files:** `CLAUDE.md` (all three repos), this file.
+- **Task:** M1 in sotto-api (`feat/p3-accounts`).
+- **Done so far (checkpointed, not yet compiling as a whole):**
+  - `packages/db/prisma/schema.prisma` + migration `20261002205400_accounts_and_workspaces`
+    (Better Auth tables; Workspace, Membership, Invite with lowercase `Role`/`InviteStatus`
+    enums; Collection, CollectionPermission with a one-subject CHECK; AuditLog). Applied locally.
+  - `packages/db/src/tenant.ts` (`forWorkspace`, `scopeArgs`, `TENANT_MODELS`) + 8 unit tests,
+    exported from `src/index.ts` with the enums and model types.
+  - `apps/api/src/config.ts` (APP_URL, AUTH_SECRET required in production, SMTP_URL,
+    MAIL_FROM, Google/Microsoft credentials, AUTH_RATE_LIMIT).
+  - `apps/api/src/auth/auth.ts` (Better Auth: Prisma adapter, magic link with hashed tokens,
+    passkeys, renamed organization plugin with owner/admin/member/viewer, Google/Microsoft only
+    when configured, Redis rate limits, organization HTTP routes disabled, starting workspace on
+    sign-in), `roles.ts` (ranks, `collectionAccess`), `rate-limit.ts`, `csrf.ts`.
+  - `apps/api/src/mail/` (SMTP mailer, unconfigured fallback, magic-link and invite templates),
+    `apps/api/src/common/errors.ts` (error body, Better Auth message table, exception filter).
+- **Outstanding in M1:** `common/request.ts` (request types, `@Ctx()`), request-id middleware,
+  `auth/auth.guard.ts` (session → workspace → CSRF → role), `auth/auth.module.ts` (Better Auth
+  provider, Redis, global guard, `GET /api/v1/sign-in-methods`), mount the handler in
+  `bootstrap.ts` before the body parser (+ Nest CSRF protection, security headers, trust proxy),
+  `@Public()` on health/status, `me/` (`GET/PATCH /me` with the CSRF token), integration tests
+  (magic-link sign-up through a capturing mailer, `/me`, CSRF refusal), CI Postgres service,
+  `.env.example`, `openapi.json`.
 
 ## Remaining work
 
@@ -80,11 +103,9 @@ flow.
 
 ## Next steps
 
-1. Pull the `sync` bot's lockfile commits on both branches, then run `scripts/agent-deps.sh` in
-   each repo.
-2. M1 in sotto-api: write the Prisma models (Better Auth tables + Workspace, Membership, Invite,
-   Collection, CollectionPermission, AuditLog) and the migration; configure Better Auth
-   (`apps/api/src/auth/`), mount it before Nest's body parser, add the mailer and guards.
+1. Finish M1 (the outstanding list above), run `pnpm -r build`, lint, tests and the
+   integration tests against local Postgres, then commit and push.
+2. M2: workspaces, members, invites (`apps/api/src/workspaces`, `members`), each change audited.
 
 Decisions taken (each becomes an ADR in sotto-platform):
 
