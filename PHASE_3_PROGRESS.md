@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 3 — accounts and workspaces. Phases 0–2 are merged (sotto-web `4b1d6b3`,
   sotto-platform `16d2a6c`).
 - **Overall:** in progress.
-- **Current milestone:** M6 — web: Profile (account, passkeys, workspace, members, audit) and collections with access.
+- **Current milestone:** M7 — the done-when E2E, CI for it, demo config, ADRs, STATUS, PRs ready.
 
 ## Requirements
 
@@ -50,7 +50,7 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
 | M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | done        |
 | M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | done        |
 | M5  | Onboarding (name, workspace, invites, sample content) and invite acceptance                                                | sotto-web | done        |
-| M6  | Profile: account, passkeys, workspace + switcher, members and invites, audit log; collections and access sheet in Docs     | sotto-web | in progress |
+| M6  | Profile: account, passkeys, workspace + switcher, members and invites, audit log; collections and access sheet in Docs     | sotto-web | done        |
 | M7  | E2E for the done-when flow; stories; axe; smoothness; screenshots; demo config; STATUS; ADRs; PRs ready                    | all       | not started |
 
 ## Completed work
@@ -97,30 +97,46 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
   pending during hydration (`useHydrationSafe`), because tabs hydrate in their own `<Activity>`
   after `/me` is cached. Typed client resynced (audit query parameters). Checked in a phone
   browser against the local API: onboarding → Profile, Account, Workspace, Members, Audit.
+- **M6, Docs part (sotto-web `4e2ba91`, `fab1243`, `f7a0bbd`):** collections from the API
+  (Restricted badge, New collection card and sheet, collection screen with your access and a
+  menu by permission: Who has access, Rename, Delete with Undo); the Who has access sheet
+  (restricted switch, member/viewer access, people with View/Edit/Manage, add a person,
+  mirroring sotto-api's `collectionAccess`). Sample layer scoped to the workspace: nothing
+  without sample content, and only documents in collections you can open (`src/lib/sample/
+scope.ts`, resolved inside each sample query); Home's notice only then. Stale "sample
+  workspace" labels reworded. Storybook seeded with a stand-in account (`src/stories/
+fixtures.ts`); new stories. Shell e2e answers `/me`, `/collections`, `/workspaces`.
+- **Bugs found and fixed in M6:** (1) accepting an invite always failed with "This page is out
+  of date": `/invite/:id` never loads `/me`, so the POST had no CSRF token; the client now
+  fetches the token before any write that lacks one (`csrfTokenForWrite`, unit-tested).
+  (2) Toasts were hidden behind open sheets (the Toaster lived inside the fixed app shell's
+  stacking context); it now portals to `<body>` at `--z-toast`. (3) Tabs hydrating after `/me`
+  was cached caused hydration mismatches; queries are pending during their hydration render.
+- **Verified in a phone browser against the local API (Mailpit for email):** owner sign-up →
+  onboarding with invites + sample; invitee accepts through the emailed link; role change
+  (toast over the sheet), invite sheet, remove confirmation, Who has access (grant a viewer by
+  name), passkey added with a virtual authenticator then opened, delete with Undo (collection
+  kept); the viewer sees the restricted collection only through the grant, read-only, and no
+  Members or Audit log. Screenshots iPhone + desktop, light + dark, reviewed.
 - Sandbox: both `node_modules` snapshots restored; `pnpm -r build` and the 28 existing sotto-api
   tests pass locally (pnpm needs `npm_config_manage_package_manager_versions=false`). Local
   Postgres 16 (+ stub `vector`) and Redis run for integration tests.
 
 ## Work in progress
 
-- **Task:** M6, Docs part — collections from the API:
-  - Docs: collections from `/collections` (lock for restricted), create collection, rename,
-    delete (Undo), access sheet (`/collections/:id/permissions`) for admins; sample documents
-    mapped into the real sample collections via `/me.workspace.sample` and hidden when their
-    collection is.
-  - Sample layer: empty unless the workspace loaded sample content (a scope resolved from
-    `/me` + `/collections` inside each sample query); Home's notice reworded and shown only
-    with sample content; shell e2e stubs `/me` and `/collections`.
-  - Then: interaction pass (sheets, role change, remove, passkey with a virtual authenticator),
-    dark and desktop screenshots, `UI_DESIGN_SYSTEM.md` additions.
-- **Files:** `src/screens/docs.tsx`, `src/lib/sample/{api,queries}.ts`, `src/screens/home.tsx`,
-  `src/components/shell/item-sheets.tsx`, `src/screens/doc.tsx`, `e2e/shell.spec.ts`.
+- **Task:** M7 — the done-when E2E (`e2e/accounts.spec.ts`): sign-up → create workspace →
+  invite → the invitee accepts → role-restricted access (a restricted collection hidden until
+  granted), on iPhone and desktop. It needs a running API and email: decide how CI runs it
+  (see Missing specifications 8), then `pnpm smoothness`, demo config, ADRs, STATUS, PRs ready.
+- **Approach:** the sandbox scripts that drove the M6 check (sign-in through the form, links
+  from Mailpit's API, a virtual authenticator for passkeys) are the shape of the spec.
 
 ## Remaining work
 
-Everything in M1–M7. Tests still to write: API integration tests (real Postgres), web unit tests
-for the API client and auth helpers, stories for every new component, E2E for the done-when
-flow.
+M7. Tests still to write: E2E for the done-when flow (and its CI job), stories for the new
+screens (Account needs a passkeys stand-in: Better Auth's endpoint isn't in the seeded cache).
+Follow-ups noted, not in Phase 3's scope: the + button still shows for viewers (its actions are
+Phase 4 previews; hide it for viewers when uploads become real).
 
 ## Next steps
 
@@ -201,3 +217,7 @@ Identified, not invented around:
 | `1d257c8` (M2) | sotto-api lint, format, typecheck, build; api 46 tests (incl. 14 workspace/member/invite integration tests)                                     | Pass   |
 | `df7b306` (M6) | sotto-web lint (1 old warning), format, typecheck, unit tests (54)                                                                              | Pass   |
 | `df7b306` (M6) | Manual, phone browser vs local API + Mailpit: sign up → onboarding with invites + sample → Profile screens, no console errors                   | Pass   |
+| `f7a0bbd` (M6) | sotto-web lint (1 old warning), format, typecheck, unit tests (57), production build                                                            | Pass   |
+| `f7a0bbd` (M6) | `pnpm e2e` (iPhone + desktop, axe, 44 px): 21 pass, 6 skipped; 1 flaky in the sandbox only (its build forwards /api to the local API)           | Pass   |
+| `f7a0bbd` (M6) | `pnpm build-storybook && pnpm test:stories`: every story, light and dark, renders and passes axe                                                | Pass   |
+| `f7a0bbd` (M6) | Manual interaction pass (two accounts, iPhone + desktop, light + dark): see Completed work                                                      | Pass   |
