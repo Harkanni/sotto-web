@@ -13,8 +13,9 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 
 - **Current phase:** 3 — accounts and workspaces. Phases 0–2 are merged (sotto-web `4b1d6b3`,
   sotto-platform `16d2a6c`).
-- **Overall:** in progress.
-- **Current milestone:** M7 — the done-when E2E, CI for it, demo config, ADRs, STATUS, PRs ready.
+- **Overall:** ready for review. Code, tests and docs are done; the `accounts` CI job waits on
+  the owner's `terraform apply` and merging sotto-api#3 (see Next steps).
+- **Current milestone:** M7 done locally; merging in order (owner).
 
 ## Requirements
 
@@ -42,16 +43,16 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
 
 ## Milestones
 
-| #   | Milestone                                                                                                                  | Repo      | State       |
-| --- | -------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| M0  | Recovery; permanent `CLAUDE.md` (all repos); this log; dependency snapshots for the sandbox                                | all       | done        |
-| M1  | Accounts schema + migration; Better Auth at `/api/auth/*`; mailer; session + CSRF guards; tenant client; `/me`; tests      | sotto-api | done        |
-| M2  | Workspaces, members, invites, roles; audit entries for each                                                                | sotto-api | done        |
-| M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | done        |
-| M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | done        |
-| M5  | Onboarding (name, workspace, invites, sample content) and invite acceptance                                                | sotto-web | done        |
-| M6  | Profile: account, passkeys, workspace + switcher, members and invites, audit log; collections and access sheet in Docs     | sotto-web | done        |
-| M7  | E2E for the done-when flow; stories; axe; smoothness; screenshots; demo config; STATUS; ADRs; PRs ready                    | all       | not started |
+| #   | Milestone                                                                                                                  | Repo      | State |
+| --- | -------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
+| M0  | Recovery; permanent `CLAUDE.md` (all repos); this log; dependency snapshots for the sandbox                                | all       | done  |
+| M1  | Accounts schema + migration; Better Auth at `/api/auth/*`; mailer; session + CSRF guards; tenant client; `/me`; tests      | sotto-api | done  |
+| M2  | Workspaces, members, invites, roles; audit entries for each                                                                | sotto-api | done  |
+| M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | done  |
+| M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | done  |
+| M5  | Onboarding (name, workspace, invites, sample content) and invite acceptance                                                | sotto-web | done  |
+| M6  | Profile: account, passkeys, workspace + switcher, members and invites, audit log; collections and access sheet in Docs     | sotto-web | done  |
+| M7  | E2E for the done-when flow; stories; axe; smoothness; screenshots; demo config; STATUS; ADRs; PRs ready                    | all       | done  |
 
 ## Completed work
 
@@ -118,35 +119,49 @@ fixtures.ts`); new stories. Shell e2e answers `/me`, `/collections`, `/workspace
   name), passkey added with a virtual authenticator then opened, delete with Undo (collection
   kept); the viewer sees the restricted collection only through the grant, read-only, and no
   Members or Audit log. Screenshots iPhone + desktop, light + dark, reviewed.
+- **M7 (sotto-web `7798246`, `cda2b09`; sotto-platform `d0655d7`, `369e381`):**
+  `e2e/accounts.spec.ts`, the done-when flow (owner signs up by emailed link → workspace with
+  sample content → invite → colleague accepts by email → restricted collection hidden and
+  unreachable → owner grants it → colleague sees it read-only → audit log), iPhone + desktop,
+  axe on Members, Who has access and Audit log. Passes locally against the API in development
+  and production mode. CI `accounts` job: the API's image from ECR + Postgres, Redis, Mailpit
+  (ADR 0014); start-up failures surface as annotations. Smoothness harness given a stand-in
+  session. sotto-platform: ADRs 0009–0015, demo config (AUTH_SECRET and mailbox password in
+  SSM, APP_URL, Mailpit at `/mail/` behind basic auth: ADR 0015, proposed), local full stack
+  sign-in settings, STATUS with the merge order.
 - Sandbox: both `node_modules` snapshots restored; `pnpm -r build` and the 28 existing sotto-api
   tests pass locally (pnpm needs `npm_config_manage_package_manager_versions=false`). Local
   Postgres 16 (+ stub `vector`) and Redis run for integration tests.
 
 ## Work in progress
 
-- **Task:** M7 — the done-when E2E (`e2e/accounts.spec.ts`): sign-up → create workspace →
-  invite → the invitee accepts → role-restricted access (a restricted collection hidden until
-  granted), on iPhone and desktop. It needs a running API and email: decide how CI runs it
-  (see Missing specifications 8), then `pnpm smoothness`, demo config, ADRs, STATUS, PRs ready.
-- **Approach:** the sandbox scripts that drove the M6 check (sign-in through the form, links
-  from Mailpit's API, a virtual authenticator for passkeys) are the shape of the spec.
+Nothing in progress. Phase 3 waits on the owner (Next steps).
 
 ## Remaining work
 
-M7. Tests still to write: E2E for the done-when flow (and its CI job), stories for the new
-screens (Account needs a passkeys stand-in: Better Auth's endpoint isn't in the seeded cache).
-Follow-ups noted, not in Phase 3's scope: the + button still shows for viewers (its actions are
-Phase 4 previews; hide it for viewers when uploads become real).
+- The `accounts` CI job hasn't passed in CI yet: ECR has no `sotto/api` repository (it
+  answered "repository not found"), and `sotto/api:main` must be the Phase 3 API. Both clear
+  with the owner's steps below; locally the spec passes (14/14, twice).
+- Screen-level stories (Members, Account, Audit) aren't written: screens need the shell's
+  stack context and Account needs a passkeys stand-in. They're covered by the E2E, the manual
+  pass and the component stories.
+  Follow-ups noted, not in Phase 3's scope: the + button still shows for viewers (its actions are
+  Phase 4 previews; hide it for viewers when uploads become real).
 
 ## Next steps
 
-1. M6 as above, then M7: the done-when E2E (`e2e/accounts.spec.ts`, needs the API: decide how
-   CI runs it), stories for new screens, axe, `pnpm smoothness`, light/dark screenshots, demo
-   config in sotto-platform, ADRs, STATUS, PRs ready.
-2. Supporting endpoints added beyond PLAN's list (recorded for the owner):
-   `GET /sign-in-methods`, `GET /invites/:id` (preview), `GET /collections/:id/permissions`.
+1. Owner: review ADR 0015, merge sotto-platform#3, `terraform apply` in `terraform/dev`
+   (demo SSM parameters; the missing ECR repositories `sotto/api` and `sotto/worker`).
+2. Owner: merge sotto-api#3 (CI green); its `images` workflow publishes `sotto/api:main`.
+3. Re-run sotto-web#3's CI; when the `accounts` job is green, the owner merges it.
+4. Then Phase 4 (ingestion and meetings) starts from `PLAN.md`: a new `PHASE_4_PROGRESS.md`.
+   Carry over: reuse `visibleTo` for files and chunks (ADR 0012), replace the sample layer's
+   documents with real files (ADR 0013), hide the + button for viewers once uploads are real.
 
-Decisions taken (each becomes an ADR in sotto-platform):
+Supporting endpoints added beyond PLAN's list (recorded for the owner):
+`GET /sign-in-methods`, `GET /invites/:id` (preview), `GET /collections/:id/permissions`.
+
+Decisions taken (ADRs 0009–0014 in sotto-platform; 0015 proposed):
 
 - **Better Auth without a Nest bridge.** Its handler is mounted on the Express instance at
   `/api/auth/*`; a small guard calls `auth.api.getSession()`. Avoids depending on a community
@@ -176,8 +191,9 @@ Identified, not invented around:
    decision 4: steps given once the domain exists). The code supports both and hides the buttons
    until the API has credentials.
 2. **Email delivery for the demo.** SES needs a verified domain (`sotto.ai` isn't bought).
-   Proposal: Mailpit on the demo server behind a password, so sign-in and invites work there
-   now; switch `SMTP_URL` to SES once the domain exists. Needs the owner's `terraform apply`.
+   Written up as ADR 0015 (proposed) with the config in sotto-platform#3: Mailpit on the demo
+   behind a password; SES once the domain exists. Needs the owner's approval and
+   `terraform apply`.
 3. **Onboarding steps from later phases.** "Choose an AI mode" needs Phase 6, "upload a file"
    Phase 4 and "ask a first question" Phase 5. Phase 3 onboarding covers workspace, invites and
    sample content; the other steps join when their phases land.
@@ -194,9 +210,8 @@ Identified, not invented around:
    email OTP) would fix it; that changes PLAN's sign-in method, so it waits for the owner.
 7. **Passkeys and the domain.** WebAuthn credentials are bound to the host name. Passkeys made
    on the sslip.io demo won't work after the move to the real domain.
-8. **Cross-repo E2E in CI.** The web E2E needs a running API. Options: pull `sotto/api:main` from
-   ECR in sotto-web's CI (no new secret; arm64 runner) or a read token for sotto-api. Decided in
-   M7.
+8. **Cross-repo E2E in CI.** Decided (ADR 0014): sotto-web's CI pulls `sotto/api` from ECR
+   (no new secret; arm64 runner).
 
 ## Known issues
 
@@ -221,3 +236,7 @@ Identified, not invented around:
 | `f7a0bbd` (M6) | `pnpm e2e` (iPhone + desktop, axe, 44 px): 21 pass, 6 skipped; 1 flaky in the sandbox only (its build forwards /api to the local API)           | Pass   |
 | `f7a0bbd` (M6) | `pnpm build-storybook && pnpm test:stories`: every story, light and dark, renders and passes axe                                                | Pass   |
 | `f7a0bbd` (M6) | Manual interaction pass (two accounts, iPhone + desktop, light + dark): see Completed work                                                      | Pass   |
+| `9bbae5b` (M6) | CI: check, stories, smoke, secrets, sync                                                                                                        | Pass   |
+| `7798246` (M7) | `ACCOUNTS_E2E=1` accounts spec vs local API (development, then production mode), iPhone + desktop: 14/14, twice                                 | Pass   |
+| `7798246` (M7) | `pnpm smoothness` (4x throttle): every step ≤ 2 frames (worst 33 ms on back-during-push), no network                                            | Pass   |
+| `cda2b09` (M7) | CI `accounts` job: ECR has no `sotto/api` repository (owner's `terraform apply`); other jobs pass                                               | Waits  |
