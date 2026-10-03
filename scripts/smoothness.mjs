@@ -29,6 +29,42 @@ const requests = [];
 page.on('request', (r) => requests.push(r.url()));
 const cdp = await ctx.newCDPSession(page);
 
+// The shell needs a session (Phase 3): a stand-in cookie gets past the sign-in redirect, and
+// the account endpoints the shell reads answer with an owner whose workspace has the sample
+// content, as in e2e/shell.spec.ts. No API needed.
+const sample = {
+  product: 'col_product',
+  customers: 'col_customers',
+  board: 'col_board',
+  handbook: 'col_handbook',
+};
+const standIn = {
+  me: {
+    user: {
+      id: 'u_h',
+      email: 'ada@kestrel.test',
+      name: 'Ada Obi',
+      image: null,
+      handedness: 'right',
+    },
+    workspace: { id: 'w_h', name: 'Kestrel Labs', role: 'owner', sample: { collections: sample } },
+    csrfToken: 'harness',
+  },
+  collections: Object.entries(sample).map(([key, id]) => ({
+    id,
+    name: key[0].toUpperCase() + key.slice(1),
+    restricted: key === 'board',
+    access: 'manage',
+    createdAt: '2026-10-01T09:00:00.000Z',
+    updatedAt: '2026-10-01T09:00:00.000Z',
+  })),
+  workspaces: [{ id: 'w_h', name: 'Kestrel Labs', role: 'owner', active: true, members: 1 }],
+};
+for (const [path, body] of Object.entries(standIn)) {
+  await page.route(`**/api/v1/${path}`, (route) => route.fulfill({ json: body }));
+}
+await ctx.addCookies([{ name: 'sotto.session_token', value: 'harness', url: base }]);
+
 await page.goto(`${base}/docs`, { waitUntil: 'networkidle' });
 await page.evaluate(() => {
   // The installed app's edge swipe, and instant sample data (latency would hide frame costs).

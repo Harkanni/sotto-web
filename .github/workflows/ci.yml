@@ -126,6 +126,87 @@ jobs:
             test-results
           retention-days: 7
 
+  # Phase 3's done-when flow against the real API (e2e/accounts.spec.ts): sign up, create a
+  # workspace, invite, accept by email, role-restricted access, on iPhone and desktop. The API
+  # comes as its arm64 image from ECR, so no cross-repo token is needed: it runs once ECR is set
+  # up (vars.ECR_REGISTRY + the AWS key, as for images.yml). The image is sotto/api:main by
+  # default (API PRs merge first); a repo variable ACCOUNTS_API_TAG pins another tag.
+  accounts:
+    if: vars.ECR_REGISTRY != ''
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: sotto
+          POSTGRES_PASSWORD: sotto
+          POSTGRES_DB: sotto
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U sotto -d sotto" --health-interval 5s --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+      # Catches every email (sign-in links, invites); the spec reads them from its API.
+      mailpit:
+        image: axllent/mailpit:latest
+        ports: ['1025:1025', '8025:8025']
+    env:
+      API_IMAGE: ${{ vars.ECR_REGISTRY }}/sotto/api:${{ vars.ACCOUNTS_API_TAG || 'main' }}
+      DATABASE_URL: postgresql://sotto:sotto@localhost:5432/sotto
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: aws-actions/amazon-ecr-login@v2.1.7
+      - name: Start the API (migrations first, as a deploy does)
+        timeout-minutes: 5
+        run: |
+          docker pull "$API_IMAGE"
+          docker run --rm --network host -e DATABASE_URL "$API_IMAGE" sh scripts/migrate.sh
+          # Production mode, as deployed: a throwaway secret, and no rate limits for one test run.
+          docker run -d --name api --network host \
+            -e DATABASE_URL -e REDIS_URL=redis://localhost:6379 -e PORT=4000 \
+            -e APP_URL=http://localhost:3000 -e AUTH_SECRET="$(openssl rand -hex 32)" \
+            -e AUTH_RATE_LIMIT=off -e SMTP_URL=smtp://localhost:1025 "$API_IMAGE"
+          for i in $(seq 1 30); do
+            if curl -fsS localhost:4000/healthz; then exit 0; fi
+            sleep 2
+          done
+          docker logs api; exit 1
+      - uses: pnpm/action-setup@v6.1.0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+          cache: ${{ hashFiles('pnpm-lock.yaml') != '' && 'pnpm' || '' }}
+      - run: pnpm install --frozen-lockfile
+      # The build bakes /api/* → localhost:4000 (next.config.ts's default), where the API runs.
+      - run: pnpm build
+      - name: Playwright browser
+        timeout-minutes: 5
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Done-when flow (iPhone + desktop)
+        timeout-minutes: 8
+        env:
+          ACCOUNTS_E2E: '1'
+        run: pnpm exec playwright test e2e/accounts.spec.ts
+      - name: API logs
+        if: failure()
+        run: docker logs api
+      - uses: actions/upload-artifact@v7.0.1
+        if: failure()
+        with:
+          name: accounts-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
   smoke:
     runs-on: ubuntu-24.04
     steps:
