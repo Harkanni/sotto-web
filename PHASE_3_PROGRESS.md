@@ -87,24 +87,34 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
   invites → sample or empty), `/invite/:id` (every state). New: TextField, SottoMark,
   mail/team/key illustrations, AuthScreen. Verified in a phone browser end to end against the
   local API + Mailpit (screens reviewed light; flow had no console errors).
+- **M6, Profile part (sotto-web `df7b306`):** Profile root on `/me` (account card, workspace rows
+  by role, real sign out that clears saved pages and the cache); Account (name, email, passkeys
+  add/rename/remove); Workspace (rename for admins, switch, create, sample content for owners;
+  switching resets the other tabs to their roots); Members (people, open invites, role sheet,
+  remove, resend, copy link, withdraw, invite sheet); Audit log (kind/period/person filters, day
+  groups, entry sheet, paging, CSV); sidebar workspace switcher. New: `ConfirmAction`,
+  `WorkspaceTile`, `ListRow plain`, `src/lib/roles.ts`, date helpers. Real-API queries read as
+  pending during hydration (`useHydrationSafe`), because tabs hydrate in their own `<Activity>`
+  after `/me` is cached. Typed client resynced (audit query parameters). Checked in a phone
+  browser against the local API: onboarding → Profile, Account, Workspace, Members, Audit.
 - Sandbox: both `node_modules` snapshots restored; `pnpm -r build` and the 28 existing sotto-api
   tests pass locally (pnpm needs `npm_config_manage_package_manager_versions=false`). Local
   Postgres 16 (+ stub `vector`) and Redis run for integration tests.
 
 ## Work in progress
 
-- **Task:** M6 in sotto-web — wire the shell to the real account:
-  - Profile: account card from `/me` (name editable), passkeys (add, rename, remove), sign out
-    (clears the service worker's saved pages), workspace (rename for admins, switch, create),
-    members and invites (roles, remove, resend, withdraw, invite sheet), audit log (filters,
-    CSV download).
-  - Sidebar workspace switcher from `/workspaces`.
-  - Docs: collections from `/collections` (with lock for restricted), create collection,
-    access sheet (`/collections/:id/permissions`) for admins; sample documents mapped into the
-    real sample collections via `/me.workspace.sample` and hidden when their collection is.
-  - Sample layer: empty unless the workspace loaded sample content; Home's notice reworded.
-- **Files:** `src/screens/profile.tsx` (+ new screens), `src/components/shell/sidebar.tsx`,
-  `src/screens/docs.tsx`, `src/lib/sample/*`, `src/lib/api/hooks.ts`, `src/screens/index.tsx`.
+- **Task:** M6, Docs part — collections from the API:
+  - Docs: collections from `/collections` (lock for restricted), create collection, rename,
+    delete (Undo), access sheet (`/collections/:id/permissions`) for admins; sample documents
+    mapped into the real sample collections via `/me.workspace.sample` and hidden when their
+    collection is.
+  - Sample layer: empty unless the workspace loaded sample content (a scope resolved from
+    `/me` + `/collections` inside each sample query); Home's notice reworded and shown only
+    with sample content; shell e2e stubs `/me` and `/collections`.
+  - Then: interaction pass (sheets, role change, remove, passkey with a virtual authenticator),
+    dark and desktop screenshots, `UI_DESIGN_SYSTEM.md` additions.
+- **Files:** `src/screens/docs.tsx`, `src/lib/sample/{api,queries}.ts`, `src/screens/home.tsx`,
+  `src/components/shell/item-sheets.tsx`, `src/screens/doc.tsx`, `e2e/shell.spec.ts`.
 
 ## Remaining work
 
@@ -189,3 +199,5 @@ Identified, not invented around:
 | `5659ae3` (M1) | sotto-api lint, format, typecheck, build; 60 tests (api 32, incl. 9 integration on local Postgres 16)                                           | Pass   |
 | `5659ae3` (M1) | Manual: API booted against local Postgres + Mailpit; magic link sent, verified (302 → `/welcome`, 30-day HttpOnly cookie), `/me`, CSRF refusals | Pass   |
 | `1d257c8` (M2) | sotto-api lint, format, typecheck, build; api 46 tests (incl. 14 workspace/member/invite integration tests)                                     | Pass   |
+| `df7b306` (M6) | sotto-web lint (1 old warning), format, typecheck, unit tests (54)                                                                              | Pass   |
+| `df7b306` (M6) | Manual, phone browser vs local API + Mailpit: sign up → onboarding with invites + sample → Profile screens, no console errors                   | Pass   |
