@@ -41,10 +41,38 @@ export function setCsrfToken(token: string | null): void {
 
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+let fetching: Promise<string | null> | null = null;
+
+/**
+ * The CSRF token for a write. Usually already set by GET /me; when it isn't (a page that never
+ * loaded /me, like an invite link, or a write right after a full page load) it is fetched
+ * first, once, however many writes are waiting.
+ */
+export async function csrfTokenForWrite(): Promise<string | null> {
+  if (csrfToken) return csrfToken;
+  fetching ??= fetch('/api/v1/me', {
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+  })
+    .then((response) => (response.ok ? (response.json() as Promise<Partial<Me>>) : null))
+    .then((me) => {
+      if (me?.csrfToken) csrfToken = me.csrfToken;
+      return csrfToken;
+    })
+    .catch(() => null)
+    .finally(() => {
+      fetching = null;
+    });
+  return fetching;
+}
+
 const security: Middleware = {
-  onRequest({ request }) {
+  async onRequest({ request }) {
     request.headers.set('accept', 'application/json');
-    if (!SAFE.has(request.method) && csrfToken) request.headers.set('x-csrf-token', csrfToken);
+    if (!SAFE.has(request.method)) {
+      const token = await csrfTokenForWrite();
+      if (token) request.headers.set('x-csrf-token', token);
+    }
     return request;
   },
 };
