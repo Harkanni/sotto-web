@@ -1,24 +1,25 @@
 /**
- * SAMPLE API — Phase 2 only. Answers from the in-memory sample workspace with a realistic delay,
- * so loading, empty and error states can be seen and tested. Profile → Developer switches it to
- * instant, slow, empty, failing or offline. Phase 3 onwards replaces each function with the
+ * SAMPLE API — the labelled sample layer. Answers from the in-memory sample workspace with a
+ * realistic delay, so loading, empty and error states can be seen and tested. Profile →
+ * Developer switches it to instant, slow, empty, failing or offline. Each read takes the
+ * workspace's SampleScope (./scope): nothing unless the workspace loaded sample content, and
+ * only the documents whose collection the API lets you see. Phases 4–5 replace these with the
  * generated OpenAPI client (src/lib/api); the query hooks keep their names.
  */
 
 import { localThread, localThreads } from './answer';
 import {
   ACTION_ITEMS,
-  COLLECTIONS,
   DOCS,
   MEETINGS,
   THREADS,
   WEEK_STATS,
   type ActionItem,
-  type Collection,
   type Doc,
   type Meeting,
   type Thread,
 } from './data';
+import type { SampleScope } from './scope';
 
 export type SampleLatency = 'instant' | 'realistic' | 'slow';
 export type SampleState = 'normal' | 'empty' | 'error' | 'offline';
@@ -69,7 +70,11 @@ function requestId(): string {
   return 'req_' + Math.random().toString(16).slice(2, 14);
 }
 
-async function respond<T>(value: () => T, { emptyValue }: { emptyValue?: T } = {}): Promise<T> {
+async function respond<T>(
+  scope: SampleScope,
+  value: () => T,
+  { emptyValue }: { emptyValue?: T } = {},
+): Promise<T> {
   const { latency, state } = readSampleSettings();
   const delay =
     latency === 'instant'
@@ -80,6 +85,8 @@ async function respond<T>(value: () => T, { emptyValue }: { emptyValue?: T } = {
   if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
   if (state === 'offline') throw new OfflineError();
   if (state === 'error') throw new ApiError('Sample API is set to fail', requestId());
+  // A workspace without sample content has none of it: lists are empty, items not found.
+  if (!scope.loaded) return (emptyValue === undefined ? null : emptyValue) as T;
   if (state === 'empty' && emptyValue !== undefined) return emptyValue;
   // Copies, so screens can't mutate the sample by accident.
   return structuredClone(value());
@@ -94,17 +101,26 @@ const actionItems = ACTION_ITEMS.map((a) => ({ ...a }));
 
 export type DocSort = 'recent' | 'name';
 
-export function listDocs({
-  collectionId,
-  query,
-  sort = 'recent',
-}: { collectionId?: string; query?: string; sort?: DocSort } = {}): Promise<Doc[]> {
+/** A sample document is visible when its collection is (and the workspace has samples). */
+function visibleDoc(scope: SampleScope, d: Doc): boolean {
+  return !deleted.has(d.id) && scope.visible[d.collectionId] !== undefined;
+}
+
+export function listDocs(
+  scope: SampleScope,
+  {
+    collectionId,
+    query,
+    sort = 'recent',
+  }: { collectionId?: string; query?: string; sort?: DocSort } = {},
+): Promise<Doc[]> {
   return respond(
+    scope,
     () => {
       const q = query?.trim().toLowerCase();
       const list = docs.filter(
         (d) =>
-          !deleted.has(d.id) &&
+          visibleDoc(scope, d) &&
           (!collectionId || d.collectionId === collectionId) &&
           (!q || d.title.toLowerCase().includes(q) || d.summary.toLowerCase().includes(q)),
       );
@@ -116,72 +132,78 @@ export function listDocs({
   );
 }
 
-export function getDoc(id: string): Promise<Doc | null> {
-  return respond(() => docs.find((d) => d.id === id && !deleted.has(id)) ?? null);
+export function getDoc(scope: SampleScope, id: string): Promise<Doc | null> {
+  return respond(scope, () => docs.find((d) => d.id === id && visibleDoc(scope, d)) ?? null);
 }
 
-export function listCollections(): Promise<(Collection & { count: number })[]> {
+/** How many sample documents each sample collection holds ("c_product" → 5). */
+export function docCounts(scope: SampleScope): Promise<Record<string, number>> {
   return respond(
-    () =>
-      COLLECTIONS.map((c) => ({
-        ...c,
-        count: docs.filter((d) => d.collectionId === c.id && !deleted.has(d.id)).length,
-      })),
-    { emptyValue: [] },
+    scope,
+    () => {
+      const counts: Record<string, number> = {};
+      for (const d of docs) {
+        if (visibleDoc(scope, d)) counts[d.collectionId] = (counts[d.collectionId] ?? 0) + 1;
+      }
+      return counts;
+    },
+    { emptyValue: {} },
   );
 }
 
-export function getCollection(id: string): Promise<Collection | null> {
-  return respond(() => COLLECTIONS.find((c) => c.id === id) ?? null);
-}
-
-export function listMeetings(): Promise<Meeting[]> {
+export function listMeetings(scope: SampleScope): Promise<Meeting[]> {
   return respond(
+    scope,
     () => meetings.filter((m) => !deleted.has(m.id)).sort((a, b) => b.startedAt - a.startedAt),
     { emptyValue: [] },
   );
 }
 
-export function getMeeting(id: string): Promise<Meeting | null> {
-  return respond(() => meetings.find((m) => m.id === id && !deleted.has(id)) ?? null);
+export function getMeeting(scope: SampleScope, id: string): Promise<Meeting | null> {
+  return respond(scope, () => meetings.find((m) => m.id === id && !deleted.has(id)) ?? null);
 }
 
-export function listThreads(): Promise<Thread[]> {
-  return respond(
-    () =>
-      [...localThreads(), ...threads]
-        .filter((t) => !deleted.has(t.id))
-        .sort((a, b) => b.updatedAt - a.updatedAt),
-    { emptyValue: [] },
-  );
-}
-
-export function getThread(id: string): Promise<Thread | null> {
-  return respond(() => {
-    if (deleted.has(id)) return null;
-    return localThread(id) ?? threads.find((t) => t.id === id) ?? null;
+/**
+ * Chats. Questions asked in this browser (./answer) are yours, so they show in any workspace;
+ * the sample chats only with sample content.
+ */
+export async function listThreads(scope: SampleScope): Promise<Thread[]> {
+  const sample = await respond(scope, () => threads.filter((t) => !deleted.has(t.id)), {
+    emptyValue: [],
   });
+  return [...structuredClone(localThreads()), ...sample]
+    .filter((t) => !deleted.has(t.id))
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
-export function listActionItems(): Promise<ActionItem[]> {
-  return respond(() => actionItems.filter((a) => !deleted.has(a.id)), { emptyValue: [] });
+export async function getThread(scope: SampleScope, id: string): Promise<Thread | null> {
+  if (deleted.has(id)) return null;
+  const local = localThread(id);
+  if (local) return structuredClone(local);
+  return respond(scope, () => threads.find((t) => t.id === id) ?? null);
+}
+
+export function listActionItems(scope: SampleScope): Promise<ActionItem[]> {
+  return respond(scope, () => actionItems.filter((a) => !deleted.has(a.id)), { emptyValue: [] });
 }
 
 export type StatsRange = 'week' | 'month' | 'year';
 
-export function getStats(range: StatsRange) {
-  return respond(() => WEEK_STATS[range], { emptyValue: null });
+export function getStats(scope: SampleScope, range: StatsRange) {
+  return respond(scope, () => WEEK_STATS[range], { emptyValue: null });
 }
 
-export function getProcessing() {
+export function getProcessing(scope: SampleScope) {
   return respond(
+    scope,
     () => meetings.filter((m) => m.status.state === 'processing' && !deleted.has(m.id)),
     { emptyValue: [] },
   );
 }
 
-export function getContinueListening() {
+export function getContinueListening(scope: SampleScope) {
   return respond(
+    scope,
     () => {
       const meeting = meetings.find((m) => m.id === 'm_allhands' && !deleted.has(m.id));
       return meeting ? { meeting, positionSec: 23 * 60 + 10 } : null;

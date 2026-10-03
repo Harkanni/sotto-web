@@ -14,6 +14,7 @@ import { dueLabel, timestamp } from '@/lib/format';
 import { NavLink } from '@/lib/nav/link';
 import { pushPath } from '@/lib/nav/routes';
 import { navigate } from '@/lib/nav/store';
+import { useActiveWorkspace } from '@/lib/api/hooks';
 import * as api from '@/lib/sample/api';
 import {
   keys,
@@ -65,16 +66,21 @@ function SeeAll({ href, label }: { href: string; label: string }) {
 
 // ── Sample notice ────────────────────────────────────────────────────────────────────────
 
+/**
+ * Says the content is made up, in workspaces that loaded sample content. Dismissed once, it
+ * stays hidden: the boot script hides it before first paint, so dismissing never shifts Home.
+ */
 function SampleNotice() {
-  // Server-rendered; the boot script hides it before first paint once dismissed (no shift).
+  const workspace = useActiveWorkspace();
+  if (!workspace?.sample) return null;
   return (
     <div className="sample-notice mx-[var(--gutter)] flex lg:[column-span:all] items-start gap-3 rounded-card bg-primary-tint p-4">
       <div className="min-w-0 flex-1">
-        <p className="text-headline text-primary-text">You’re exploring a sample workspace</p>
+        <p className="text-headline text-primary-text">You’re exploring sample content</p>
         {/* Muted grey drops below 4.5:1 on the indigo tint; this keeps AA in both themes. */}
-        <p className="mt-1 text-callout text-foreground/75">
-          Kestrel Labs and everything in it is made up to show the design. Your own workspace
-          arrives in Phase 3.
+        <p className="mt-1 text-callout text-pretty text-foreground/75">
+          These memos, meetings and chats are made up to show what Sotto does. Your own uploads
+          arrive in Phase 4.
         </p>
       </div>
       <button

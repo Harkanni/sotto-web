@@ -175,7 +175,23 @@ for focus, keyboard and labelling.
 - **List / ListRow / ActionRow** — grouped rows with optional leading icon, subtitle, detail,
   trailing accessory and chevron. ActionRow adds every secondary action: swipe left for the
   trailing actions (a full swipe deletes), swipe right for Pin, long-press for a preview with the
-  menu, right-click on desktop, and a "…" button for keyboards and screen readers.
+  menu, right-click on desktop, and a "…" button for keyboards and screen readers. A tappable
+  row that isn't a link reads as an action, in indigo ("Invite people", "Add a passkey"); with
+  `plain` it reads as an item that opens a sheet about itself (a person, a passkey, an invite).
+  Inside a sheet, lists sit on `card-nested` with `surface-elevated` (the same dark grey as
+  menus, where indigo text takes its lighter shade to keep 4.5:1).
+- **ConfirmAction** — for actions that can't be undone (remove a person, remove a passkey,
+  withdraw an invite): a red row with what will happen written under it; the first press turns
+  it into Cancel (focused) and the action, in the same 44 px, so a sheet never changes size.
+  Anything that can be undone doesn't ask: it offers Undo in a toast.
+- **Menu picker** — a value in grey with ⇅ at the end of a row, opening a menu of choices with a
+  check on the current one (access levels in "Who has access", the person filter in the audit
+  log). Choices that mean nothing in the current state aren't offered; a single choice is plain
+  text.
+- **WorkspaceTile** — a workspace's first letter on indigo (28 px in the sidebar, 32 in lists,
+  64 on its settings screen). The sidebar's switcher opens a menu of your workspaces with New
+  workspace and Workspace settings.
+- **Restricted badge** — a red badge with a lock on collections only some people can open.
 - **SegmentedControl** — a sliding white thumb on a fill track (Radix radio group).
 - **Switch** — iOS switch in indigo; the thumb stretches while pressed.
 - **SearchField** — filled, rounded, clear button, Cancel slides in while focused.
@@ -183,7 +199,9 @@ for focus, keyboard and labelling.
 - **Sheet** — a bottom sheet on phones (content, medium and large detents, a grabber,
   drag-to-dismiss with velocity, the page receding behind); a centred dialog from 768 px.
 - **Toasts** — bottom-centre above the tab bar and the + button, translucent; Delete never asks,
-  it offers Undo.
+  it offers Undo. Rendered in `<body>` (beside sheets, never inside the shell), so a toast shows
+  above an open sheet. A deferred delete (a collection) leaves the list at once and is sent when
+  the toast closes, so Undo needs no restore.
 - **Command palette (⌘K)** — top-anchored, one sliding highlight, results grouped, ↵ opens,
   ⌘↵ asks Sotto.
 - **Widget states** — `AsyncWidget` renders loading, empty, error and content for every data
@@ -218,6 +236,13 @@ Cancel); filled shows a clear button; disabled at 40%. Text is 17 px.
 Pressed: `row-pressed`, applied 40 ms after touch-down (so a scroll never flashes it) and fading
 out over 300 ms. Selected (wide screens): `fill`. Just opened (phones): the row stays tinted
 under the pushed screen and fades on the way back.
+
+### Sheets
+
+A sheet measures itself once as it opens (the `content` detent). Content that changes height
+afterwards breaks that, so: text that varies (role hints) gets a fixed slot of its longest
+length, and sheets whose content loads (Who has access) open at the `large` detent with a
+skeleton, and keep their Save in view at the bottom.
 
 ### Data widgets
 
@@ -306,6 +331,9 @@ frames, with no network request.
 - Rows, bars and overlays are memoised; swipe buttons render only once a swipe starts.
 - No layout reads during animations (ResizeObserver widths, CSS-positioned sentinels).
 - Scrolling never re-renders React (an IntersectionObserver flips one attribute).
+- Each tab hydrates in its own `<Activity>`, often after `/me` is already cached. Every query
+  hook reads as "not loaded" during its hydration render (`useHydrationSafe`), so the first
+  client render matches the server's HTML and the data shows on the next one, with no wait.
 
 ## 12. Accessibility
 
@@ -313,4 +341,9 @@ frames, with no network request.
 - Every gesture has a button equivalent ("…" on rows, Back, Close).
 - Screen readers hear each navigation (a polite live region) and every status change (offline,
   back online, toasts).
-- Labelled mocks: anything that is sample data or a preview says so on screen.
+- Labelled mocks: anything that is sample data or a preview says so on screen. Sample content
+  shows only in workspaces that loaded it (Home says so in a dismissible notice), and only in
+  the collections you can open.
+- Controls follow your role: Members and the audit log appear for admins and owners; a
+  collection's menu offers only what your access allows; a screen reached by a link you can't
+  use says who can help instead of failing.

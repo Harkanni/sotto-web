@@ -302,7 +302,7 @@ function useSwipeSetting(): ['auto' | 'on' | 'off', (v: 'auto' | 'on' | 'off') =
 }
 
 const STATES: { value: SampleState; label: string; hint: string }[] = [
-  { value: 'normal', label: 'Normal', hint: 'The sample workspace' },
+  { value: 'normal', label: 'Normal', hint: 'Sample content as loaded' },
   { value: 'empty', label: 'Empty', hint: 'Every list comes back empty' },
   { value: 'error', label: 'Failing', hint: 'Every request fails, with a request ID' },
   { value: 'offline', label: 'Offline', hint: 'Every request fails as if offline' },

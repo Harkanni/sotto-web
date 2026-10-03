@@ -1,23 +1,39 @@
 'use client';
 
-import { ArrowDownUp, Check } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { ArrowDownUp, Check, Ellipsis, Lock, Pencil, Plus, Trash2, Users } from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
 import { useDeferredValue, useState } from 'react';
+import { toast } from 'sonner';
+import { messageOf } from '@/components/account/workspace-actions';
+import { AccessSheet } from '@/components/docs/access-sheet';
+import { CreateCollectionSheet, RenameCollectionSheet } from '@/components/docs/collection-sheets';
 import { Screen } from '@/components/shell/screen';
 import { useLayer } from '@/components/shell/stack-context';
 import { emitShellEvent } from '@/components/shell/shell-events';
-import { SensitivityBadge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { menuContent, menuItem } from '@/components/ui/row-actions';
 import { SearchField } from '@/components/ui/search-field';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AsyncWidget, EmptyState } from '@/components/widgets/async-widget';
+import {
+  apiKeys,
+  useActiveWorkspace,
+  useDeleteCollection,
+  useWorkspaceCollection,
+  useWorkspaceCollections,
+  type Collection,
+} from '@/lib/api/hooks';
 import { NavLink } from '@/lib/nav/link';
 import { useChildKey } from '@/lib/nav/hooks';
 import { pushPath } from '@/lib/nav/routes';
+import { navigate, navigateUp } from '@/lib/nav/store';
+import { ACCESS_SENTENCE, accessAtLeast, atLeast } from '@/lib/roles';
 import type { DocSort } from '@/lib/sample/api';
 import type { Doc, DocKind } from '@/lib/sample/data';
-import { useCollection, useCollections, useDocs } from '@/lib/sample/queries';
+import { useDocCounts, useDocs } from '@/lib/sample/queries';
+import { sampleIdOf } from '@/lib/sample/scope';
 import { cn } from '@/lib/utils';
 import { ChipGroup } from './parts/chips';
 import { DocRow, RowsSkeleton } from './parts/rows';
@@ -75,48 +91,103 @@ function SortMenu({
   );
 }
 
+/** Real collection id → the sample collection it stands for ("c_board"), when it's one. */
+function useSampleIds(): Record<string, string> {
+  const sample = useActiveWorkspace()?.sample;
+  const ids: Record<string, string> = {};
+  for (const [key, id] of Object.entries(sample?.collections ?? {})) ids[id] = sampleIdOf(key);
+  return ids;
+}
+
+function fileCount(count: number | undefined): string {
+  if (!count) return 'No files yet';
+  return `${count} ${count === 1 ? 'file' : 'files'}`;
+}
+
+const CARD =
+  'pressable flex h-[112px] w-[156px] flex-col justify-between rounded-card bg-card p-3 text-left select-none active:bg-row-pressed outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring';
+
 function Collections() {
   const { entry } = useLayer();
-  const query = useCollections();
+  const workspace = useActiveWorkspace();
+  const query = useWorkspaceCollections();
+  const counts = useDocCounts();
+  const sampleIds = useSampleIds();
+  const [creating, setCreating] = useState(false);
+  const canCreate = atLeast(workspace?.role, 'member');
+  const create = () => setCreating(true);
+
   return (
-    <AsyncWidget
-      query={query}
-      label="Collections"
-      errorTitle="Couldn’t load collections"
-      empty={{
-        illustration: 'docs',
-        title: 'No collections yet',
-        description: 'Collections group documents and control who can open them.',
-      }}
-      skeleton={
-        <div className="flex gap-3 overflow-hidden px-[var(--gutter)]">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-[112px] w-[156px] shrink-0 rounded-card" />
-          ))}
-        </div>
-      }
-    >
-      {(collections) => (
-        <ul className="flex snap-x scroll-px-[var(--gutter)] gap-3 overflow-x-auto px-[var(--gutter)] pb-1 [scrollbar-width:none] touch-pan-x touch-pan-y [&::-webkit-scrollbar]:hidden">
-          {collections.map((c) => (
-            <li key={c.id} className="snap-start">
-              <NavLink
-                href={pushPath(entry.key, 'collection', c.id)}
-                className="pressable flex h-[112px] w-[156px] flex-col justify-between rounded-card bg-card p-3 select-none active:bg-row-pressed"
-              >
-                <span className="line-clamp-2 text-headline">{c.name}</span>
-                <span className="flex flex-col items-start gap-1">
-                  {c.sensitivity !== 'internal' && <SensitivityBadge level={c.sensitivity} />}
-                  <span className="text-subhead text-muted-foreground tabular">
-                    {c.count} {c.count === 1 ? 'file' : 'files'}
+    <>
+      <AsyncWidget
+        query={query}
+        label="Collections"
+        errorTitle="Couldn’t load collections"
+        empty={{
+          illustration: 'docs',
+          title: 'No collections yet',
+          description: 'Collections group documents and decide who can open them.',
+          action: canCreate ? (
+            <Button variant="secondary" onClick={create}>
+              New collection
+            </Button>
+          ) : undefined,
+        }}
+        skeleton={
+          <div className="flex gap-3 overflow-hidden px-[var(--gutter)]">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-[112px] w-[156px] shrink-0 rounded-card" />
+            ))}
+          </div>
+        }
+      >
+        {(collections) => (
+          <ul className="flex snap-x scroll-px-[var(--gutter)] gap-3 overflow-x-auto px-[var(--gutter)] pb-1 [scrollbar-width:none] touch-pan-x touch-pan-y [&::-webkit-scrollbar]:hidden">
+            {collections.map((c) => (
+              <li key={c.id} className="snap-start">
+                <NavLink href={pushPath(entry.key, 'collection', c.id)} className={CARD}>
+                  <span className="line-clamp-2 text-headline">{c.name}</span>
+                  <span className="flex flex-col items-start gap-1">
+                    {c.restricted && <RestrictedBadge />}
+                    <span className="text-subhead text-muted-foreground tabular">
+                      {fileCount(sampleIds[c.id] ? counts.data?.[sampleIds[c.id]!] : 0)}
+                    </span>
                   </span>
-                </span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      )}
-    </AsyncWidget>
+                </NavLink>
+              </li>
+            ))}
+            {canCreate && (
+              <li className="snap-start">
+                <button type="button" onClick={create} className={cn(CARD, 'text-primary-text')}>
+                  <span
+                    aria-hidden
+                    className="grid size-8 place-items-center rounded-full bg-primary-tint"
+                  >
+                    <Plus className="size-5" strokeWidth={2} />
+                  </span>
+                  <span className="text-headline">New collection</span>
+                </button>
+              </li>
+            )}
+          </ul>
+        )}
+      </AsyncWidget>
+      <CreateCollectionSheet
+        open={creating}
+        onOpenChange={setCreating}
+        onCreated={(c) => navigate(pushPath(entry.key, 'collection', c.id))}
+      />
+    </>
+  );
+}
+
+/** Only admins, owners and the people or roles it names can open this one. */
+function RestrictedBadge() {
+  return (
+    <Badge tone="danger" title="Restricted: only the people and roles it names can open it">
+      <Lock aria-hidden strokeWidth={2.25} />
+      Restricted
+    </Badge>
   );
 }
 
@@ -244,24 +315,177 @@ export function DocsScreen() {
   );
 }
 
-/** One collection: its documents, under the collection's sensitivity label. */
+/** A collection's actions, by what you may do: who has access, rename, delete. */
+function CollectionMenu({
+  collection,
+  onAccess,
+  onRename,
+  onDelete,
+}: {
+  collection: Collection;
+  onAccess: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}) {
+  const workspace = useActiveWorkspace();
+  const admin = atLeast(workspace?.role, 'admin');
+  const canEdit = accessAtLeast(collection.access, 'edit');
+  const canDelete = accessAtLeast(collection.access, 'manage');
+  if (!admin && !canEdit && !canDelete) return null;
+  return (
+    <DropdownMenu.Root modal={false}>
+      <DropdownMenu.Trigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Collection actions"
+          icon={<Ellipsis aria-hidden />}
+        />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="end"
+          sideOffset={4}
+          collisionPadding={12}
+          className={menuContent}
+        >
+          {admin && (
+            <DropdownMenu.Item className={menuItem} onSelect={onAccess}>
+              <span className="flex-1">Who has access</span>
+              <Users aria-hidden className="size-5 text-muted-foreground" />
+            </DropdownMenu.Item>
+          )}
+          {canEdit && (
+            <DropdownMenu.Item className={menuItem} onSelect={onRename}>
+              <span className="flex-1">Rename</span>
+              <Pencil aria-hidden className="size-5 text-muted-foreground" />
+            </DropdownMenu.Item>
+          )}
+          {canDelete && (
+            <>
+              {(admin || canEdit) && (
+                <DropdownMenu.Separator className="mx-1 my-1 h-px bg-separator" />
+              )}
+              <DropdownMenu.Item
+                className={cn(menuItem, 'text-destructive-text')}
+                onSelect={onDelete}
+              >
+                <span className="flex-1">Delete collection</span>
+                <Trash2 aria-hidden className="size-5" />
+              </DropdownMenu.Item>
+            </>
+          )}
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+/**
+ * Delete doesn't ask (UI_DESIGN_SYSTEM §7): the collection leaves the list at once and the
+ * toast offers Undo. The API call goes out when the toast closes, so Undo needs no restore.
+ */
+function useDeleteWithUndo() {
+  const client = useQueryClient();
+  const workspace = useActiveWorkspace();
+  const remove = useDeleteCollection();
+  return (collection: Collection) => {
+    if (!workspace) return;
+    const key = apiKeys.collections(workspace.id);
+    const before = client.getQueryData<Collection[]>(key);
+    client.setQueryData<Collection[]>(key, (list) => list?.filter((c) => c.id !== collection.id));
+    let settled = false;
+    const commit = () => {
+      if (settled) return;
+      settled = true;
+      remove.mutate(collection.id, {
+        onError: (e) => {
+          client.setQueryData(key, before);
+          toast(messageOf(e));
+        },
+      });
+    };
+    toast(`Deleted ${collection.name}`, {
+      action: {
+        label: 'Undo',
+        onClick: () => {
+          settled = true;
+          client.setQueryData(key, before);
+        },
+      },
+      onAutoClose: commit,
+      onDismiss: commit,
+    });
+  };
+}
+
+/** One collection: who can open it, what you may do, and its documents. */
 export function CollectionScreen() {
-  const { entry, tab } = useLayer();
+  const { entry, tab, parent } = useLayer();
   const id = entry.id!;
-  const collection = useCollection(id);
-  const docs = useDocs({ collectionId: id });
+  const { collection: c, ...list } = useWorkspaceCollection(id);
+  const sampleId = useSampleIds()[id];
+  // A collection that isn't one of the samples holds no files until uploads arrive (Phase 4).
+  const docs = useDocs({ collectionId: sampleId ?? id });
   const selected = useChildKey(tab, entry.key);
-  const c = collection.data;
+  const deleteWithUndo = useDeleteWithUndo();
+  const [sheet, setSheet] = useState<'access' | 'rename' | null>(null);
+  const [shown, setShown] = useState<'access' | 'rename'>('access');
+  const openSheet = (which: 'access' | 'rename') => {
+    setShown(which);
+    setSheet(which);
+  };
+
+  if (list.data && !c) {
+    return (
+      <Screen title="Collection" largeTitle={false}>
+        <div className="mx-[var(--gutter)] mt-4 rounded-card bg-card">
+          <EmptyState
+            illustration="search"
+            title="This collection isn’t here"
+            description="It was deleted, or it’s restricted and you aren’t on its list."
+            action={
+              parent && (
+                <Button variant="secondary" onClick={() => navigateUp(parent.key)}>
+                  Go back
+                </Button>
+              )
+            }
+          />
+        </div>
+      </Screen>
+    );
+  }
 
   return (
-    <Screen title={c?.name ?? 'Collection'} largeTitle>
+    <Screen
+      title={c?.name ?? 'Collection'}
+      largeTitle
+      actions={
+        c && (
+          <CollectionMenu
+            collection={c}
+            onAccess={() => openSheet('access')}
+            onRename={() => openSheet('rename')}
+            onDelete={() => {
+              if (parent) navigateUp(parent.key);
+              deleteWithUndo(c);
+            }}
+          />
+        )
+      }
+    >
       <div className="flex flex-col gap-4">
-        {c && (
-          <div className="flex items-center gap-2 px-[calc(var(--gutter)+4px)]">
-            <SensitivityBadge level={c.sensitivity} />
-            <p className="text-callout text-muted-foreground">{c.description}</p>
-          </div>
-        )}
+        <div className="flex min-h-5 items-center gap-2 px-[calc(var(--gutter)+4px)]">
+          {c ? (
+            <>
+              {c.restricted && <RestrictedBadge />}
+              <p className="text-callout text-muted-foreground">{ACCESS_SENTENCE[c.access]}</p>
+            </>
+          ) : (
+            <Skeleton className="h-4 w-32" />
+          )}
+        </div>
         <AsyncWidget
           query={docs}
           label="Documents"
@@ -269,7 +493,9 @@ export function CollectionScreen() {
           empty={{
             illustration: 'docs',
             title: 'This collection is empty',
-            description: 'Move documents here from their menu, or add new ones.',
+            description: sampleId
+              ? 'Move sample documents here from their menu.'
+              : 'Uploading files arrives in Phase 4.',
           }}
           skeleton={
             <div className="px-[var(--gutter)]">
@@ -277,9 +503,22 @@ export function CollectionScreen() {
             </div>
           }
         >
-          {(list) => <DocList docs={list} base={entry.key} selectedKey={selected} />}
+          {(items) => <DocList docs={items} base={entry.key} selectedKey={selected} />}
         </AsyncWidget>
       </div>
+      <AccessSheet
+        collection={c}
+        open={sheet === 'access'}
+        onOpenChange={(open) => setSheet(open ? 'access' : null)}
+      />
+      {shown === 'rename' && (
+        <RenameCollectionSheet
+          key={c?.name}
+          collection={c}
+          open={sheet === 'rename'}
+          onOpenChange={(open) => setSheet(open ? 'rename' : null)}
+        />
+      )}
     </Screen>
   );
 }

@@ -143,7 +143,8 @@ function InviteSheet({
             onValueChange={setRole}
             segments={INVITE_ROLES}
           />
-          <p className="px-4 text-footnote text-muted-foreground">{ROLE_HINT[role]}</p>
+          {/* Two lines reserved: the sheet is measured once, and hints differ in length. */}
+          <p className="min-h-9 px-4 text-footnote text-muted-foreground">{ROLE_HINT[role]}</p>
         </div>
       </form>
     </Sheet>
@@ -180,13 +181,12 @@ function MemberSheet({
         <div className="flex flex-col gap-6 pt-1 pb-2">
           <section aria-label="Role" className="px-[var(--gutter)]">
             <h3 className="px-4 pb-1.5 text-footnote text-muted-foreground">Role</h3>
-            <ul className="overflow-hidden rounded-card bg-card-nested [--surface:var(--card-nested)]">
+            <ul className="surface-elevated overflow-hidden rounded-card bg-card-nested [--surface:var(--card-nested)]">
               {assignableRoles(myRole).map((r) => (
                 <ListRow
                   key={r}
                   plain
                   title={ROLE_LABEL[r]}
-                  subtitle={ROLE_HINT[r]}
                   trailing={
                     pending === r ? (
                       <Spinner size={18} className="text-muted-foreground" />
@@ -215,6 +215,10 @@ function MemberSheet({
                 />
               ))}
             </ul>
+            {/* Two lines reserved, so the sheet keeps its size whichever role is chosen. */}
+            <p className="min-h-[42px] px-4 pt-1.5 text-footnote text-muted-foreground">
+              {role && ROLE_HINT[role]}
+            </p>
           </section>
           <ConfirmAction
             surface="sheet"
@@ -264,7 +268,7 @@ function PendingInviteSheet({
     >
       {invite && (
         <div className="flex flex-col gap-6 pt-1 pb-2">
-          <ul className="mx-[var(--gutter)] overflow-hidden rounded-card bg-card-nested [--surface:var(--card-nested)]">
+          <ul className="surface-elevated mx-[var(--gutter)] overflow-hidden rounded-card bg-card-nested [--surface:var(--card-nested)]">
             <ListRow
               leading={<RowIcon icon={Link2} tint="blue" />}
               title="Copy invite link"
