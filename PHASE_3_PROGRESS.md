@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 3 — accounts and workspaces. Phases 0–2 are merged (sotto-web `4b1d6b3`,
   sotto-platform `16d2a6c`).
 - **Overall:** in progress.
-- **Current milestone:** M4 — web: typed API client, auth client, session handling, sign-in.
+- **Current milestone:** M6 — web: Profile (account, passkeys, workspace, members, audit) and collections with access.
 
 ## Requirements
 
@@ -48,9 +48,9 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
 | M1  | Accounts schema + migration; Better Auth at `/api/auth/*`; mailer; session + CSRF guards; tenant client; `/me`; tests      | sotto-api | done        |
 | M2  | Workspaces, members, invites, roles; audit entries for each                                                                | sotto-api | done        |
 | M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | done        |
-| M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | in progress |
-| M5  | Onboarding (name, workspace, invites, sample content) and invite acceptance                                                | sotto-web | not started |
-| M6  | Profile: account, passkeys, workspace + switcher, members and invites, audit log; collections and access sheet in Docs     | sotto-web | not started |
+| M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | done        |
+| M5  | Onboarding (name, workspace, invites, sample content) and invite acceptance                                                | sotto-web | done        |
+| M6  | Profile: account, passkeys, workspace + switcher, members and invites, audit log; collections and access sheet in Docs     | sotto-web | in progress |
 | M7  | E2E for the done-when flow; stories; axe; smoothness; screenshots; demo config; STATUS; ADRs; PRs ready                    | all       | not started |
 
 ## Completed work
@@ -79,17 +79,32 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
   `GET/PUT /collections/:id/permissions`, `GET /audit` (filters, cursor) + `GET /audit.csv`,
   `POST /onboarding/sample-content`, `tenantTransaction()`. CI green on M1 and M2 (integration
   tests on the pgvector service container, smoke, gitleaks).
+- **API follow-up (`8a0d4d0`):** `/me.workspace.sample` names the sample collections' ids.
+- **M4 + M5 (sotto-web `43b2bb6`):** typed client (`src/lib/api`, generated from
+  `openapi.json`), Better Auth client, `src/proxy.ts` (no session cookie → `/sign-in?next=`),
+  session gate, `/sign-in` (email link, passkey autofill + button, providers when enabled,
+  "check your email" that continues by itself), `/welcome` (name → workspace or pick one →
+  invites → sample or empty), `/invite/:id` (every state). New: TextField, SottoMark,
+  mail/team/key illustrations, AuthScreen. Verified in a phone browser end to end against the
+  local API + Mailpit (screens reviewed light; flow had no console errors).
 - Sandbox: both `node_modules` snapshots restored; `pnpm -r build` and the 28 existing sotto-api
   tests pass locally (pnpm needs `npm_config_manage_package_manager_versions=false`). Local
   Postgres 16 (+ stub `vector`) and Redis run for integration tests.
 
 ## Work in progress
 
-- **Task:** M4 in sotto-web — `src/lib/api` (types generated from `../sotto-api/openapi.json`
-  with openapi-typescript, a fetch client that adds the CSRF token and turns errors into
-  `ApiError` with the request id, TanStack Query hooks), `src/lib/auth` (Better Auth client:
-  magic link, passkey, social, sign-out), a route guard (`proxy.ts`: no session cookie → sign-in),
-  and the `(auth)` sign-in screen built from the existing design system.
+- **Task:** M6 in sotto-web — wire the shell to the real account:
+  - Profile: account card from `/me` (name editable), passkeys (add, rename, remove), sign out
+    (clears the service worker's saved pages), workspace (rename for admins, switch, create),
+    members and invites (roles, remove, resend, withdraw, invite sheet), audit log (filters,
+    CSV download).
+  - Sidebar workspace switcher from `/workspaces`.
+  - Docs: collections from `/collections` (with lock for restricted), create collection,
+    access sheet (`/collections/:id/permissions`) for admins; sample documents mapped into the
+    real sample collections via `/me.workspace.sample` and hidden when their collection is.
+  - Sample layer: empty unless the workspace loaded sample content; Home's notice reworded.
+- **Files:** `src/screens/profile.tsx` (+ new screens), `src/components/shell/sidebar.tsx`,
+  `src/screens/docs.tsx`, `src/lib/sample/*`, `src/lib/api/hooks.ts`, `src/screens/index.tsx`.
 
 ## Remaining work
 
@@ -99,7 +114,9 @@ flow.
 
 ## Next steps
 
-1. M4 as above; then M5 (onboarding at `/welcome`, invite acceptance at `/invite/:id`).
+1. M6 as above, then M7: the done-when E2E (`e2e/accounts.spec.ts`, needs the API: decide how
+   CI runs it), stories for new screens, axe, `pnpm smoothness`, light/dark screenshots, demo
+   config in sotto-platform, ADRs, STATUS, PRs ready.
 2. Supporting endpoints added beyond PLAN's list (recorded for the owner):
    `GET /sign-in-methods`, `GET /invites/:id` (preview), `GET /collections/:id/permissions`.
 
@@ -145,9 +162,13 @@ Identified, not invented around:
 5. **Invite preview.** The accept screen must show the workspace and inviter before accepting;
    PLAN lists only `POST /invites/:token/accept`. Adding `GET /invites/:token` (token holder
    only, no other workspace data).
-6. **Passkeys and the domain.** WebAuthn credentials are bound to the host name. Passkeys made
+6. **Installed app (iOS) and email links.** Links open in the browser, which on iOS doesn't
+   share cookies with a Home Screen app, so signing in by link inside the installed app lands
+   in Safari. Passkeys work inside the app once added. A typed one-time code (Better Auth's
+   email OTP) would fix it; that changes PLAN's sign-in method, so it waits for the owner.
+7. **Passkeys and the domain.** WebAuthn credentials are bound to the host name. Passkeys made
    on the sslip.io demo won't work after the move to the real domain.
-7. **Cross-repo E2E in CI.** The web E2E needs a running API. Options: pull `sotto/api:main` from
+8. **Cross-repo E2E in CI.** The web E2E needs a running API. Options: pull `sotto/api:main` from
    ECR in sotto-web's CI (no new secret; arm64 runner) or a read token for sotto-api. Decided in
    M7.
 
