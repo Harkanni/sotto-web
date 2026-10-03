@@ -452,15 +452,6 @@ export interface components {
                 access: components["schemas"]["Access"];
             }[];
         };
-        AuditQuery: {
-            from?: string;
-            to?: string;
-            actor?: string;
-            action?: string;
-            cursor?: string;
-            /** @default 50 */
-            limit: number;
-        };
         AuditPage: {
             entries: components["schemas"]["AuditEntry"][];
             nextCursor: string | null;
@@ -1137,7 +1128,14 @@ export interface operations {
     };
     AuditController_list: {
         parameters: {
-            query?: never;
+            query?: {
+                from?: string;
+                to?: string;
+                actor?: string;
+                action?: string;
+                cursor?: string;
+                limit?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;

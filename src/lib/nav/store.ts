@@ -232,6 +232,18 @@ export function tabHref(tab: Tab): string {
   return tabHrefs[tab] ?? `/${tab}`;
 }
 
+/**
+ * Sends every tab except `keep` back to its root. After switching workspace the screens left
+ * open in other tabs belong to the previous one, so they open fresh instead of "not found".
+ */
+export function resetOtherTabs(keep: Tab | null) {
+  const current = initialSnapshot();
+  for (const tab of TABS) if (tab !== keep) delete tabHrefs[tab];
+  snapshot = { ...current, tabs: tabsSnapshot(), seq: current.seq + 1 };
+  writeStorage();
+  emit();
+}
+
 /** Test helper: forget everything. */
 export function resetNavigationForTests() {
   snapshot = null;

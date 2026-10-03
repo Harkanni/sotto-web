@@ -3,11 +3,14 @@
 import { EmptyState } from '@/components/widgets/async-widget';
 import type { IllustrationName } from '@/components/widgets/illustrations';
 import type { ScreenKind, StackEntry, Tab } from '@/lib/nav/routes';
+import { AccountScreen } from './account';
 import { AskScreen, ThreadScreen } from './ask';
+import { AuditScreen } from './audit';
 import { DocScreen } from './doc';
 import { CollectionScreen, DocsScreen } from './docs';
 import { HomeScreen } from './home';
 import { MeetingScreen, MeetingsScreen } from './meetings';
+import { MembersScreen } from './members';
 import {
   AboutScreen,
   AppearanceScreen,
@@ -18,6 +21,7 @@ import {
   ProfileScreen,
   WidgetStatesScreen,
 } from './profile';
+import { WorkspaceScreen } from './workspace';
 
 /** Which component draws each kind of screen. The URL decides the kind (src/lib/nav/routes). */
 const SCREENS: Record<ScreenKind, React.ComponentType> = {
@@ -30,16 +34,17 @@ const SCREENS: Record<ScreenKind, React.ComponentType> = {
   doc: DocScreen,
   meeting: MeetingScreen,
   thread: ThreadScreen,
+  account: AccountScreen,
   appearance: AppearanceScreen,
   developer: DeveloperScreen,
   'widget-states': WidgetStatesScreen,
   components: ComponentsScreen,
   about: AboutScreen,
-  workspace: LaterScreen,
-  members: LaterScreen,
+  workspace: WorkspaceScreen,
+  members: MembersScreen,
   ai: LaterScreen,
   usage: LaterScreen,
-  audit: LaterScreen,
+  audit: AuditScreen,
   'not-found': NotFoundScreen,
 };
 
