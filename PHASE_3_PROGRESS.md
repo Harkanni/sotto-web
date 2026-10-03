@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 3 — accounts and workspaces. Phases 0–2 are merged (sotto-web `4b1d6b3`,
   sotto-platform `16d2a6c`).
 - **Overall:** in progress.
-- **Current milestone:** M1 — accounts schema, Better Auth, guards and `/me` (sotto-api).
+- **Current milestone:** M3 — collections and permissions, audit log, sample content (sotto-api).
 
 ## Requirements
 
@@ -45,9 +45,9 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
 | #   | Milestone                                                                                                                  | Repo      | State       |
 | --- | -------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
 | M0  | Recovery; permanent `CLAUDE.md` (all repos); this log; dependency snapshots for the sandbox                                | all       | done        |
-| M1  | Accounts schema + migration; Better Auth at `/api/auth/*`; mailer; session + CSRF guards; tenant client; `/me`; tests      | sotto-api | in progress |
-| M2  | Workspaces, members, invites, roles; audit entries for each                                                                | sotto-api | not started |
-| M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | not started |
+| M1  | Accounts schema + migration; Better Auth at `/api/auth/*`; mailer; session + CSRF guards; tenant client; `/me`; tests      | sotto-api | done        |
+| M2  | Workspaces, members, invites, roles; audit entries for each                                                                | sotto-api | done        |
+| M3  | Collections + permissions; audit log + CSV; onboarding sample content; `openapi.json`                                      | sotto-api | in progress |
 | M4  | Typed API client + auth client; session handling and route guard; sign-in (magic link, passkey autofill, Google/Microsoft) | sotto-web | not started |
 | M5  | Onboarding (name, workspace, invites, sample content) and invite acceptance                                                | sotto-web | not started |
 | M6  | Profile: account, passkeys, workspace + switcher, members and invites, audit log; collections and access sheet in Docs     | sotto-web | not started |
@@ -66,34 +66,27 @@ Workspace and admin, §11 Security baseline, Phase 3 prompt).
   conventions, tests, git, documentation duties).
 - Permanent `CLAUDE.md` in sotto-api (`90917f6`) and sotto-platform (`09a2c44`, draft PR #3 with
   STATUS for Phase 3). M0 done.
+- **M1 (sotto-api `3ea2376`, `5659ae3`):** accounts schema + migration; tenant client
+  (`forWorkspace`); Better Auth at `/api/auth/*` (magic link over SMTP with hashed tokens,
+  passkeys, renamed organization plugin, Google/Microsoft when configured, Redis rate limits,
+  organization HTTP routes closed); one global guard (session → workspace/role → CSRF → minimum
+  role); `GET/PATCH /me`, `GET /sign-in-methods`; request ids; error format; CI Postgres
+  service; README and `.env.example`.
+- **M2 (sotto-api `1d257c8`):** `/workspaces`, `/workspace`, `/members`, `/invites` (+ public
+  preview and accept), each change audited; removing a member drops their grants and sessions'
+  workspace.
 - Sandbox: both `node_modules` snapshots restored; `pnpm -r build` and the 28 existing sotto-api
   tests pass locally (pnpm needs `npm_config_manage_package_manager_versions=false`). Local
   Postgres 16 (+ stub `vector`) and Redis run for integration tests.
 
 ## Work in progress
 
-- **Task:** M1 in sotto-api (`feat/p3-accounts`).
-- **Done so far (checkpointed, not yet compiling as a whole):**
-  - `packages/db/prisma/schema.prisma` + migration `20261002205400_accounts_and_workspaces`
-    (Better Auth tables; Workspace, Membership, Invite with lowercase `Role`/`InviteStatus`
-    enums; Collection, CollectionPermission with a one-subject CHECK; AuditLog). Applied locally.
-  - `packages/db/src/tenant.ts` (`forWorkspace`, `scopeArgs`, `TENANT_MODELS`) + 8 unit tests,
-    exported from `src/index.ts` with the enums and model types.
-  - `apps/api/src/config.ts` (APP_URL, AUTH_SECRET required in production, SMTP_URL,
-    MAIL_FROM, Google/Microsoft credentials, AUTH_RATE_LIMIT).
-  - `apps/api/src/auth/auth.ts` (Better Auth: Prisma adapter, magic link with hashed tokens,
-    passkeys, renamed organization plugin with owner/admin/member/viewer, Google/Microsoft only
-    when configured, Redis rate limits, organization HTTP routes disabled, starting workspace on
-    sign-in), `roles.ts` (ranks, `collectionAccess`), `rate-limit.ts`, `csrf.ts`.
-  - `apps/api/src/mail/` (SMTP mailer, unconfigured fallback, magic-link and invite templates),
-    `apps/api/src/common/errors.ts` (error body, Better Auth message table, exception filter).
-- **Outstanding in M1:** `common/request.ts` (request types, `@Ctx()`), request-id middleware,
-  `auth/auth.guard.ts` (session → workspace → CSRF → role), `auth/auth.module.ts` (Better Auth
-  provider, Redis, global guard, `GET /api/v1/sign-in-methods`), mount the handler in
-  `bootstrap.ts` before the body parser (+ Nest CSRF protection, security headers, trust proxy),
-  `@Public()` on health/status, `me/` (`GET/PATCH /me` with the CSRF token), integration tests
-  (magic-link sign-up through a capturing mailer, `/me`, CSRF refusal), CI Postgres service,
-  `.env.example`, `openapi.json`.
+- **Task:** M3 in sotto-api — collections with SQL-side access filters, grants
+  (`PUT /collections/:id/permissions`), `GET /audit` + `GET /audit.csv`,
+  `POST /onboarding/sample-content`, `openapi.json`.
+- **Files:** `apps/api/src/collections/`, `apps/api/src/audit/` (service exists: `AuditService`,
+  `AUDIT_ACTIONS`), `apps/api/src/onboarding/`, `apps/api/src/workspaces/metadata.ts` (sample
+  collections are recorded there), integration tests in `apps/api/test/integration/`.
 
 ## Remaining work
 
@@ -103,9 +96,9 @@ flow.
 
 ## Next steps
 
-1. Finish M1 (the outstanding list above), run `pnpm -r build`, lint, tests and the
-   integration tests against local Postgres, then commit and push.
-2. M2: workspaces, members, invites (`apps/api/src/workspaces`, `members`), each change audited.
+1. M3 (see Work in progress), then mark sotto-api#3's checklist and move to the web (M4):
+   generate `src/lib/api` types from sotto-api's `openapi.json`, add the auth client, the
+   sign-in screens and the session guard.
 
 Decisions taken (each becomes an ADR in sotto-platform):
 
@@ -167,6 +160,8 @@ Identified, not invented around:
 
 ## Tests and checks run
 
-| When | Check | Result |
-| ---- | ----- | ------ |
-| —    | —     | —      |
+| When           | Check                                                                                                                                           | Result |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `5659ae3` (M1) | sotto-api lint, format, typecheck, build; 60 tests (api 32, incl. 9 integration on local Postgres 16)                                           | Pass   |
+| `5659ae3` (M1) | Manual: API booted against local Postgres + Mailpit; magic link sent, verified (302 → `/welcome`, 30-day HttpOnly cookie), `/me`, CSRF refusals | Pass   |
+| `1d257c8` (M2) | sotto-api lint, format, typecheck, build; api 46 tests (incl. 14 workspace/member/invite integration tests)                                     | Pass   |
