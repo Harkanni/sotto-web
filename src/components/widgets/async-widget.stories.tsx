@@ -122,6 +122,9 @@ const NAMES: IllustrationName[] = [
   'offline',
   'error',
   'processing',
+  'mail',
+  'team',
+  'key',
 ];
 
 /** One line style, in the accent colour, drawn inline so it follows the theme. */

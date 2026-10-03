@@ -28,9 +28,10 @@ self.addEventListener('install', (event) => {
     (async () => {
       const assets = await caches.open(STATIC);
       await assets.addAll(precache);
-      // The app shell, so a cold start without a connection still opens Sotto.
+      // The app shell, so a cold start without a connection still opens Sotto. Signed out, the
+      // request is redirected to sign-in: that page isn't the shell, so it isn't saved as one.
       const shell = await fetch(SHELL, { credentials: 'same-origin', cache: 'no-store' });
-      if (shell.ok) await (await caches.open(PAGES)).put(SHELL, shell);
+      if (shell.ok && !shell.redirected) await (await caches.open(PAGES)).put(SHELL, shell);
     })(),
   );
 });
@@ -133,7 +134,13 @@ async function renderedFor(response, path) {
 function savePage(url, network) {
   return network
     .then((response) => {
-      if (!sectionOf(url.pathname) || !response.ok || response.type !== 'basic') return;
+      if (
+        !sectionOf(url.pathname) ||
+        !response.ok ||
+        response.type !== 'basic' ||
+        response.redirected
+      )
+        return;
       const copy = response.clone();
       return caches.open(PAGES).then((pages) => pages.put(url.pathname, copy));
     })

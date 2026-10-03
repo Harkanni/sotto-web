@@ -21,7 +21,9 @@
     "build-storybook": "storybook build -o storybook-static",
     "test:stories": "playwright test -c playwright.stories.config.ts",
     "smoothness": "node scripts/smoothness.mjs",
-    "generate:assets": "node scripts/generate-assets.mjs"
+    "generate:assets": "node scripts/generate-assets.mjs",
+    "api:sync": "cp ../sotto-api/openapi.json src/lib/api/openapi.json && pnpm api:types",
+    "api:types": "openapi-typescript src/lib/api/openapi.json -o src/lib/api/schema.ts"
   },
   "dependencies": {
     "@better-auth/passkey": "^1.7.7",

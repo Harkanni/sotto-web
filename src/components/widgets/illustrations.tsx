@@ -13,7 +13,10 @@ export type IllustrationName =
   | 'period'
   | 'offline'
   | 'error'
-  | 'processing';
+  | 'processing'
+  | 'mail'
+  | 'team'
+  | 'key';
 
 const PAPER = 'var(--surface, var(--card))';
 
@@ -106,6 +109,37 @@ const ART: Record<IllustrationName, React.ReactNode> = {
     <>
       <rect x="18" y="20" width="84" height="50" rx="12" {...Tint} />
       <path d="M36 38v14M46 32v26M56 36v18M66 30v30M76 38v14M86 42v6" />
+    </>
+  ),
+  // A letter rising from its envelope, carrying the waveform: "your link is on its way".
+  mail: (
+    <>
+      <rect x="22" y="38" width="76" height="44" rx="10" {...Tint} />
+      <path d="M36 54V18a7 7 0 0 1 7-7h34a7 7 0 0 1 7 7v36" fill={PAPER} />
+      <path d="M49 25v10M56 21v18M63 26v8M70 28v4" />
+      <path d="m24 44 36 24 36-24" />
+    </>
+  ),
+  // Three people around the mark's tile: a workspace and the team in it.
+  team: (
+    <>
+      <rect x="42" y="14" width="36" height="36" rx="10" {...Tint} />
+      <path d="M53 26v12M59 23v18M65 27v10" />
+      <circle cx="30" cy="58" r="9" fill={PAPER} />
+      <path d="M14 82a16 16 0 0 1 32 0" />
+      <circle cx="90" cy="58" r="9" fill={PAPER} />
+      <path d="M74 82a16 16 0 0 1 32 0" />
+      <circle cx="60" cy="62" r="10" fill={PAPER} />
+      <path d="M42 86a18 18 0 0 1 36 0" />
+    </>
+  ),
+  // A key whose bit is the waveform: a passkey.
+  key: (
+    <>
+      <circle cx="40" cy="45" r="20" {...Tint} />
+      <circle cx="40" cy="45" r="7" fill={PAPER} />
+      <path d="M60 45h40" />
+      <path d="M78 45v9M86 45v13M94 45v7" />
     </>
   ),
 };

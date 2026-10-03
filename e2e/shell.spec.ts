@@ -19,7 +19,18 @@ const SCREENS = [
   '/profile/appearance',
 ];
 
+/**
+ * The shell's own behaviour, independent of accounts: the API isn't running in this job, so a
+ * stand-in session cookie gets past the sign-in redirect and the app shows its sample data
+ * (/me fails, which the session gate leaves to the offline states). e2e/accounts.spec.ts covers
+ * the real sign-in against a running API.
+ */
 async function open(page: Page, path: string) {
+  await page
+    .context()
+    .addCookies([
+      { name: 'sotto.session_token', value: 'e2e-shell', url: 'http://localhost:3000' },
+    ]);
   await page.goto(path);
   // Instant sample data, so tests never wait on the simulated latency.
   await page.evaluate(() =>
