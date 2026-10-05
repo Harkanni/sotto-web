@@ -220,7 +220,7 @@ None. Phase 4's PRs are ready for review.
 
 1. If review asks for changes: make them on the same branches, rerun the checks, update this
    log and STATUS.
-2. After the merges: Phase 5 (search and notes) starts from `docs/PLAN.md`; create
+2. After the merges: Phase 5 (Ask and search) starts from `docs/PLAN.md`; create
    `PHASE_5_PROGRESS.md` the same way.
 
 ## Decisions
