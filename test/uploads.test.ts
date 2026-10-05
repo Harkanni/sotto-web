@@ -180,3 +180,13 @@ describe('overall progress', () => {
     ).toBe(0.125);
   });
 });
+
+describe('file cache keys', () => {
+  it('keeps a transcript and its search matches apart (different shapes)', async () => {
+    const { fileKeys } = await import('@/lib/api/files');
+    const transcript = JSON.stringify(fileKeys.transcript('w', 'f'));
+    for (const q of ['', 'board']) {
+      expect(JSON.stringify(fileKeys.matches('w', 'f', q))).not.toBe(transcript);
+    }
+  });
+});

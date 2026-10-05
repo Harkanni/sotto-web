@@ -9,7 +9,17 @@ import { useActiveWorkspace } from '@/lib/api/hooks';
 import { pushPath } from '@/lib/nav/routes';
 import { navigate } from '@/lib/nav/store';
 import { failureText } from '@/lib/files/status';
-import { onUploadDone } from '@/lib/uploads/store';
+import { getUploads, onUploadDone } from '@/lib/uploads/store';
+import { UPLOAD_TOAST } from '@/components/shell/add-sheet';
+
+/**
+ * A result takes over the "Uploading…" toast when nothing else is still uploading (the usual
+ * single file), so one toast tells the whole story; otherwise it gets its own.
+ */
+function resultToastId(): string | undefined {
+  const moving = getUploads().some((u) => !['done', 'failed', 'canceled'].includes(u.state));
+  return moving ? undefined : UPLOAD_TOAST;
+}
 
 /** Files uploaded from this tab, so only their own outcome is announced, never someone else's. */
 const mine = new Map<string, { title: string; kind: 'document' | 'audio' }>();
@@ -42,6 +52,7 @@ export function UploadSync() {
         if (status === 'ready') {
           const kind = file.kind === 'audio' ? 'meeting' : 'doc';
           toast(`“${file.title}” is ready`, {
+            id: resultToastId(),
             description:
               file.kind === 'audio'
                 ? 'The transcript and notes are in.'
@@ -54,7 +65,10 @@ export function UploadSync() {
           });
         } else {
           const error = ws ? fileFromLists(client, ws, fileId)?.error : null;
-          toast(`Couldn’t process “${file.title}”`, { description: failureText(error ?? null) });
+          toast(`Couldn’t process “${file.title}”`, {
+            id: resultToastId(),
+            description: failureText(error ?? null),
+          });
         }
       }),
     [client, ws],

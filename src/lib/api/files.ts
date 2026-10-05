@@ -40,8 +40,10 @@ export const fileKeys = {
   list: (ws: string, params: FileListParams) => ['api', 'w', ws, 'files', 'list', params] as const,
   file: (ws: string, id: string) => ['api', 'w', ws, 'files', 'one', id] as const,
   content: (ws: string, id: string) => ['api', 'w', ws, 'files', 'content', id] as const,
-  transcript: (ws: string, id: string, q = '') =>
-    ['api', 'w', ws, 'files', 'transcript', id, q] as const,
+  transcript: (ws: string, id: string) => ['api', 'w', ws, 'files', 'transcript', id] as const,
+  /** Line numbers matching a search; never the same key as the transcript (different shape). */
+  matches: (ws: string, id: string, q: string) =>
+    ['api', 'w', ws, 'files', 'transcript', id, 'matches', q] as const,
   insights: (ws: string, id: string) => ['api', 'w', ws, 'files', 'insights', id] as const,
   peaks: (ws: string, id: string) => ['api', 'w', ws, 'files', 'peaks', id] as const,
   continue: (ws: string) => ['api', 'w', ws, 'files', 'continue'] as const,
@@ -155,7 +157,7 @@ export function useTranscriptMatches(id: string, q: string) {
   const ws = useActiveWorkspace()?.id;
   const term = q.trim();
   return useQuery({
-    queryKey: fileKeys.transcript(ws ?? '-', id, term),
+    queryKey: fileKeys.matches(ws ?? '-', id, term),
     queryFn: () =>
       call(
         api.GET('/api/v1/files/{id}/transcript', {

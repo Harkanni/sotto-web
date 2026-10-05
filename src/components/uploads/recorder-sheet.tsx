@@ -3,6 +3,7 @@
 import { Mic, Pause, Play, Square } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { UPLOAD_TOAST } from '@/components/shell/add-sheet';
 import { onShellEvent } from '@/components/shell/shell-events';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
@@ -241,6 +242,7 @@ export function RecorderSheet() {
       collectionId: currentCollectionId(),
     });
     toast(`Saving “${title.trim()}”`, {
+      id: UPLOAD_TOAST,
       description: 'It uploads in the background; the transcript follows.',
     });
     chunks.current = [];

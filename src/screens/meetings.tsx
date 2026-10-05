@@ -200,20 +200,32 @@ const TranscriptLine = memo(function TranscriptLine({
   term: string;
   onSeek: ((seconds: number) => void) | null;
 }) {
-  const body = (
+  const text = (
+    <span className="block prose-reading text-[17px]">
+      <Highlighted text={line.text} term={match ? term : ''} />
+    </span>
+  );
+  // With speaker labels: avatar, name and time over the line. Without them (diarization is off
+  // by default): a time gutter on the left, so the transcript reads as one column.
+  const body = line.speaker ? (
     <>
-      {line.speaker && <Avatar name={line.speaker} size={32} />}
+      <Avatar name={line.speaker} size={32} />
       <span className="min-w-0 flex-1">
         <span className="flex items-baseline justify-between gap-2">
-          <span className="text-subhead font-semibold">{line.speaker ?? ''}</span>
+          <span className="text-subhead font-semibold">{line.speaker}</span>
           <span className="text-footnote text-primary-text tabular">
             {timestamp(line.startMs / 1000)}
           </span>
         </span>
-        <span className="mt-0.5 block prose-reading text-[17px]">
-          <Highlighted text={line.text} term={match ? term : ''} />
-        </span>
+        <span className="mt-0.5 block">{text}</span>
       </span>
+    </>
+  ) : (
+    <>
+      <span className="w-11 shrink-0 pt-[3px] text-footnote text-primary-text tabular">
+        {timestamp(line.startMs / 1000)}
+      </span>
+      <span className="min-w-0 flex-1">{text}</span>
     </>
   );
   const cls = cn(

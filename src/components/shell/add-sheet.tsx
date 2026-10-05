@@ -63,6 +63,12 @@ function plural(n: number, word: string) {
 }
 
 /** Starts uploading files the person picked or dropped, into the collection on screen. */
+/**
+ * The one "Uploading…" toast. Each new batch replaces it, and a file's "Ready" or "Couldn't
+ * process" replaces it too, so a quick upload ends in one toast, not a stack of two.
+ */
+export const UPLOAD_TOAST = 'uploads';
+
 export function startUploads(files: File[], kind: 'file' | 'recording' = 'file') {
   if (!files.length) return;
   addUploads(files, { collectionId: currentCollectionId() });
@@ -71,6 +77,7 @@ export function startUploads(files: File[], kind: 'file' | 'recording' = 'file')
       ? `Uploading “${files[0]!.name}”`
       : `Uploading ${plural(files.length, kind)}`,
     {
+      id: UPLOAD_TOAST,
       description: 'You can keep working. Sotto reads them as soon as they arrive.',
       action: { label: 'Show', onClick: () => emitShellEvent('open-add') },
     },
