@@ -1,35 +1,40 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
-import { Check, Play, X } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Play, RotateCw, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { Screen } from '@/components/shell/screen';
 import { useLayer } from '@/components/shell/stack-context';
 import { Button } from '@/components/ui/button';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Skeleton } from '@/components/ui/skeleton';
-import { toastPreview } from '@/components/ui/toaster';
-import { AsyncWidget } from '@/components/widgets/async-widget';
-import { dueLabel, timestamp } from '@/lib/format';
+import { messageOf } from '@/components/account/workspace-actions';
+import { TransferRow } from '@/components/uploads/transfers';
+import { AsyncWidget, EmptyState } from '@/components/widgets/async-widget';
+import {
+  IN_PROGRESS,
+  useActionItems,
+  useContinueListening,
+  useFiles,
+  useRetryFile,
+  type ActionItem,
+  type FileItem,
+} from '@/lib/api/files';
+import { failureText, overallOf, stepLabel } from '@/lib/files/status';
+import { timestamp } from '@/lib/format';
 import { NavLink } from '@/lib/nav/link';
 import { pushPath } from '@/lib/nav/routes';
 import { navigate } from '@/lib/nav/store';
 import { useActiveWorkspace } from '@/lib/api/hooks';
-import * as api from '@/lib/sample/api';
-import {
-  keys,
-  useActionItems,
-  useContinueListening,
-  useDocs,
-  useProcessing,
-  useStats,
-  useThreads,
-} from '@/lib/sample/queries';
+import { useThreads } from '@/lib/sample/queries';
 import { NOTICE_STORAGE_KEY } from '@/lib/prefs/boot-script';
-import { writeStored } from '@/lib/prefs/stored';
+import { readStored, writeStored } from '@/lib/prefs/stored';
+import { accessAtLeast } from '@/lib/roles';
+import { useUploads } from '@/lib/uploads/store';
 import { cn } from '@/lib/utils';
 import { emitShellEvent } from '@/components/shell/shell-events';
-import { DocRow, RowsSkeleton, ThreadRow } from './parts/rows';
+import { FileRow } from './parts/file-rows';
+import { RowsSkeleton, ThreadRow } from './parts/rows';
 
 function Section({
   title,
@@ -79,8 +84,8 @@ function SampleNotice() {
         <p className="text-headline text-primary-text">You’re exploring sample content</p>
         {/* Muted grey drops below 4.5:1 on the indigo tint; this keeps AA in both themes. */}
         <p className="mt-1 text-callout text-pretty text-foreground/75">
-          These memos, meetings and chats are made up to show what Sotto does. Your own uploads
-          arrive in Phase 4.
+          These memos, meetings and chats are made up to show what Sotto does. Add your own files
+          with +; sample meetings have transcripts but no audio.
         </p>
       </div>
       <button
@@ -108,7 +113,6 @@ function ContinueListening() {
       query={query}
       label="Continue listening"
       errorTitle="Couldn’t load your last recording"
-      isEmpty={(d) => d === null}
       empty={{
         illustration: 'recordings',
         title: 'Nothing to resume',
@@ -126,36 +130,36 @@ function ContinueListening() {
       }
       className="rounded-card bg-card"
     >
-      {(data) => {
-        if (!data) return null;
-        const { meeting, positionSec } = data;
-        const progress = positionSec / meeting.durationSec;
+      {(items) => {
+        const { file, positionMs } = items[0]!;
+        const total = file.durationMs ?? positionMs;
+        const progress = total ? positionMs / total : 0;
+        const href = pushPath(entry.key, 'meeting', file.id);
         return (
           <div className="flex items-center gap-4 p-4">
             <button
               type="button"
-              aria-label={`Play ${meeting.title}`}
-              onClick={() =>
-                toastPreview('Playback arrives in Phase 4', 'Sample recordings have no audio yet.')
-              }
+              aria-label={`Play ${file.title} from ${timestamp(positionMs / 1000)}`}
+              // The meeting screen starts playing where you stopped.
+              onClick={() => navigate(`${href}?t=${Math.floor(positionMs / 1000)}&play=1`)}
               className="pressable grid size-12 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground"
             >
               <Play aria-hidden className="ml-0.5 size-5 fill-current" />
             </button>
             <NavLink
-              href={pushPath(entry.key, 'meeting', meeting.id)}
+              href={`${href}?t=${Math.floor(positionMs / 1000)}`}
               className="min-w-0 flex-1 rounded-button outline-offset-4 active:opacity-60"
             >
-              <span className="block truncate text-headline">{meeting.title}</span>
+              <span className="block truncate text-headline">{file.title}</span>
               <span aria-hidden className="mt-2 block h-1.5 overflow-hidden rounded-full bg-fill">
                 <span
                   className="block h-full rounded-full bg-primary"
-                  style={{ width: `${progress * 100}%` }}
+                  style={{ translate: `${progress * 100 - 100}% 0` }}
                 />
               </span>
               <span className="mt-1.5 flex justify-between text-footnote text-muted-foreground tabular">
-                <span>{timestamp(positionSec)}</span>
-                <span>{timestamp(meeting.durationSec - positionSec)} left</span>
+                <span>{timestamp(positionMs / 1000)}</span>
+                <span>{timestamp((total - positionMs) / 1000)} left</span>
               </span>
             </NavLink>
           </div>
@@ -167,77 +171,133 @@ function ContinueListening() {
 
 // ── Processing ────────────────────────────────────────────────────────────────────────
 
+/** A file on its way to Ready: animated bars, the step, a bar that slides; or why it failed. */
+function ProcessingRow({ file, href }: { file: FileItem; href: string }) {
+  const retry = useRetryFile();
+  const failed = file.status === 'failed';
+  const pct = Math.round(overallOf(file) * 100);
+  return (
+    <li className="list-row flex items-center">
+      <NavLink
+        href={href}
+        className="flex min-w-0 flex-1 items-center gap-3 pl-4 transition-colors duration-300 active:bg-row-pressed active:delay-[40ms] active:duration-0"
+      >
+        <span aria-hidden className="flex h-9 w-9 shrink-0 items-end justify-center gap-[3px] pb-2">
+          {[0, 1, 2, 3].map((i) => (
+            <span
+              key={i}
+              className={cn(
+                'w-[3px] origin-bottom rounded-full',
+                failed
+                  ? 'bg-destructive'
+                  : 'bg-primary motion-safe:animate-[bars_1.1s_ease-in-out_infinite]',
+              )}
+              style={{ height: [10, 18, 13, 7][i], animationDelay: `${i * 120}ms` }}
+            />
+          ))}
+        </span>
+        <span className="row-main flex min-h-[60px] min-w-0 flex-1 flex-col justify-center gap-1.5 py-2.5 pr-4">
+          <span className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-body">{file.title}</span>
+            {!failed && (
+              <span className="shrink-0 text-subhead text-muted-foreground tabular">{pct}%</span>
+            )}
+          </span>
+          {failed ? (
+            <span className="line-clamp-2 text-footnote text-destructive-text">
+              {failureText(file.error)}
+            </span>
+          ) : (
+            <span className="flex items-center gap-2">
+              <span
+                role="progressbar"
+                aria-label={`${file.title}: ${stepLabel(file)}`}
+                aria-valuenow={pct}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                className="h-1.5 flex-1 overflow-hidden rounded-full bg-fill"
+              >
+                {/* Slides rather than stretches: a compositor-only change that keeps the
+                    rounded end round. */}
+                <span
+                  className="block h-full rounded-full bg-primary transition-[translate] duration-700 ease-out"
+                  style={{ translate: `${pct - 100}% 0` }}
+                />
+              </span>
+              <span className="shrink-0 text-footnote text-muted-foreground">
+                {stepLabel(file)}
+              </span>
+            </span>
+          )}
+        </span>
+      </NavLink>
+      {failed && accessAtLeast(file.access, 'edit') && (
+        <button
+          type="button"
+          aria-label={`Retry ${file.title}`}
+          onClick={() =>
+            retry.mutate(file.id, {
+              onSuccess: () => toast('Retrying', { description: file.title }),
+              onError: (e) => toast(messageOf(e)),
+            })
+          }
+          className="pressable mr-2 grid size-11 shrink-0 place-items-center rounded-full text-primary-text hover:bg-primary-tint active:bg-primary-tint-strong"
+        >
+          <RotateCw aria-hidden className="size-5" />
+        </button>
+      )}
+    </li>
+  );
+}
+
+/**
+ * What Sotto is working on: uploads leaving this device, then files moving through the
+ * pipeline (live, from GET /events), then anything that failed, with Retry.
+ */
 function Processing() {
   const { entry } = useLayer();
-  const query = useProcessing();
+  const query = useFiles({ sort: 'recent' });
+  const uploads = useUploads();
+  const working = useMemo(
+    () => (query.data ?? []).filter((f) => IN_PROGRESS.includes(f.status) || f.status === 'failed'),
+    [query.data],
+  );
+  const moving = uploads.filter((u) => u.state !== 'done');
+  const showUploads = moving.length > 0;
+
+  if (query.data && !working.length && !showUploads) {
+    return (
+      <div className="rounded-card bg-card">
+        <EmptyState
+          illustration="processing"
+          title="All caught up"
+          description="New recordings and files show their progress here while Sotto works on them."
+        />
+      </div>
+    );
+  }
   return (
     <AsyncWidget
       query={query}
       label="Processing"
       errorTitle="Couldn’t load what’s processing"
-      empty={{
-        illustration: 'processing',
-        title: 'All caught up',
-        description: 'New recordings and files show their progress here while Sotto works on them.',
-      }}
+      isEmpty={() => false}
+      empty={{ illustration: 'processing', title: '', description: '' }}
       skeleton={<RowsSkeleton rows={2} round />}
       className="overflow-hidden rounded-card bg-card"
     >
-      {(items) => (
-        <ul>
-          {items.map((m) => {
-            const status = m.status.state === 'processing' ? m.status : null;
-            const pct = Math.round((status?.progress ?? 1) * 100);
-            return (
-              <li key={m.id} className="list-row">
-                <NavLink
-                  href={pushPath(entry.key, 'meeting', m.id)}
-                  className="flex items-center gap-3 pl-4 transition-colors duration-300 active:bg-row-pressed active:delay-[40ms] active:duration-0"
-                >
-                  <span
-                    aria-hidden
-                    className="flex h-9 w-9 shrink-0 items-end justify-center gap-[3px] pb-2"
-                  >
-                    {[0, 1, 2, 3].map((i) => (
-                      <span
-                        key={i}
-                        className="w-[3px] origin-bottom rounded-full bg-primary motion-safe:animate-[bars_1.1s_ease-in-out_infinite]"
-                        style={{ height: [10, 18, 13, 7][i], animationDelay: `${i * 120}ms` }}
-                      />
-                    ))}
-                  </span>
-                  <span className="row-main flex min-h-[60px] flex-1 flex-col justify-center gap-1.5 py-2.5 pr-4">
-                    <span className="flex items-baseline justify-between gap-2">
-                      <span className="truncate text-body">{m.title}</span>
-                      <span className="shrink-0 text-subhead text-muted-foreground tabular">
-                        {pct}%
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span
-                        role="progressbar"
-                        aria-label={`${m.title}: ${status?.step}`}
-                        aria-valuenow={pct}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                        className="h-1.5 flex-1 overflow-hidden rounded-full bg-fill"
-                      >
-                        {/* Slides rather than stretches: a compositor-only change that keeps
-                            the rounded end round. */}
-                        <span
-                          className="block h-full rounded-full bg-primary transition-[translate] duration-700 ease-out"
-                          style={{ translate: `${pct - 100}% 0` }}
-                        />
-                      </span>
-                      <span className="shrink-0 text-footnote text-muted-foreground">
-                        {status?.step}
-                      </span>
-                    </span>
-                  </span>
-                </NavLink>
-              </li>
-            );
-          })}
+      {() => (
+        <ul aria-label="Processing">
+          {moving.map((item) => (
+            <TransferRow key={item.id} item={item} />
+          ))}
+          {working.slice(0, 6).map((file) => (
+            <ProcessingRow
+              key={file.id}
+              file={file}
+              href={pushPath(entry.key, file.kind === 'audio' ? 'meeting' : 'doc', file.id)}
+            />
+          ))}
         </ul>
       )}
     </AsyncWidget>
@@ -268,82 +328,119 @@ function CheckCircle({ checked }: { checked: boolean }) {
   );
 }
 
-function ActionItems() {
-  const client = useQueryClient();
-  const query = useActionItems();
-  const [justDone, setJustDone] = useState<Set<string>>(new Set());
+const TICKS_KEY = 'sotto.action-items.done';
 
-  const toggle = (id: string, done: boolean) => {
-    api.setActionItemDone(id, done);
-    setJustDone((prev) => {
+/** Which action items you ticked. Kept on this device until action items are stored (later). */
+function useTicks(): [Set<string>, (key: string, done: boolean) => void] {
+  const [ticks, setTicks] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(readStored(TICKS_KEY) ?? '[]') as string[]);
+    } catch {
+      return new Set();
+    }
+  });
+  const set = (key: string, done: boolean) =>
+    setTicks((prev) => {
       const next = new Set(prev);
-      if (done) next.add(id);
-      else next.delete(id);
+      if (done) next.add(key);
+      else next.delete(key);
+      writeStored(TICKS_KEY, JSON.stringify([...next].slice(-500)));
       return next;
     });
-    // Leave a finished item visible (struck through) for a moment, then tidy it away.
+  return [ticks, set];
+}
+
+const itemKey = (a: ActionItem) => `${a.meeting.id}:${a.text}`;
+
+/**
+ * Action items from recent meetings: yours (the owner named matches you) first, then
+ * everyone's. Ticking one keeps it struck through for a moment, then tidies it away.
+ */
+function ActionItems() {
+  const { entry } = useLayer();
+  const query = useActionItems();
+  const [ticks, tick] = useTicks();
+  const [justDone, setJustDone] = useState<Set<string>>(new Set());
+
+  const toggle = (key: string, done: boolean) => {
+    setJustDone((prev) => new Set(prev).add(key));
+    tick(key, done);
     if (done)
-      setTimeout(() => void client.invalidateQueries({ queryKey: keys.actionItems() }), 1400);
+      setTimeout(
+        () =>
+          setJustDone((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          }),
+        1400,
+      );
   };
+
+  const open = (items: ActionItem[]) =>
+    items
+      .filter((a) => !ticks.has(itemKey(a)) || justDone.has(itemKey(a)))
+      .sort((a, b) => Number(b.mine) - Number(a.mine))
+      .slice(0, 6);
 
   return (
     <AsyncWidget
       query={query}
-      label="My action items"
-      errorTitle="Couldn’t load your action items"
-      isEmpty={(items) => items.filter((a) => !a.done).length === 0 && justDone.size === 0}
+      label="Action items"
+      errorTitle="Couldn’t load action items"
+      isEmpty={(items) => open(items).length === 0}
       empty={{
         illustration: 'tasks',
         title: 'No action items',
-        description: 'When a meeting assigns you something, it lands here with a due date.',
+        description: 'When a meeting assigns something, it lands here.',
       }}
       skeleton={<RowsSkeleton rows={3} round />}
       className="overflow-hidden rounded-card bg-card"
     >
       {(items) => (
-        <ul>
-          {items
-            .filter((a) => !a.done || justDone.has(a.id))
-            .map((a) => {
-              const checked = a.done || justDone.has(a.id);
+        <>
+          <ul>
+            {open(items).map((a) => {
+              const key = itemKey(a);
+              const checked = ticks.has(key);
               return (
-                <li key={a.id} className="list-row">
+                <li key={key} className="list-row flex items-center">
                   <button
                     type="button"
                     role="checkbox"
                     aria-checked={checked}
-                    onClick={() => toggle(a.id, !checked)}
-                    className="flex w-full items-center gap-3 pl-4 text-left transition-colors duration-300 select-none active:bg-row-pressed active:delay-[40ms] active:duration-0"
+                    aria-label={a.text}
+                    onClick={() => toggle(key, !checked)}
+                    className="grid min-h-[56px] shrink-0 place-items-center pr-1 pl-4 select-none active:opacity-60"
                   >
                     <CheckCircle checked={checked} />
-                    <span className="row-main flex min-h-[56px] flex-1 flex-col justify-center py-2.5 pr-4">
-                      <span
-                        className={cn(
-                          'text-body transition-colors duration-300',
-                          checked &&
-                            'text-muted-foreground line-through decoration-faint-foreground',
-                        )}
-                      >
-                        {a.text}
-                      </span>
-                      {a.due && (
-                        <span
-                          className={cn(
-                            'text-subhead',
-                            dueLabel(a.due) === 'Due today' && !checked
-                              ? 'text-destructive-text'
-                              : 'text-muted-foreground',
-                          )}
-                        >
-                          {dueLabel(a.due)}
-                        </span>
-                      )}
-                    </span>
                   </button>
+                  <NavLink
+                    href={`${pushPath(entry.key, 'meeting', a.meeting.id)}${a.atMs !== null ? `?t=${Math.floor(a.atMs / 1000)}` : ''}`}
+                    className="row-main flex min-h-[56px] min-w-0 flex-1 flex-col justify-center py-2.5 pr-4 pl-2 transition-colors duration-300 active:bg-row-pressed"
+                  >
+                    <span
+                      className={cn(
+                        'text-body transition-colors duration-300',
+                        checked && 'text-muted-foreground line-through decoration-faint-foreground',
+                      )}
+                    >
+                      {a.text}
+                    </span>
+                    <span className="truncate text-subhead text-muted-foreground">
+                      {[a.mine ? 'You' : a.owner, a.due && `due ${a.due}`, a.meeting.title]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  </NavLink>
                 </li>
               );
             })}
-        </ul>
+          </ul>
+          <p className="px-4 pt-1 pb-3 text-footnote text-muted-foreground">
+            Ticks are kept on this device.
+          </p>
+        </>
       )}
     </AsyncWidget>
   );
@@ -353,7 +450,7 @@ function ActionItems() {
 
 function RecentFiles() {
   const { entry } = useLayer();
-  const query = useDocs({ sort: 'recent' });
+  const query = useFiles({ sort: 'recent' });
   return (
     <AsyncWidget
       query={query}
@@ -371,10 +468,14 @@ function RecentFiles() {
       }}
       skeleton={<RowsSkeleton rows={4} />}
     >
-      {(docs) => (
+      {(files) => (
         <ul className="overflow-hidden rounded-card bg-card">
-          {docs.slice(0, 4).map((doc) => (
-            <DocRow key={doc.id} doc={doc} href={pushPath(entry.key, 'doc', doc.id)} />
+          {files.slice(0, 4).map((file) => (
+            <FileRow
+              key={file.id}
+              file={file}
+              href={pushPath(entry.key, file.kind === 'audio' ? 'meeting' : 'doc', file.id)}
+            />
           ))}
         </ul>
       )}
@@ -423,9 +524,24 @@ function Stat({ value, label }: { value: string; label: string }) {
   );
 }
 
+type Range = 'week' | 'month' | 'year';
+const RANGE_DAYS: Record<Range, number> = { week: 7, month: 30, year: 365 };
+
+/** Meetings recorded and hours of audio in the period, from the files themselves. */
 function ThisWeek() {
-  const [range, setRange] = useState<api.StatsRange>('week');
-  const query = useStats(range);
+  const [range, setRange] = useState<Range>('week');
+  const query = useFiles({ kind: 'audio', sort: 'recent' });
+  // "This week" is measured from when Home opened; a render never reads the clock.
+  const [now] = useState(Date.now);
+  const since = now - RANGE_DAYS[range] * 86_400_000;
+  const stats = useMemo(() => {
+    const meetings = (query.data ?? []).filter(
+      (f) => f.status === 'ready' && new Date(f.createdAt).getTime() >= since,
+    );
+    const hours = meetings.reduce((sum, f) => sum + (f.durationMs ?? 0), 0) / 3_600_000;
+    return { meetings: meetings.length, hours };
+  }, [query.data, since]);
+
   return (
     <div className="flex flex-col gap-3 rounded-card bg-card p-4">
       <SegmentedControl
@@ -442,16 +558,17 @@ function ThisWeek() {
         query={query}
         label="Activity"
         errorTitle="Couldn’t load activity"
-        isEmpty={(s) => s === null}
+        isEmpty={() => stats.meetings === 0}
         empty={{
           illustration: 'period',
           title: 'No data for this period',
-          description: 'Sotto started counting this month.',
-          action: (
-            <Button variant="secondary" onClick={() => setRange('month')}>
-              Show this month
-            </Button>
-          ),
+          description: 'Meetings you record or import are counted here.',
+          action:
+            range !== 'year' ? (
+              <Button variant="secondary" onClick={() => setRange('year')}>
+                Show this year
+              </Button>
+            ) : undefined,
         }}
         skeleton={
           <div className="grid grid-cols-3 gap-2">
@@ -461,20 +578,17 @@ function ThisWeek() {
           </div>
         }
       >
-        {(stats) =>
-          stats && (
-            <div
-              className={cn(
-                'grid grid-cols-3 gap-2 transition-opacity',
-                query.isPlaceholderData && 'opacity-60',
-              )}
-            >
-              <Stat value={String(stats.meetings)} label="Meetings" />
-              <Stat value={`${stats.hours}`} label="Hours recorded" />
-              <Stat value={String(stats.questions)} label="Questions" />
-            </div>
-          )
-        }
+        {() => (
+          <div className="grid grid-cols-3 gap-2">
+            <Stat value={String(stats.meetings)} label="Meetings" />
+            <Stat
+              value={stats.hours < 10 ? stats.hours.toFixed(1) : String(Math.round(stats.hours))}
+              label="Hours recorded"
+            />
+            {/* Counting questions arrives with Ask (Phase 5). */}
+            <Stat value="–" label="Questions" />
+          </div>
+        )}
       </AsyncWidget>
     </div>
   );
@@ -492,7 +606,7 @@ export function HomeScreen() {
         <Section title="Processing">
           <Processing />
         </Section>
-        <Section title="My action items">
+        <Section title="Action items">
           <ActionItems />
         </Section>
         <Section title="Recent files" action={<SeeAll href="/docs" label="See all files" />}>

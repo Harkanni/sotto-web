@@ -1,9 +1,13 @@
 'use client';
 
-/** Requests from row actions to the sheets that handle them (move, rename). */
+import type { Sensitivity } from '@/lib/api/files';
+
+/** Requests from row actions to the sheets that handle them (move, rename, label, tags). */
 type ScreenEvents = {
-  move: { id: string; title: string };
+  move: { id: string; title: string; collectionId: string | null };
   rename: { kind: 'doc' | 'meeting' | 'thread'; id: string; title: string };
+  label: { id: string; title: string; sensitivity: Sensitivity };
+  tags: { id: string; title: string; tags: string[] };
 };
 
 type Handler<K extends keyof ScreenEvents> = (detail: ScreenEvents[K]) => void;

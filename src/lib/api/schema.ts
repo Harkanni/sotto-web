@@ -223,7 +223,7 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Delete a collection (needs Manage access). */
+        /** Delete a collection (needs Manage access). Its files move to the trash, unfiled. */
         delete: operations["CollectionsController_remove"];
         options?: never;
         head?: never;
@@ -292,8 +292,317 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fill the workspace with fictional sample content (owners). Loading it twice changes nothing. */
+        /** Fill the workspace with fictional sample content (owners): collections, memos and meetings. Loading it twice changes nothing; a workspace that loaded only the collections earlier gets the files. */
         post: operations["OnboardingController_load"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start an upload: creates the file and returns presigned part URLs. */
+        post: operations["UploadsController_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/uploads/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resume an upload: what storage already holds, and fresh part URLs. */
+        get: operations["UploadsController_resume"];
+        put?: never;
+        post?: never;
+        /** Cancel an upload: storage drops the parts and the file is removed. */
+        delete: operations["UploadsController_abort"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/uploads/{id}/parts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** More presigned part URLs (up to 100 at a time). */
+        post: operations["UploadsController_parts"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/uploads/{id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish an upload: checks every part arrived, then queues processing. */
+        post: operations["UploadsController_complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Files you can see: filter, search titles, page with the cursor. */
+        get: operations["FilesController_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One file, including from the trash. */
+        get: operations["FilesController_get"];
+        put?: never;
+        post?: never;
+        /** Move a file to the trash (restorable for 30 days). */
+        delete: operations["FilesController_trash"];
+        options?: never;
+        head?: never;
+        /** Rename, move, tag, pin or relabel a file (needs Edit). */
+        patch: operations["FilesController_update"];
+        trace?: never;
+    };
+    "/api/v1/files/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Bring a file back from the trash. */
+        post: operations["FilesController_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/permanent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a file for good: the original, transcript, chunks and embeddings. */
+        delete: operations["FilesController_destroy"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Process a failed file again from the start. */
+        post: operations["FilesController_retry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A short-lived link to the original. `inline=true` opens it in place (the player). */
+        get: operations["FilesController_download"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A document’s text, page by page (once it’s Ready). */
+        get: operations["MeetingsController_content"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/transcript": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A recording’s transcript; `q` marks the lines that match. */
+        get: operations["MeetingsController_transcript"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/insights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A meeting’s notes: summary, decisions, action items, chapters. */
+        get: operations["MeetingsController_insights"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/peaks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Waveform peaks for the player (0–1 per slice of the recording). */
+        get: operations["MeetingsController_peaks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/files/{id}/position": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Remember where you stopped listening (Continue listening). */
+        put: operations["MeetingsController_position"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/action-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Action items from the 20 most recent meetings you can open, newest first; yours marked. */
+        get: operations["MeetingsController_actionItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/continue-listening": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recordings you started and didn’t finish, most recent first (up to 10). */
+        get: operations["MeetingsController_continueListening"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live file status for this workspace (Server-Sent Events): `file` events as files upload, process, move or leave; `ready` when connected; `ping` every 25 s. */
+        get: operations["EventsController_stream"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -461,7 +770,7 @@ export interface components {
             /** Format: date-time */
             at: string;
             /** @enum {string} */
-            action: "workspace.created" | "workspace.renamed" | "member.joined" | "member.role_changed" | "member.removed" | "invite.sent" | "invite.resent" | "invite.revoked" | "collection.created" | "collection.updated" | "collection.deleted" | "collection.access_changed" | "audit.exported" | "onboarding.sample_loaded";
+            action: "workspace.created" | "workspace.renamed" | "member.joined" | "member.role_changed" | "member.removed" | "invite.sent" | "invite.resent" | "invite.revoked" | "collection.created" | "collection.updated" | "collection.deleted" | "collection.access_changed" | "audit.exported" | "onboarding.sample_loaded" | "file.uploaded" | "file.recorded" | "file.renamed" | "file.moved" | "file.relabelled" | "file.trashed" | "file.restored" | "file.deleted" | "file.downloaded";
             summary: string;
             actor: {
                 id: string;
@@ -481,6 +790,168 @@ export interface components {
             /** Format: date-time */
             loadedAt: string;
         };
+        StartUpload: {
+            filename: string;
+            sizeBytes: number;
+            mime?: string;
+            title?: string;
+            collectionId?: string;
+            sensitivity?: components["schemas"]["Sensitivity"];
+            /**
+             * @default upload
+             * @enum {string}
+             */
+            source: "upload" | "recording";
+        };
+        /** @enum {string} */
+        Sensitivity: "internal" | "confidential" | "restricted";
+        Upload: {
+            file: components["schemas"]["File"];
+            partSize: number;
+            partCount: number;
+            parts: components["schemas"]["PartUrl"][];
+            uploadedParts: {
+                partNumber: number;
+                etag: string;
+            }[];
+        };
+        File: {
+            id: string;
+            kind: components["schemas"]["FileKind"];
+            source: components["schemas"]["FileSource"];
+            title: string;
+            status: components["schemas"]["FileStatus"];
+            progress: number | null;
+            error: string | null;
+            sensitivity: components["schemas"]["Sensitivity"];
+            collection: {
+                id: string;
+                name: string;
+                restricted: boolean;
+            } | null;
+            owner: {
+                id: string;
+                name: string;
+            } | null;
+            mime: string;
+            sizeBytes: number;
+            durationMs: number | null;
+            pageCount: number | null;
+            pinned: boolean;
+            tags: string[];
+            access: components["schemas"]["Access"];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            deletedAt: string | null;
+            /** Format: date-time */
+            purgeAt: string | null;
+        };
+        /** @enum {string} */
+        FileKind: "document" | "audio" | "note";
+        /** @enum {string} */
+        FileSource: "upload" | "recording" | "sample" | "import";
+        /** @enum {string} */
+        FileStatus: "uploading" | "uploaded" | "transcribing" | "indexing" | "ready" | "failed";
+        PartUrl: {
+            partNumber: number;
+            url: string;
+        };
+        PartsRequest: {
+            partNumbers: number[];
+        };
+        PartsResponse: {
+            parts: components["schemas"]["PartUrl"][];
+        };
+        CompleteUpload: {
+            parts: {
+                partNumber: number;
+                etag: string;
+            }[];
+        };
+        FilePage: {
+            items: components["schemas"]["File"][];
+            nextCursor: string | null;
+        };
+        UpdateFile: {
+            title?: string;
+            collectionId?: string | null;
+            tags?: string[];
+            pinned?: boolean;
+            sensitivity?: components["schemas"]["Sensitivity"];
+        };
+        DownloadLink: {
+            url: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
+        DocumentContent: {
+            paged: boolean;
+            pages: {
+                page: number;
+                text: string;
+            }[];
+        };
+        Transcript: {
+            language: string;
+            engine: string;
+            isMock: boolean;
+            segments: {
+                idx: number;
+                startMs: number;
+                endMs: number;
+                speaker: string | null;
+                text: string;
+            }[];
+            matches: number[] | null;
+        };
+        MeetingInsights: {
+            summary: string;
+            decisions: string[];
+            actionItems: {
+                text: string;
+                owner: string | null;
+                due: string | null;
+                atMs: number | null;
+            }[];
+            openQuestions: string[];
+            chapters: {
+                title: string;
+                startMs: number;
+            }[];
+            model: string;
+            isMock: boolean;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        Peaks: {
+            durationMs: number;
+            peaks: number[];
+        };
+        PlaybackPosition: {
+            positionMs: number;
+        };
+        ActionItems: {
+            text: string;
+            owner: string | null;
+            due: string | null;
+            atMs: number | null;
+            mine: boolean;
+            meeting: {
+                id: string;
+                title: string;
+                /** Format: date-time */
+                createdAt: string;
+            };
+        }[];
+        ContinueListening: {
+            file: components["schemas"]["File"];
+            positionMs: number;
+            /** Format: date-time */
+            updatedAt: string;
+        }[];
     };
     responses: never;
     parameters: never;
@@ -1209,6 +1680,668 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SampleContent"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadsController_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartUpload"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Upload"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadsController_resume: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Upload"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadsController_abort: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadsController_parts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartsRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartsResponse"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UploadsController_complete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteUpload"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["File"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    FilesController_list: {
+        parameters: {
+            query?: {
+                collection?: string;
+                kind?: components["schemas"]["FileKind"];
+                status?: components["schemas"]["FileStatus"];
+                q?: string;
+                trash?: "true" | "false";
+                pinned?: "true" | "false";
+                sort?: "recent" | "name";
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FilePage"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    FilesController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["File"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    FilesController_trash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    FilesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFile"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["File"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    FilesController_restore: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["File"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    FilesController_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    FilesController_retry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["File"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    FilesController_download: {
+        parameters: {
+            query?: {
+                inline?: "true" | "false";
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DownloadLink"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    MeetingsController_content: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentContent"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    MeetingsController_transcript: {
+        parameters: {
+            query?: {
+                q?: string;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Transcript"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    MeetingsController_insights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeetingInsights"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    MeetingsController_peaks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Peaks"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    MeetingsController_position: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PlaybackPosition"];
+            };
+        };
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    MeetingsController_actionItems: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionItems"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    MeetingsController_continueListening: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContinueListening"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    EventsController_stream: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description text/event-stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        type: "file";
+                        fileId: string;
+                        /** @enum {string} */
+                        status: "UPLOADING" | "UPLOADED" | "TRANSCRIBING" | "INDEXING" | "READY" | "FAILED";
+                        progress: number | null;
+                        error: string | null;
+                        /**
+                         * @default status
+                         * @enum {string}
+                         */
+                        change: "status" | "updated" | "removed";
+                        /** Format: date-time */
+                        at: string;
+                    };
                 };
             };
             /** @description An error */

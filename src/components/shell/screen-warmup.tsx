@@ -6,10 +6,15 @@ import { parseStack, pushPath, type ItemKind, type StackEntry, type Tab } from '
 import { LayerContext, type LayerInfo } from './stack-context';
 
 /** One screen of each kind that opens from a list, and where its first item comes from. */
-const KINDS: { tab: Tab; kind: ItemKind; list: string }[] = [
-  { tab: 'docs', kind: 'doc', list: 'docs' },
-  { tab: 'meetings', kind: 'meeting', list: 'meetings' },
-  { tab: 'ask', kind: 'thread', list: 'threads' },
+const KINDS: {
+  tab: Tab;
+  kind: ItemKind;
+  list: readonly unknown[];
+  pick?: (item: { kind?: string }) => boolean;
+}[] = [
+  { tab: 'docs', kind: 'doc', list: ['api'], pick: (f) => f.kind === 'document' },
+  { tab: 'meetings', kind: 'meeting', list: ['api'], pick: (f) => f.kind === 'audio' },
+  { tab: 'ask', kind: 'thread', list: ['sample', 'threads'] },
 ];
 
 const noop = () => {};
@@ -33,10 +38,12 @@ export function ScreenWarmup({
     let idle: number | undefined;
     const warm = () => {
       const found: LayerInfo[] = [];
-      for (const { tab, kind, list } of KINDS) {
+      for (const { tab, kind, list, pick } of KINDS) {
+        // Files lists live under ['api', 'w', <workspace>, 'files', 'list', …]; chats are samples.
         const first = client
-          .getQueriesData<{ id: string }[]>({ queryKey: ['sample', list] })
-          .map(([, data]) => (Array.isArray(data) ? data[0] : undefined))
+          .getQueriesData<{ id: string; kind?: string }[]>({ queryKey: list })
+          .filter(([key]) => !pick || key.includes('files'))
+          .map(([, data]) => (Array.isArray(data) ? data.find((x) => !pick || pick(x)) : undefined))
           .find(Boolean);
         if (!first) continue;
         const stack = parseStack(pushPath(`/${tab}`, kind, first.id));

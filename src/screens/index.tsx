@@ -11,6 +11,7 @@ import { CollectionScreen, DocsScreen } from './docs';
 import { HomeScreen } from './home';
 import { MeetingScreen, MeetingsScreen } from './meetings';
 import { MembersScreen } from './members';
+import { TrashScreen } from './trash';
 import {
   AboutScreen,
   AppearanceScreen,
@@ -31,6 +32,7 @@ const SCREENS: Record<ScreenKind, React.ComponentType> = {
   meetings: MeetingsScreen,
   profile: ProfileScreen,
   collection: CollectionScreen,
+  trash: TrashScreen,
   doc: DocScreen,
   meeting: MeetingScreen,
   thread: ThreadScreen,

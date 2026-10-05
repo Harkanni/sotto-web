@@ -76,7 +76,8 @@ export function useItemActions() {
         icon: FolderInput,
         swipe: 'trailing',
         tone: 'indigo',
-        onSelect: () => emitScreenEvent('move', { id: item.id, title: item.title }),
+        onSelect: () =>
+          emitScreenEvent('move', { id: item.id, title: item.title, collectionId: null }),
       });
     }
     actions.push({

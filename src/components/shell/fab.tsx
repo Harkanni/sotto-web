@@ -2,18 +2,29 @@
 
 import { memo } from 'react';
 import { Plus } from 'lucide-react';
+import { ProgressRing } from '@/components/uploads/transfers';
+import { useCanAdd } from '@/lib/uploads/permissions';
+import { overallProgress, useUploads } from '@/lib/uploads/store';
 import { cn } from '@/lib/utils';
 import { emitShellEvent } from './shell-events';
 
 /**
  * The floating + button (brief §9): 56 px, bottom-right (left for left-handed use), 16 px above
- * the tab bar, opening "Add to Sotto". Hidden on Ask, where the composer is the primary action.
+ * the tab bar, opening "Add to Sotto". Hidden on Ask, where the composer is the primary action,
+ * and for viewers, who can't add files. While uploads move, a ring around it fills.
  */
-export const Fab = memo(function Fab({ hidden }: { hidden: boolean }) {
+export const Fab = memo(function Fab({ hidden: onAsk }: { hidden: boolean }) {
+  const canAdd = useCanAdd();
+  const progress = overallProgress(useUploads());
+  const hidden = onAsk || !canAdd;
   return (
     <button
       type="button"
-      aria-label="Add to Sotto"
+      aria-label={
+        progress === null
+          ? 'Add to Sotto'
+          : `Add to Sotto, uploading ${Math.round(progress * 100)}%`
+      }
       aria-haspopup="dialog"
       data-fab
       tabIndex={hidden ? -1 : 0}
@@ -28,7 +39,13 @@ export const Fab = memo(function Fab({ hidden }: { hidden: boolean }) {
         hidden && 'pointer-events-none scale-50 opacity-0 duration-200 ease-out',
       )}
     >
-      <Plus className="size-7" strokeWidth={2.25} aria-hidden />
+      <Plus className="col-start-1 row-start-1 size-7" strokeWidth={2.25} aria-hidden />
+      <ProgressRing
+        progress={progress}
+        size={50}
+        stroke={2.5}
+        className="col-start-1 row-start-1"
+      />
     </button>
   );
 });

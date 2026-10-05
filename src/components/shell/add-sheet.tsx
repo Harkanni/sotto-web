@@ -2,10 +2,16 @@
 
 import { FileAudio, Mic, PenLine, Upload, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { Sheet } from '@/components/ui/sheet';
 import { toastPreview } from '@/components/ui/toaster';
+import { TransferList } from '@/components/uploads/transfers';
+import { useWorkspaceCollections } from '@/lib/api/hooks';
+import { useCanAdd } from '@/lib/uploads/permissions';
+import { addUploads, useUploads, type UploadItem } from '@/lib/uploads/store';
+import { currentCollectionId } from '@/lib/uploads/target';
 import { cn } from '@/lib/utils';
-import { onShellEvent } from './shell-events';
+import { emitShellEvent, onShellEvent } from './shell-events';
 
 type ActionId = 'upload' | 'record' | 'audio' | 'note';
 
@@ -48,52 +54,111 @@ const ACTIONS: Action[] = [
   },
 ];
 
+/** What Sotto reads (the api checks again): PDF, Word, text, Markdown; audio separately. */
+export const DOCUMENT_ACCEPT = '.pdf,.docx,.txt,.md,.markdown';
+export const AUDIO_ACCEPT = 'audio/*,.m4a,.mp3,.wav,.webm,.ogg,.opus,.flac,.aac';
+
 function plural(n: number, word: string) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
+/** Starts uploading files the person picked or dropped, into the collection on screen. */
+export function startUploads(files: File[], kind: 'file' | 'recording' = 'file') {
+  if (!files.length) return;
+  addUploads(files, { collectionId: currentCollectionId() });
+  toast(
+    files.length === 1
+      ? `Uploading “${files[0]!.name}”`
+      : `Uploading ${plural(files.length, kind)}`,
+    {
+      description: 'You can keep working. Sotto reads them as soon as they arrive.',
+      action: { label: 'Show', onClick: () => emitShellEvent('open-add') },
+    },
+  );
+}
+
+export const VIEWER_CANT_ADD = 'Viewers can’t add files. Ask an admin to make you a member.';
+
+/** Where new files go, said once under the tiles. */
+function Destination() {
+  const id = currentCollectionId();
+  const collection = useWorkspaceCollections().data?.find((c) => c.id === id);
+  return (
+    <p className="px-[var(--gutter)] pt-2 pb-1 text-footnote text-muted-foreground">
+      {collection
+        ? `New files go into ${collection.name}.`
+        : 'New files stay unfiled until you move them into a collection.'}
+    </p>
+  );
+}
+
 /**
  * "Add to Sotto" (brief §9), opened by the + button, the sidebar's New button or the N key.
- *
- * PREVIEW (Phase 2): the file pickers really open, but nothing is uploaded yet; a toast says so.
- * Uploading, recording and notes arrive in Phase 4.
+ * Uploads go straight to storage with progress, pause and resume (src/lib/uploads); the ones in
+ * flight are listed at the top. New notes arrive with Ask in Phase 5.
  */
 export function AddSheet() {
   const [open, setOpen] = useState(false);
   const filesRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLInputElement>(null);
+  const live = useUploads();
+  const canAdd = useCanAdd();
+  // The rows present when the sheet opened stay until it closes (a finished upload shows as
+  // Uploaded instead of leaving), so the sheet never changes height under your thumb.
+  const [rows, setRows] = useState<UploadItem[]>([]);
+  const uploads = rows.map((row) => {
+    const current = live.find((u) => u.id === row.id);
+    return current ?? { ...row, state: 'done' as const, sent: row.size };
+  });
 
-  useEffect(() => onShellEvent('open-add', () => setOpen(true)), []);
+  useEffect(
+    () =>
+      onShellEvent('open-add', () => {
+        if (!canAdd) {
+          toast(VIEWER_CANT_ADD);
+          return;
+        }
+        setRows(live);
+        setOpen(true);
+      }),
+    [live, canAdd],
+  );
   // Runs inside the user's click or keypress, which the browser requires to open a file picker.
   useEffect(
     () =>
-      onShellEvent('pick-files', (kind) =>
-        (kind === 'audio' ? audioRef : filesRef).current?.click(),
-      ),
-    [],
+      onShellEvent('pick-files', (kind) => {
+        if (!canAdd) toast(VIEWER_CANT_ADD);
+        else (kind === 'audio' ? audioRef : filesRef).current?.click();
+      }),
+    [canAdd],
   );
 
   function run(id: ActionId) {
     if (id === 'upload') filesRef.current?.click();
     else if (id === 'audio') audioRef.current?.click();
-    else if (id === 'record')
-      toastPreview('Recording arrives in Phase 4', 'Nothing is recorded yet.');
-    else toastPreview('Notes arrive in Phase 4', 'Nothing is saved yet.');
+    else if (id === 'record') emitShellEvent('open-recorder');
+    else
+      toastPreview(
+        'Notes arrive in Phase 5',
+        'Writing notes comes with Ask. Nothing is saved yet.',
+      );
   }
 
-  const picked = (input: HTMLInputElement, kind: string) => {
-    const count = input.files?.length ?? 0;
+  const picked = (input: HTMLInputElement, kind: 'file' | 'recording') => {
+    const files = [...(input.files ?? [])];
     input.value = '';
-    if (count)
-      toastPreview(
-        `${plural(count, kind)} ready`,
-        'Uploading arrives in Phase 4. Nothing has left your device.',
-      );
+    startUploads(files, kind);
   };
 
   return (
     <>
       <Sheet open={open} onOpenChange={setOpen} title="Add to Sotto">
+        {uploads.length > 0 && (
+          <section aria-label="Uploading" className="px-[var(--gutter)] pt-1 pb-4">
+            <h3 className="px-4 pb-1.5 text-footnote text-muted-foreground">Uploading</h3>
+            <TransferList items={uploads} className="surface-elevated bg-card-nested" />
+          </section>
+        )}
         <div className="grid grid-cols-2 gap-3 px-[var(--gutter)] pt-1 pb-2">
           {ACTIONS.map(({ id, icon: Icon, title, hint, tint }) => (
             <button
@@ -116,15 +181,13 @@ export function AddSheet() {
             </button>
           ))}
         </div>
-        <p className="px-[var(--gutter)] pt-2 pb-1 text-footnote text-muted-foreground">
-          Preview: adding files, recordings and notes arrives in Phase 4.
-        </p>
+        {open && <Destination />}
       </Sheet>
       <input
         ref={filesRef}
         type="file"
         multiple
-        accept=".pdf,.doc,.docx,.txt,.md,.rtf"
+        accept={DOCUMENT_ACCEPT}
         className="hidden"
         onChange={(e) => picked(e.currentTarget, 'file')}
       />
@@ -132,7 +195,7 @@ export function AddSheet() {
         ref={audioRef}
         type="file"
         multiple
-        accept="audio/*"
+        accept={AUDIO_ACCEPT}
         className="hidden"
         onChange={(e) => picked(e.currentTarget, 'recording')}
       />

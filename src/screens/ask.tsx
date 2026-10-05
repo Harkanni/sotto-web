@@ -9,6 +9,7 @@ import { AsyncWidget, EmptyState } from '@/components/widgets/async-widget';
 import { useIsWide } from '@/lib/hooks/use-media-query';
 import { NavLink } from '@/lib/nav/link';
 import { useChildKey } from '@/lib/nav/hooks';
+import { useFiles } from '@/lib/api/files';
 import { pushPath } from '@/lib/nav/routes';
 import { navigate } from '@/lib/nav/store';
 import {
@@ -27,11 +28,20 @@ function scopeLabel(value: string) {
   return SCOPES.find((s) => s.value === value)?.label ?? value;
 }
 
-/** Where a citation opens: the document page or the meeting minute, pushed on this stack. */
-function citationHref(base: string, c: Citation) {
-  return c.kind === 'doc'
-    ? `${pushPath(base, 'doc', c.id)}?page=${c.page}`
-    : `${pushPath(base, 'meeting', c.id)}?t=${c.at}`;
+/**
+ * Where a citation opens: the document page or the meeting minute, pushed on this stack.
+ * Sample chats cite the sample memos and meetings by their old sample ids; since Phase 4 those
+ * are real files (ADR 0013), found here by title. Real citations arrive with Ask (Phase 5).
+ */
+function useCitationHref(base: string) {
+  const files = useFiles({}).data;
+  return (c: Citation) => {
+    const title = citationLabel(c).replace(/, (page \d+|\d+:\d+)$/, '');
+    const id = files?.find((f) => f.title === title)?.id ?? c.id;
+    return c.kind === 'doc'
+      ? `${pushPath(base, 'doc', id)}?page=${c.page}`
+      : `${pushPath(base, 'meeting', id)}?t=${c.at}`;
+  };
 }
 
 /** Reveals an answer word by word, the way a streamed answer will arrive in Phase 5. */
@@ -66,6 +76,7 @@ function AnswerText({
   base: string;
 }) {
   // "[1]" markers become tappable chips that open the exact source.
+  const citationHref = useCitationHref(base);
   const parts = text.split(/(\[\d+\])/g);
   return (
     <p className="prose-reading text-foreground">
@@ -78,7 +89,7 @@ function AnswerText({
         return (
           <NavLink
             key={i}
-            href={citationHref(base, c)}
+            href={citationHref(c)}
             aria-label={`Source ${n}: ${citationLabel(c)}`}
             className="relative mx-0.5 inline-grid h-5 min-w-5 -translate-y-0.5 place-items-center rounded-full bg-primary-tint-strong px-1.5 align-middle text-[12px] leading-none font-semibold text-primary-text before:absolute before:-inset-3 before:content-['']"
           >
@@ -100,6 +111,7 @@ function AssistantMessage({
   stream: boolean;
 }) {
   const { shown, done } = useStreamed(message.text, stream);
+  const citationHref = useCitationHref(base);
   return (
     <div className="flex flex-col gap-3" aria-busy={!done || undefined}>
       <div className="flex items-center gap-2 text-footnote text-muted-foreground">
@@ -115,7 +127,7 @@ function AssistantMessage({
           {message.citations.map((c, i) => (
             <li key={i} className="list-row">
               <NavLink
-                href={citationHref(base, c)}
+                href={citationHref(c)}
                 className="flex items-center gap-3 pl-4 transition-colors duration-300 active:bg-row-pressed active:delay-[40ms] active:duration-0"
               >
                 <span className="grid size-6 shrink-0 place-items-center rounded-full bg-primary-tint-strong text-[12px] font-semibold text-primary-text">

@@ -48,6 +48,7 @@ describe('dayGroup', () => {
 describe('durations and timestamps', () => {
   it('formats durations', () => {
     expect(duration(42 * 60)).toBe('42 min');
+    expect(duration(38)).toBe('38 sec');
     expect(duration(61 * 60)).toBe('1 h 1 min');
     expect(duration(120 * 60)).toBe('2 h');
   });

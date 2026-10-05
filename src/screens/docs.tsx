@@ -1,9 +1,20 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { ArrowDownUp, Check, Ellipsis, Lock, Pencil, Plus, Trash2, Users } from 'lucide-react';
+import {
+  ArrowDownUp,
+  Check,
+  ChevronRight,
+  Ellipsis,
+  Lock,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+  Users,
+} from 'lucide-react';
 import { DropdownMenu } from 'radix-ui';
-import { useDeferredValue, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { messageOf } from '@/components/account/workspace-actions';
 import { AccessSheet } from '@/components/docs/access-sheet';
@@ -17,6 +28,7 @@ import { menuContent, menuItem } from '@/components/ui/row-actions';
 import { SearchField } from '@/components/ui/search-field';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AsyncWidget, EmptyState } from '@/components/widgets/async-widget';
+import { useFiles, type FileItem } from '@/lib/api/files';
 import {
   apiKeys,
   useActiveWorkspace,
@@ -30,23 +42,29 @@ import { useChildKey } from '@/lib/nav/hooks';
 import { pushPath } from '@/lib/nav/routes';
 import { navigate, navigateUp } from '@/lib/nav/store';
 import { ACCESS_SENTENCE, accessAtLeast, atLeast } from '@/lib/roles';
-import type { DocSort } from '@/lib/sample/api';
-import type { Doc, DocKind } from '@/lib/sample/data';
-import { useDocCounts, useDocs } from '@/lib/sample/queries';
-import { sampleIdOf } from '@/lib/sample/scope';
+import { useCanAdd } from '@/lib/uploads/permissions';
 import { cn } from '@/lib/utils';
 import { ChipGroup } from './parts/chips';
-import { DocRow, RowsSkeleton } from './parts/rows';
+import { FileRow, RecordingRow, documentKind } from './parts/file-rows';
+import { RowsSkeleton } from './parts/rows';
 
-type Filter = 'all' | DocKind;
+type DocSort = 'recent' | 'name';
+type Filter = 'all' | 'pdf' | 'word' | 'text';
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'memo', label: 'Memos' },
   { value: 'pdf', label: 'PDFs' },
-  { value: 'note', label: 'Notes' },
-  { value: 'sheet', label: 'Sheets' },
+  { value: 'word', label: 'Word' },
+  { value: 'text', label: 'Text' },
 ];
+
+function matches(filter: Filter, file: FileItem): boolean {
+  if (filter === 'all') return true;
+  const kind = documentKind(file).key;
+  if (filter === 'pdf') return kind === 'pdf';
+  if (filter === 'word') return kind === 'memo';
+  return kind === 'note';
+}
 
 function SortMenu({
   sort,
@@ -91,14 +109,6 @@ function SortMenu({
   );
 }
 
-/** Real collection id → the sample collection it stands for ("c_board"), when it's one. */
-function useSampleIds(): Record<string, string> {
-  const sample = useActiveWorkspace()?.sample;
-  const ids: Record<string, string> = {};
-  for (const [key, id] of Object.entries(sample?.collections ?? {})) ids[id] = sampleIdOf(key);
-  return ids;
-}
-
 function fileCount(count: number | undefined): string {
   if (!count) return 'No files yet';
   return `${count} ${count === 1 ? 'file' : 'files'}`;
@@ -107,12 +117,22 @@ function fileCount(count: number | undefined): string {
 const CARD =
   'pressable flex h-[112px] w-[156px] flex-col justify-between rounded-card bg-card p-3 text-left select-none active:bg-row-pressed outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring';
 
+/** How many files (documents and recordings) each collection holds. */
+function useFileCounts(): Record<string, number> {
+  const files = useFiles({}).data;
+  return useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const f of files ?? [])
+      if (f.collection) counts[f.collection.id] = (counts[f.collection.id] ?? 0) + 1;
+    return counts;
+  }, [files]);
+}
+
 function Collections() {
   const { entry } = useLayer();
   const workspace = useActiveWorkspace();
   const query = useWorkspaceCollections();
-  const counts = useDocCounts();
-  const sampleIds = useSampleIds();
+  const counts = useFileCounts();
   const [creating, setCreating] = useState(false);
   const canCreate = atLeast(workspace?.role, 'member');
   const create = () => setCreating(true);
@@ -150,7 +170,7 @@ function Collections() {
                   <span className="flex flex-col items-start gap-1">
                     {c.restricted && <RestrictedBadge />}
                     <span className="text-subhead text-muted-foreground tabular">
-                      {fileCount(sampleIds[c.id] ? counts.data?.[sampleIds[c.id]!] : 0)}
+                      {fileCount(counts[c.id])}
                     </span>
                   </span>
                 </NavLink>
@@ -192,27 +212,45 @@ function RestrictedBadge() {
 }
 
 function DocList({
-  docs,
+  files,
   base,
   selectedKey,
   label,
 }: {
-  docs: Doc[];
+  files: FileItem[];
   base: string;
   selectedKey: string | null;
   label?: string;
 }) {
-  if (!docs.length) return null;
+  if (!files.length) return null;
   return (
     <section aria-label={label} className="px-[var(--gutter)]">
       {label && <h2 className="px-4 pb-1.5 text-footnote text-muted-foreground">{label}</h2>}
       <ul className="overflow-hidden rounded-card bg-card">
-        {docs.map((doc) => {
-          const href = pushPath(base, 'doc', doc.id);
-          return <DocRow key={doc.id} doc={doc} href={href} selected={selectedKey === href} />;
+        {files.map((file) => {
+          const audio = file.kind === 'audio';
+          const href = pushPath(base, audio ? 'meeting' : 'doc', file.id);
+          const Row = audio ? RecordingRow : FileRow;
+          return <Row key={file.id} file={file} href={href} selected={selectedKey === href} />;
         })}
       </ul>
     </section>
+  );
+}
+
+/** The way into the trash, below the library. */
+function RecentlyDeleted({ base }: { base: string }) {
+  return (
+    <div className="px-[var(--gutter)]">
+      <NavLink
+        href={`${base}/trash`}
+        className="flex min-h-11 items-center gap-3 rounded-card bg-card pr-3 pl-4 active:bg-row-pressed"
+      >
+        <Trash2 aria-hidden className="size-5 text-muted-foreground" />
+        <span className="flex-1 text-body">Recently deleted</span>
+        <ChevronRight aria-hidden className="size-5 text-faint-foreground" />
+      </NavLink>
+    </div>
   );
 }
 
@@ -224,9 +262,10 @@ export function DocsScreen() {
   const [sort, setSort] = useState<DocSort>('recent');
   // Typing stays instant; the list catches up a frame later.
   const query = useDeferredValue(search);
-  const docsQuery = useDocs({ query, sort });
+  const docsQuery = useFiles({ kind: 'document', q: query, sort });
   const selected = useChildKey(tab, entry.key);
   const searching = query.trim().length > 0;
+  const canAdd = useCanAdd();
 
   return (
     <Screen
@@ -262,7 +301,9 @@ export function DocsScreen() {
             title: 'No documents yet',
             description:
               'Upload memos, PDFs and notes. Sotto reads them so you can ask about them.',
-            action: <Button onClick={() => emitShellEvent('open-add')}>Add files</Button>,
+            action: canAdd ? (
+              <Button onClick={() => emitShellEvent('pick-files', 'files')}>Upload files</Button>
+            ) : undefined,
           }}
           skeleton={
             <div className="px-[var(--gutter)]">
@@ -271,7 +312,7 @@ export function DocsScreen() {
           }
         >
           {(docs) => {
-            const shown = docs.filter((d) => filter === 'all' || d.kind === filter);
+            const shown = docs.filter((d) => matches(filter, d));
             if (!shown.length) {
               return (
                 <EmptyState
@@ -294,10 +335,10 @@ export function DocsScreen() {
                 )}
               >
                 {!searching && pinned.length > 0 && (
-                  <DocList docs={pinned} base={entry.key} selectedKey={selected} label="Pinned" />
+                  <DocList files={pinned} base={entry.key} selectedKey={selected} label="Pinned" />
                 )}
                 <DocList
-                  docs={searching ? shown : shown.filter((d) => !d.pinned)}
+                  files={searching ? shown : shown.filter((d) => !d.pinned)}
                   base={entry.key}
                   selectedKey={selected}
                   label={
@@ -310,6 +351,7 @@ export function DocsScreen() {
             );
           }}
         </AsyncWidget>
+        {!searching && filter === 'all' && <RecentlyDeleted base={entry.key} />}
       </div>
     </Screen>
   );
@@ -424,9 +466,8 @@ export function CollectionScreen() {
   const { entry, tab, parent } = useLayer();
   const id = entry.id!;
   const { collection: c, ...list } = useWorkspaceCollection(id);
-  const sampleId = useSampleIds()[id];
-  // A collection that isn't one of the samples holds no files until uploads arrive (Phase 4).
-  const docs = useDocs({ collectionId: sampleId ?? id });
+  const files = useFiles({ collection: id });
+  const canAdd = useCanAdd() && accessAtLeast(c?.access ?? 'view', 'edit');
   const selected = useChildKey(tab, entry.key);
   const deleteWithUndo = useDeleteWithUndo();
   const [sheet, setSheet] = useState<'access' | 'rename' | null>(null);
@@ -487,15 +528,24 @@ export function CollectionScreen() {
           )}
         </div>
         <AsyncWidget
-          query={docs}
-          label="Documents"
+          query={files}
+          label="Files"
           errorTitle="Couldn’t load this collection"
           empty={{
             illustration: 'docs',
             title: 'This collection is empty',
-            description: sampleId
-              ? 'Move sample documents here from their menu.'
-              : 'Uploading files arrives in Phase 4.',
+            description: canAdd
+              ? 'Files you add while you’re here go into this collection.'
+              : 'Files appear here when someone adds them.',
+            action: canAdd ? (
+              <Button
+                variant="secondary"
+                icon={<Upload aria-hidden />}
+                onClick={() => emitShellEvent('pick-files', 'files')}
+              >
+                Upload files
+              </Button>
+            ) : undefined,
           }}
           skeleton={
             <div className="px-[var(--gutter)]">
@@ -503,7 +553,7 @@ export function CollectionScreen() {
             </div>
           }
         >
-          {(items) => <DocList docs={items} base={entry.key} selectedKey={selected} />}
+          {(items) => <DocList files={items} base={entry.key} selectedKey={selected} />}
         </AsyncWidget>
       </div>
       <AccessSheet
