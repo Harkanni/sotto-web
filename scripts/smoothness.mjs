@@ -1,12 +1,16 @@
 // Smoothness harness: frame timing of the app shell's motion on an emulated iPhone at a CPU
 // throttle (4x by default, roughly a mid-range phone). Every step should cost one or two frames
-// (≤ 33 ms between frames) and make no network request.
+// (≤ 33 ms between frames) and make no network request. The one exception (Phase 4): opening a
+// file nobody has opened yet loads its body (pages, transcript), started on pointer-down so the
+// push never waits for it; those show in the "body" column and aren't counted against the step.
 //
 //   pnpm build && pnpm start          # in one terminal (the production build)
 //   pnpm smoothness [throttle] [--shots]
 //
 // Env: BASE_URL (default http://localhost:3000), CHROMIUM_PATH (a local Chromium, optional).
 import { chromium, devices } from '@playwright/test';
+// Node strips the types on load; the e2e and Storybook use the same stand-in library.
+import { standInFileRoute } from '../src/stories/file-fixtures.ts';
 
 const args = process.argv.slice(2);
 const throttle = Number(args.find((a) => /^\d+$/.test(a)) ?? 4);
@@ -63,6 +67,14 @@ const standIn = {
 for (const [path, body] of Object.entries(standIn)) {
   await page.route(`**/api/v1/${path}`, (route) => route.fulfill({ json: body }));
 }
+// Files (Phase 4): the stand-in library, answered without an API.
+await page.route(
+  (url) => standInFileRoute(url) !== undefined,
+  (route) => {
+    const answer = standInFileRoute(new URL(route.request().url()));
+    return route.fulfill({ status: answer.status, json: answer.json });
+  },
+);
 await ctx.addCookies([{ name: 'sotto.session_token', value: 'harness', url: base }]);
 
 await page.goto(`${base}/docs`, { waitUntil: 'networkidle' });
@@ -118,10 +130,16 @@ async function measure(label, action, settle = 800) {
       path: location.pathname,
     };
   });
-  const network = requests
+  const fetched = requests
     .slice(before)
     .filter((u) => !u.includes('/_next/static/') && !/icon|favicon/.test(u));
-  results.push({ label, ...r, network: network.length });
+  const isBody = (u) => /\/api\/v1\/files\/[^/?]+\/(content|transcript|insights|peaks)$/.test(u);
+  results.push({
+    label,
+    ...r,
+    network: fetched.filter((u) => !isBody(u)).length,
+    body: fetched.filter(isBody).length,
+  });
   if (shots) await page.screenshot({ path: `smoothness-${label.replace(/\W+/g, '-')}.png` });
 }
 
@@ -141,27 +159,27 @@ async function swipe(fromX, toX, ms) {
   await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 }
 
-await measure('push a document', () => page.tap(`${docs} a[href="/docs/d_launch"]`));
+await measure('push a document', () => page.tap(`${docs} a[href="/docs/f_launch"]`));
 await measure('back button', () => page.tap(`${docs} [data-back]`));
-await measure('push another', () => page.tap(`${docs} a[href="/docs/d_pricing"]`));
+await measure('push another', () => page.tap(`${docs} a[href="/docs/f_pricing"]`));
 await measure('switch to Home (first visit)', () => page.tap('.tab-bar a[data-tab="home"]'));
 await measure('switch back to Docs', () => page.tap('.tab-bar a[data-tab="docs"]'));
 await measure('re-tap Docs (pop to root)', () => page.tap('.tab-bar a[data-tab="docs"]'));
 await measure('push, then browser back', async () => {
-  await page.tap(`${docs} a[href="/docs/d_research"]`);
+  await page.tap(`${docs} a[href="/docs/f_roadmap"]`);
   await page.waitForTimeout(700);
   await page.goBack({ waitUntil: 'commit' });
 });
 await measure('browser forward', () => page.goForward({ waitUntil: 'commit' }));
 await measure('edge swipe back (commit)', () => swipe(6, 260, 220), 900);
-await measure('push', () => page.tap(`${docs} a[href="/docs/d_api"]`));
+await measure('push', () => page.tap(`${docs} a[href="/docs/f_security"]`));
 await measure('edge swipe back (cancel)', () => swipe(6, 80, 400), 900);
 await measure(
   'back during a push',
   async () => {
     await page.tap(`${docs} [data-back]`);
     await page.waitForTimeout(700);
-    await page.tap(`${docs} a[href="/docs/d_security"]`);
+    await page.tap(`${docs} a[href="/docs/f_launch"]`);
     await page.waitForTimeout(90);
     await page.evaluate(() => history.back());
   },
@@ -170,7 +188,7 @@ await measure(
 await browser.close();
 
 console.log(`\nCPU throttle ${throttle}x, iPhone 15 viewport\n`);
-console.log('step'.padEnd(32), 'worst frame', ' >2 frames', ' handler', ' network');
+console.log('step'.padEnd(32), 'worst frame', ' >2 frames', ' handler', ' network', '   body');
 for (const r of results) {
   console.log(
     r.label.padEnd(32),
@@ -178,6 +196,7 @@ for (const r of results) {
     String(r.janky).padStart(10),
     (r.handler === null ? '-' : `${r.handler} ms`).padStart(8),
     String(r.network).padStart(8),
+    String(r.body).padStart(7),
   );
 }
 const slow = results.filter((r) => r.maxDelta > 34 || r.network > 0);

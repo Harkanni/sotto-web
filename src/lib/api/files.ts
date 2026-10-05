@@ -97,9 +97,19 @@ export function useFiles(params: FileListParams = {}, enabled = true) {
 
 /** Finds a file a list already loaded, so a pushed screen shows it at once. */
 export function fileFromLists(client: QueryClient, ws: string, id: string): FileItem | undefined {
-  for (const [, data] of client.getQueriesData<FileItem[]>({ queryKey: fileKeys.lists(ws) })) {
-    const hit = Array.isArray(data) ? data.find((f) => f.id === id) : undefined;
-    if (hit) return hit;
+  return listedFile(client, ws, id)?.file;
+}
+
+/** The file from whichever list holds it, and when that list was fetched. */
+function listedFile(
+  client: QueryClient,
+  ws: string,
+  id: string,
+): { file: FileItem; at: number } | undefined {
+  for (const query of client.getQueryCache().findAll({ queryKey: fileKeys.lists(ws) })) {
+    const data = query.state.data;
+    const hit = Array.isArray(data) ? (data as FileItem[]).find((f) => f.id === id) : undefined;
+    if (hit) return { file: hit, at: query.state.dataUpdatedAt };
   }
   return undefined;
 }
@@ -119,36 +129,86 @@ export function useFile(id: string) {
           },
         ),
       enabled: Boolean(ws),
-      placeholderData: () => (ws ? (fileFromLists(client, ws, id) ?? undefined) : undefined),
+      // Seeded from the list the row was in, as old as that list: a push makes no request
+      // while the list is fresh, and live events patch both caches in the meantime.
+      initialData: () => (ws ? listedFile(client, ws, id)?.file : undefined),
+      initialDataUpdatedAt: () => (ws ? listedFile(client, ws, id)?.at : undefined),
       retry: retryable,
     }),
+  );
+}
+
+/**
+ * What a Ready file's screen reads, as query options shared by the hooks and by prefetching:
+ * a document's pages, or a meeting's transcript, notes and waveform. None of it changes once
+ * written (a re-run arrives as a `ready` event, which invalidates them).
+ */
+const readOnce = { staleTime: Infinity, retry: retryable } as const;
+
+export const fileQueries = {
+  content: (ws: string, id: string) => ({
+    queryKey: fileKeys.content(ws, id),
+    queryFn: () => call(api.GET('/api/v1/files/{id}/content', { params: { path: { id } } })),
+    ...readOnce,
+  }),
+  transcript: (ws: string, id: string) => ({
+    queryKey: fileKeys.transcript(ws, id),
+    queryFn: () =>
+      call(api.GET('/api/v1/files/{id}/transcript', { params: { path: { id }, query: {} } })),
+    ...readOnce,
+  }),
+  insights: (ws: string, id: string) => ({
+    queryKey: fileKeys.insights(ws, id),
+    queryFn: () => call(api.GET('/api/v1/files/{id}/insights', { params: { path: { id } } })),
+    ...readOnce,
+  }),
+  peaks: (ws: string, id: string) => ({
+    queryKey: fileKeys.peaks(ws, id),
+    queryFn: () =>
+      call(api.GET('/api/v1/files/{id}/peaks', { params: { path: { id } } })).catch(
+        (error: unknown) => {
+          // No waveform (sample meetings, older files): the player draws a plain track.
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        },
+      ),
+    ...readOnce,
+  }),
+};
+
+/**
+ * Starts loading a file's screen on intent (pointer down, hover, focus), so by the time the
+ * push lands the body is usually there and the push itself never waits on the network.
+ */
+export function usePrefetchFile() {
+  const ws = useActiveWorkspace()?.id;
+  const client = useQueryClient();
+  return useCallback(
+    (file: Pick<FileItem, 'id' | 'kind' | 'status'>) => {
+      if (!ws || file.status !== 'ready') return;
+      if (file.kind === 'audio') {
+        void client.prefetchQuery(fileQueries.transcript(ws, file.id));
+        void client.prefetchQuery(fileQueries.insights(ws, file.id));
+        void client.prefetchQuery(fileQueries.peaks(ws, file.id));
+      } else {
+        void client.prefetchQuery(fileQueries.content(ws, file.id));
+      }
+    },
+    [ws, client],
   );
 }
 
 export function useFileContent(id: string, enabled: boolean) {
   const ws = useActiveWorkspace()?.id;
   return useHydrationSafe(
-    useQuery({
-      queryKey: fileKeys.content(ws ?? '-', id),
-      queryFn: () => call(api.GET('/api/v1/files/{id}/content', { params: { path: { id } } })),
-      enabled: Boolean(ws) && enabled,
-      staleTime: Infinity, // a document's text doesn't change once read
-      retry: retryable,
-    }),
+    useQuery({ ...fileQueries.content(ws ?? '-', id), enabled: Boolean(ws) && enabled }),
   );
 }
 
 export function useTranscript(id: string, enabled: boolean) {
   const ws = useActiveWorkspace()?.id;
   return useHydrationSafe(
-    useQuery({
-      queryKey: fileKeys.transcript(ws ?? '-', id),
-      queryFn: () =>
-        call(api.GET('/api/v1/files/{id}/transcript', { params: { path: { id }, query: {} } })),
-      enabled: Boolean(ws) && enabled,
-      staleTime: Infinity,
-      retry: retryable,
-    }),
+    useQuery({ ...fileQueries.transcript(ws ?? '-', id), enabled: Boolean(ws) && enabled }),
   );
 }
 
@@ -173,31 +233,13 @@ export function useTranscriptMatches(id: string, q: string) {
 export function useInsights(id: string, enabled: boolean) {
   const ws = useActiveWorkspace()?.id;
   return useHydrationSafe(
-    useQuery({
-      queryKey: fileKeys.insights(ws ?? '-', id),
-      queryFn: () => call(api.GET('/api/v1/files/{id}/insights', { params: { path: { id } } })),
-      enabled: Boolean(ws) && enabled,
-      retry: retryable,
-    }),
+    useQuery({ ...fileQueries.insights(ws ?? '-', id), enabled: Boolean(ws) && enabled }),
   );
 }
 
 export function usePeaks(id: string, enabled: boolean) {
   const ws = useActiveWorkspace()?.id;
-  return useQuery({
-    queryKey: fileKeys.peaks(ws ?? '-', id),
-    queryFn: () =>
-      call(api.GET('/api/v1/files/{id}/peaks', { params: { path: { id } } })).catch(
-        (error: unknown) => {
-          // No waveform (sample meetings, older files): the player draws a plain track.
-          if (error instanceof ApiError && error.status === 404) return null;
-          throw error;
-        },
-      ),
-    enabled: Boolean(ws) && enabled,
-    staleTime: Infinity,
-    retry: retryable,
-  });
+  return useQuery({ ...fileQueries.peaks(ws ?? '-', id), enabled: Boolean(ws) && enabled });
 }
 
 export function useContinueListening() {

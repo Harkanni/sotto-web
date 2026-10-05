@@ -139,8 +139,9 @@ export const TransferRow = memo(function TransferRow({ item }: { item: UploadIte
           </span>
           <span
             className={cn(
-              'truncate text-footnote tabular',
-              failed ? 'text-destructive-text' : 'text-muted-foreground',
+              'text-footnote tabular',
+              // A reason is a sentence with what to do next: it wraps rather than cutting off.
+              failed ? 'line-clamp-3 text-destructive-text' : 'truncate text-muted-foreground',
             )}
           >
             {stateLine(item)}

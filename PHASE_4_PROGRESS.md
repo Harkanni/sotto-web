@@ -13,8 +13,8 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 
 - **Current phase:** 4 — ingestion and meetings. Phases 0–3 are merged (sotto-api `5c4e4f0`,
   sotto-web `fbc5321`, sotto-platform `2f0ffd9`).
-- **Overall:** in progress.
-- **Current milestone:** M9 (verification, CI, config, docs).
+- **Overall:** complete, pending review and merge.
+- **Current milestone:** M9 done; PRs ready for the owner's review.
 
 ## Requirements
 
@@ -92,18 +92,18 @@ worker: transcript rows → time-window chunks → embed → insights (ChatProvi
 worker ──Redis pub/sub──▶ api ──GET /events (SSE)──▶ browser (patches its caches)
 ```
 
-| #   | Milestone                                                                                                                                             | Repo      | State   |
-| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------- |
-| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                    | all       | done    |
-| M1  | Schema + migration (files, meetings, chunks, vectors, FTS, Next tables); storage module (S3, presigning); contracts for the new messages              | sotto-api | done    |
-| M2  | Uploads and Files API (access by collection, trash, retry, download), `GET /events` SSE, audit entries, integration tests per role, `openapi.json`    | sotto-api | done    |
-| M3  | Worker pipeline: checksum, extraction (PDF pages, DOCX, TXT, MD), chunking, embeddings (Ollama + labelled mock), transcript ingest, insights, retries | sotto-api | done    |
-| M4  | Transcriber: ffmpeg normalisation, faster-whisper engine, duration and waveform peaks, queue consumer, progress                                       | sotto-api | done    |
-| M5  | Meetings API (transcript search, insights, position, continue listening, document content); sample content as real files                              | sotto-api | done    |
-| M6  | Web: upload manager (multipart, progress, pause/resume, retry), real + sheet and drop, recorder, live status, + hidden for viewers                    | sotto-web | done    |
-| M7  | Web: Docs and document screen on real files (filters, move, rename, tags, pin, sensitivity, trash)                                                    | sotto-web | done    |
-| M8  | Web: Meetings and meeting screen (player, Media Session, position, transcript follow-along and search, insights); Home widgets on real data           | sotto-web | done    |
-| M9  | Done-when E2E (PDF + 30-minute recording) in CI; Compose and demo config; ADRs; STATUS; stories, axe, smoothness, screenshots; PRs ready              | all       | pending |
+| #   | Milestone                                                                                                                                             | Repo      | State |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
+| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                    | all       | done  |
+| M1  | Schema + migration (files, meetings, chunks, vectors, FTS, Next tables); storage module (S3, presigning); contracts for the new messages              | sotto-api | done  |
+| M2  | Uploads and Files API (access by collection, trash, retry, download), `GET /events` SSE, audit entries, integration tests per role, `openapi.json`    | sotto-api | done  |
+| M3  | Worker pipeline: checksum, extraction (PDF pages, DOCX, TXT, MD), chunking, embeddings (Ollama + labelled mock), transcript ingest, insights, retries | sotto-api | done  |
+| M4  | Transcriber: ffmpeg normalisation, faster-whisper engine, duration and waveform peaks, queue consumer, progress                                       | sotto-api | done  |
+| M5  | Meetings API (transcript search, insights, position, continue listening, document content); sample content as real files                              | sotto-api | done  |
+| M6  | Web: upload manager (multipart, progress, pause/resume, retry), real + sheet and drop, recorder, live status, + hidden for viewers                    | sotto-web | done  |
+| M7  | Web: Docs and document screen on real files (filters, move, rename, tags, pin, sensitivity, trash)                                                    | sotto-web | done  |
+| M8  | Web: Meetings and meeting screen (player, Media Session, position, transcript follow-along and search, insights); Home widgets on real data           | sotto-web | done  |
+| M9  | Done-when E2E (PDF + 30-minute recording) in CI; Compose and demo config; ADRs; STATUS; stories, axe, smoothness, screenshots; PRs ready              | all       | done  |
 
 ## Completed work
 
@@ -178,39 +178,56 @@ worker ──Redis pub/sub──▶ api ──GET /events (SSE)──▶ browser
   position. iPhone light and dark, desktop three panes. Found and fixed: transcript crash
   (shared cache key), stacked toasts, flat waveform, empty speaker slot.
 
+- **M9 (all):** verification, CI, config, docs.
+  - sotto-api `ingestion` CI job: the built images on Postgres (pgvector), Redis, RabbitMQ,
+    SeaweedFS and Mailpit, the transcriber on faster-whisper `tiny`. `scripts/ingestion-check.ts`
+    signs in by magic link, uploads a 3-page PDF and a 30-minute Ogg/Opus recording (espeak
+    sentences at 0:03, 20:30 and 29:30) through presigned multipart PUTs and waits for Ready:
+    pages 1–3 hold their own text; duration 30:00; a line starts at each spoken time; nothing
+    invented in the silence; transcript search, peaks and notes answer. Embeddings are the
+    labelled hash mock (still through pgvector). The transcript goes on the PR as a notice.
+  - It found a real bug: faster-whisper's VAD stitches speech together, and a segment
+    straddling the 9-minute pause came back as `20:34–29:33`. Fixed in the transcriber: word
+    timestamps on, lines rebuilt from words and split at any pause over 1.5 s (unit-tested).
+    Now `29:30–29:33`.
+  - sotto-platform: local Compose (bucket init, Ollama + model pull, transcriber on the queue
+    with a model volume, `/s3/*` through Caddy), demo Compose (storage env; labelled mock
+    engines until the capacity decision), Terraform (bucket CORS, `ListMultipartUploadParts`,
+    abandoned-upload sweep), ADRs 0016–0017, STATUS (merge order, owner's `terraform apply`).
+  - sotto-web: stories for TransferRow/TransferList (every state) and ProgressRing, and the
+    WaveformScrubber (playing, start, no waveform, disabled); UI_DESIGN_SYSTEM §7 (Files), §8
+    (files in progress), §9 (upload and playback motion). A failure reason now wraps to three
+    lines instead of cutting off "Retry to…".
+  - Smoothness: the harness predated Phase 4's files API, so Docs pushes hit the network and
+    the warm-up pre-rendered a skeleton. Fixed: a pushed file is seeded from the list that held
+    it (no request; live events patch both), a file's body is fetched on intent (pointer down,
+    hover, focus), and the warm-up loads its document's and meeting's bodies before rendering
+    them hidden. The harness routes `/files` to the stand-in library and reports body loads in
+    their own column.
+
 ## Work in progress
 
-M9.
+None. Phase 4's PRs are ready for review.
 
 ## Remaining work
 
-- Done-when, measured: a 30-minute recording through the real stack (CI: RabbitMQ, the worker,
-  the transcriber with faster-whisper, pgvector). The pieces are each tested (pipeline test:
-  30-minute transcript → READY with correct times; real Whisper test: words at the right
-  second), not yet the whole chain in one CI job.
-- Compose (`sotto-platform/local`): S3 CORS for browser uploads, worker storage and AI settings,
-  transcriber on the queue with a model volume, Ollama for embeddings. Demo config (default:
-  labelled mock engines there until the owner decides capacity).
-- ADRs 0016 (file access) and 0017 (pipeline and providers); UI_DESIGN_SYSTEM additions
-  (progress ring, transfer row, waveform scrubber, time-gutter transcript); `pnpm smoothness`;
-  stories for the new components; STATUS; PRs out of draft.
+- Owner: review and merge in order (sotto-api#4 → `terraform apply` in `terraform/dev` →
+  sotto-web#4 → sotto-platform#4), and decide demo capacity (STATUS).
+- Carried, outside this phase: sotto-web's `accounts` job needs `sotto/api` in ECR (the same
+  `terraform apply`).
 
 ## Next steps
 
-1. M9, sotto-platform `local/compose.yaml`: S3 CORS (SeaweedFS `-s3.allowedOrigins`, ETag
-   exposed), `S3_PUBLIC_ENDPOINT`, worker `DATABASE_URL` + storage + `AI_EMBEDDINGS`, transcriber
-   `RABBITMQ_URL` + storage + `/models` volume, an `ollama` service; Caddy route for `/s3/`.
-2. M9, sotto-api CI: an `ingestion` job (Compose deps + RabbitMQ + worker + transcriber with
-   faster-whisper tiny) uploading a PDF and a 30-minute recording through the API and waiting
-   for READY with page and time checks.
-3. M9 docs: ADRs 0016–0017, UI_DESIGN_SYSTEM, stories for TransferRow / ProgressRing /
-   WaveformScrubber, smoothness run, STATUS, PRs ready.
+1. If review asks for changes: make them on the same branches, rerun the checks, update this
+   log and STATUS.
+2. After the merges: Phase 5 (search and notes) starts from `docs/PLAN.md`; create
+   `PHASE_5_PROGRESS.md` the same way.
 
 ## Decisions
 
 Recorded as they're taken; the ones a later session must not undo become ADRs (0016 on).
 
-- **File access (ADR 0016, to write):** a file follows its collection; unfiled files are visible
+- **File access (ADR 0016):** a file follows its collection; unfiled files are visible
   to everyone, editable by their owner and admins; trashed unfiled files only by their owner and
   admins; deleting a collection trashes its files unfiled. Lowering from Restricted is admin-only.
   Permanent delete needs Manage, or ownership with Edit.
@@ -227,6 +244,11 @@ Recorded as they're taken; the ones a later session must not undo become ADRs (0
   dependency broke); the first window's language is kept.
 - **Action items' "yours"** is a first-name / email-name match only, never a guess; ticks are
   kept on the device until action items are stored (labelled on Home).
+- **Transcript lines come from word times** and split at pauses over 1.5 s: VAD-stitched
+  segments otherwise start at the end of earlier speech (found by the ingestion job).
+- **A pushed file needs no request:** it's seeded from the list it was in, and its body is
+  fetched on intent. The smoothness harness counts body loads separately; everything else in
+  a step must still be zero.
 - **Sample meetings have no audio**; the player says so and download answers `NO_AUDIO`.
 
 ## Missing specifications and outside dependencies
@@ -260,19 +282,31 @@ Identified, not invented around:
   transcription are exercised in CI (pgvector service, the smoke stack, models downloaded
   there); locally the pipeline is tested through its transport-independent handlers.
 
+- `pnpm smoothness` on this sandbox (2 cores) swings ±2 frames between runs; `main` measured
+  the same way today showed as many slow steps (6–7 per run) as this branch (3–6), so Phase 4
+  holds Phase 3's motion. The known cost remains the synchronous render in the tap handler
+  (20–60 ms at 4×).
+- The ingestion job's embeddings are the hash mock (no Ollama model download in CI); real
+  embeddings run in local Compose.
+
 ## Tests and checks run
 
-| When                      | Check                                                                                                                                                                                     | Result |
-| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `5c4e4f0` (M0)            | sotto-api build; unit tests (51; integration skipped, no DB)                                                                                                                              | Pass   |
-| `c8bccdb` (M1)            | All three migrations on PGlite with real pgvector, pg_trgm, citext; vector helpers end to end (partial HNSW used, upsert, refusals)                                                       | Pass   |
-| `c8bccdb` (M1)            | sotto-api lint, format, typecheck, build; db 17, storage 7 (multipart vs moto S3), contracts 8, api 59 (integration on local Postgres 16)                                                 | Pass   |
-| `9779b76` (M2)            | api 82 tests (files: access matrix, formats, cursors; integration per role vs Postgres + moto S3 + Redis, incl. SSE filtering); lint; openapi                                             | Pass   |
-| `9779b76` (M2)            | CI: node (with Redis + SeaweedFS), smoke, python, secrets, sync                                                                                                                           | Pass   |
-| `158b8c0` (M3)            | worker 22 tests (real PDF pages + Word; chunking; notes; pipeline vs Postgres + S3: PDF → READY pages 1–3, 30-minute transcript → READY with correct times, failures, trash purge); ai 14 | Pass   |
-| `1e15db7`–`5aa7fd1` (M4)  | transcriber 16 tests (every browser format through ffmpeg, peaks, jobs vs in-process S3, windowing); CI python job with real faster-whisper (tiny) on synthetic speech                    | Pass   |
-| `606a7db`, `118eca1` (M5) | api 89 tests (meetings, content, sample files, action items, per role); worker 23                                                                                                         | Pass   |
-| `5aa7fd1`                 | sotto-api CI: node, python (real Whisper), smoke, secrets, sync                                                                                                                           | Pass   |
-| `bc795e0` (M6–M8)         | sotto-web lint, format, typecheck, 65 unit tests (upload engine with a fake transport, cache keys), production build                                                                      | Pass   |
-| `24ee672`                 | `pnpm e2e` shell spec (iPhone + desktop): 8 passed, 6 layout-skipped; `pnpm test:stories`: 124 passed, light + dark, axe                                                                  | Pass   |
-| `24ee672`                 | Rendered walkthrough vs the sandbox rig (see Completed work), iPhone light/dark and desktop                                                                                               | Pass   |
+| When                      | Check                                                                                                                                                                                      | Result |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| `5c4e4f0` (M0)            | sotto-api build; unit tests (51; integration skipped, no DB)                                                                                                                               | Pass   |
+| `c8bccdb` (M1)            | All three migrations on PGlite with real pgvector, pg_trgm, citext; vector helpers end to end (partial HNSW used, upsert, refusals)                                                        | Pass   |
+| `c8bccdb` (M1)            | sotto-api lint, format, typecheck, build; db 17, storage 7 (multipart vs moto S3), contracts 8, api 59 (integration on local Postgres 16)                                                  | Pass   |
+| `9779b76` (M2)            | api 82 tests (files: access matrix, formats, cursors; integration per role vs Postgres + moto S3 + Redis, incl. SSE filtering); lint; openapi                                              | Pass   |
+| `9779b76` (M2)            | CI: node (with Redis + SeaweedFS), smoke, python, secrets, sync                                                                                                                            | Pass   |
+| `158b8c0` (M3)            | worker 22 tests (real PDF pages + Word; chunking; notes; pipeline vs Postgres + S3: PDF → READY pages 1–3, 30-minute transcript → READY with correct times, failures, trash purge); ai 14  | Pass   |
+| `1e15db7`–`5aa7fd1` (M4)  | transcriber 16 tests (every browser format through ffmpeg, peaks, jobs vs in-process S3, windowing); CI python job with real faster-whisper (tiny) on synthetic speech                     | Pass   |
+| `606a7db`, `118eca1` (M5) | api 89 tests (meetings, content, sample files, action items, per role); worker 23                                                                                                          | Pass   |
+| `5aa7fd1`                 | sotto-api CI: node, python (real Whisper), smoke, secrets, sync                                                                                                                            | Pass   |
+| `bc795e0` (M6–M8)         | sotto-web lint, format, typecheck, 65 unit tests (upload engine with a fake transport, cache keys), production build                                                                       | Pass   |
+| `24ee672`                 | `pnpm e2e` shell spec (iPhone + desktop): 8 passed, 6 layout-skipped; `pnpm test:stories`: 124 passed, light + dark, axe                                                                   | Pass   |
+| `24ee672`                 | Rendered walkthrough vs the sandbox rig (see Completed work), iPhone light/dark and desktop                                                                                                | Pass   |
+| `0fdc122`–`362ff2d` (M9)  | sotto-api CI `ingestion`: PDF → Ready, pages 1–3 correct; 30-minute recording → Ready, 30:00, lines at 0:02, 20:29, 29:30, no stray text, search, peaks, notes (after the word-time fix)   | Pass   |
+| `a244392` (M9)            | transcriber 18 tests + 1 skipped locally (word-time line splitting); sotto-api CI all green incl. real Whisper                                                                             | Pass   |
+| `26e77c5` (M9)            | sotto-platform: local and demo `docker compose config` valid; Terraform reviewed by hand (no terraform binary here; CI runs fmt and validate)                                              | Pass   |
+| M9 (sotto-web)            | lint, format, typecheck, 65 unit tests, production build; `pnpm e2e` 22 passed (20 accounts tests skipped without the API); `pnpm test:stories` 136 passed (68 stories, light + dark, axe) | Pass   |
+| M9 (sotto-web)            | `pnpm smoothness` 4×: network 0 on every step, one body load per first push; worst frames 17–83 ms, within `main`'s spread on this sandbox                                                 | Pass   |

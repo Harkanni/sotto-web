@@ -2,6 +2,7 @@
 
 import { useQueryClient } from '@tanstack/react-query';
 import { Activity, startTransition, useEffect, useState } from 'react';
+import { fileQueries } from '@/lib/api/files';
 import { parseStack, pushPath, type ItemKind, type StackEntry, type Tab } from '@/lib/nav/routes';
 import { LayerContext, type LayerInfo } from './stack-context';
 
@@ -38,19 +39,34 @@ export function ScreenWarmup({
     let idle: number | undefined;
     const warm = () => {
       const found: LayerInfo[] = [];
+      const loading: Promise<unknown>[] = [];
       for (const { tab, kind, list, pick } of KINDS) {
         // Files lists live under ['api', 'w', <workspace>, 'files', 'list', …]; chats are samples.
-        const first = client
-          .getQueriesData<{ id: string; kind?: string }[]>({ queryKey: list })
+        const hit = client
+          .getQueriesData<{ id: string; kind?: string; status?: string }[]>({ queryKey: list })
           .filter(([key]) => !pick || key.includes('files'))
-          .map(([, data]) => (Array.isArray(data) ? data.find((x) => !pick || pick(x)) : undefined))
+          .map(([key, data]) => {
+            const item = Array.isArray(data)
+              ? data.find((x) => (!pick || pick(x)) && (!x.status || x.status === 'ready'))
+              : undefined;
+            return item ? { item, ws: String(key[2]) } : undefined;
+          })
           .find(Boolean);
-        if (!first) continue;
+        if (!hit) continue;
+        const first = hit.item;
+        // A hidden <Activity> runs no effects, so its queries never fetch: load the body first,
+        // or the warm render is a skeleton and the first push still renders the reader cold.
+        if (kind === 'doc')
+          loading.push(client.prefetchQuery(fileQueries.content(hit.ws, first.id)));
+        if (kind === 'meeting') {
+          loading.push(client.prefetchQuery(fileQueries.transcript(hit.ws, first.id)));
+          loading.push(client.prefetchQuery(fileQueries.insights(hit.ws, first.id)));
+        }
         const stack = parseStack(pushPath(`/${tab}`, kind, first.id));
         const entry = stack[stack.length - 1]!;
         found.push({ tab, entry, depth: 1, parent: stack[0]!, registerScroller: noop });
       }
-      startTransition(() => setLayers(found));
+      void Promise.allSettled(loading).then(() => startTransition(() => setLayers(found)));
     };
     // After the shell has woken the tabs (from 1.5 s, one at a time) and they've loaded.
     const timer = setTimeout(() => {

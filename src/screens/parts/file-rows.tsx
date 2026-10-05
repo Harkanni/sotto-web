@@ -5,7 +5,7 @@ import { memo } from 'react';
 import { SensitivityBadge } from '@/components/ui/badge';
 import { ListRowContent } from '@/components/ui/list';
 import { ActionRow } from '@/components/ui/row-actions';
-import type { FileItem } from '@/lib/api/files';
+import { usePrefetchFile, type FileItem } from '@/lib/api/files';
 import { duration, fileSize, relativeTime, whenInGroup } from '@/lib/format';
 import { failureText, overallOf, stepLabel } from '@/lib/files/status';
 import { navigate } from '@/lib/nav/store';
@@ -152,6 +152,7 @@ export const FileRow = memo(function FileRow({
   selected?: boolean;
 }) {
   const actionsFor = useFileActions();
+  const prefetch = usePrefetchFile();
   const ready = file.status === 'ready';
   return (
     <ActionRow
@@ -177,7 +178,14 @@ export const FileRow = memo(function FileRow({
             <SensitivityBadge level={file.sensitivity} />
           ) : undefined
         }
-        rowProps={{ 'data-item': file.id, 'data-status': file.status }}
+        rowProps={{
+          'data-item': file.id,
+          'data-status': file.status,
+          // Intent loads the screen's body, so the push lands on it rather than fetching it.
+          onPointerDown: () => prefetch(file),
+          onMouseEnter: () => prefetch(file),
+          onFocus: () => prefetch(file),
+        }}
       />
     </ActionRow>
   );
@@ -194,6 +202,7 @@ export const RecordingRow = memo(function RecordingRow({
   selected?: boolean;
 }) {
   const actionsFor = useFileActions();
+  const prefetch = usePrefetchFile();
   const ready = file.status === 'ready';
   return (
     <ActionRow
@@ -224,7 +233,14 @@ export const RecordingRow = memo(function RecordingRow({
             <SensitivityBadge level={file.sensitivity} />
           ) : undefined
         }
-        rowProps={{ 'data-item': file.id, 'data-status': file.status }}
+        rowProps={{
+          'data-item': file.id,
+          'data-status': file.status,
+          // Intent loads the screen's body, so the push lands on it rather than fetching it.
+          onPointerDown: () => prefetch(file),
+          onMouseEnter: () => prefetch(file),
+          onFocus: () => prefetch(file),
+        }}
       />
     </ActionRow>
   );
