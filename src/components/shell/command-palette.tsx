@@ -31,10 +31,12 @@ import { tabOf, type Tab } from '@/lib/nav/routes';
 import { getSnapshot, navigate } from '@/lib/nav/store';
 import { setThemeSmoothly } from '@/lib/prefs/theme';
 import { createLocalThread } from '@/lib/sample/answer';
-import type { Doc, Meeting, Thread } from '@/lib/sample/data';
-import { keys, useDocs, useMeetings, useThreads } from '@/lib/sample/queries';
+import type { Thread } from '@/lib/sample/data';
+import { keys, useThreads } from '@/lib/sample/queries';
+import { useFiles, type FileItem } from '@/lib/api/files';
 import { cn } from '@/lib/utils';
-import { DOC_KINDS, MEETING_TINT, THREAD_TINT, ownerName } from '@/screens/parts/rows';
+import { documentKind } from '@/screens/parts/file-rows';
+import { DOC_KINDS, MEETING_TINT, THREAD_TINT } from '@/screens/parts/rows';
 import { emitShellEvent, onShellEvent } from './shell-events';
 import { selectTab } from './tab-bar';
 import { TAB_ITEMS } from './tabs';
@@ -82,8 +84,9 @@ function PalettePanel({
   const navigated = useRef(false);
   const [search, setSearch] = useState('');
   const searching = search.trim().length > 0;
-  const docs = useDocs();
-  const meetings = useMeetings();
+  // Titles only for now; searching inside files is Ask's job (Phase 5).
+  const docs = useFiles({ kind: 'document', sort: 'recent' });
+  const meetings = useFiles({ kind: 'audio', sort: 'recent' });
   const threads = useThreads();
 
   // cmdk selects the first row it sees, which can be a command while the recent items are still
@@ -249,8 +252,8 @@ function Results({
   onClose,
 }: {
   search: string;
-  docs: Doc[] | undefined;
-  meetings: Meeting[] | undefined;
+  docs: FileItem[] | undefined;
+  meetings: FileItem[] | undefined;
   threads: Thread[] | undefined;
   loading: boolean;
   go: (href: string) => void;
@@ -286,23 +289,25 @@ function Results({
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 rounded-[10px] bg-fill opacity-0"
       />
-      {loading && <Command.Loading label="Loading sample content">{null}</Command.Loading>}
+      {loading && <Command.Loading label="Loading your files">{null}</Command.Loading>}
       <Command.Empty className="px-3 pt-3 pb-1 text-subhead text-muted-foreground">
-        Nothing in the sample content matches “{search.trim()}”.
+        No titles match “{search.trim()}”. Ask searches inside files (⌘↵).
       </Command.Empty>
 
       {!!recentDocs?.length && (
         <Command.Group heading={searching ? 'Documents' : 'Recent'}>
           {recentDocs.map((doc) => {
-            const kind = DOC_KINDS[doc.kind];
+            const { key, label } = documentKind(doc);
+            const kind = DOC_KINDS[key];
+            const owner = doc.owner?.name ?? 'Someone';
             return (
               <Item
                 key={doc.id}
                 value={`doc ${doc.id}`}
-                keywords={[doc.title, kind.label, ownerName(doc.ownerId)]}
+                keywords={[doc.title, label, owner, ...doc.tags]}
                 icon={<IconTile icon={kind.icon} tint={kind.tint} square />}
                 title={doc.title}
-                subtitle={`${kind.label}, ${ownerName(doc.ownerId)}, ${relativeTime(doc.updatedAt)}`}
+                subtitle={`${label}, ${owner}, ${relativeTime(new Date(doc.updatedAt).getTime())}`}
                 onSelect={() => go(`/docs/${doc.id}`)}
               />
             );
@@ -315,7 +320,12 @@ function Results({
                 keywords={[m.title]}
                 icon={<IconTile icon={AudioLines} tint={MEETING_TINT} />}
                 title={m.title}
-                subtitle={`${dayAndTime(m.startedAt)}, ${duration(m.durationSec)}`}
+                subtitle={[
+                  dayAndTime(new Date(m.createdAt).getTime()),
+                  m.durationMs ? duration(m.durationMs / 1000) : null,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
                 onSelect={() => go(`/meetings/${m.id}`)}
               />
             ))}
@@ -340,10 +350,15 @@ function Results({
             <Item
               key={m.id}
               value={`meeting ${m.id}`}
-              keywords={[m.title, ...m.participantIds.map(ownerName)]}
+              keywords={[m.title, m.owner?.name ?? '', ...m.tags]}
               icon={<IconTile icon={AudioLines} tint={MEETING_TINT} />}
               title={m.title}
-              subtitle={`${dayAndTime(m.startedAt)}, ${duration(m.durationSec)}`}
+              subtitle={[
+                dayAndTime(new Date(m.createdAt).getTime()),
+                m.durationMs ? duration(m.durationMs / 1000) : null,
+              ]
+                .filter(Boolean)
+                .join(', ')}
               onSelect={() => go(`/meetings/${m.id}`)}
             />
           ))}

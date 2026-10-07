@@ -204,6 +204,40 @@ for focus, keyboard and labelling.
   the toast closes, so Undo needs no restore.
 - **Command palette (⌘K)** — top-anchored, one sliding highlight, results grouped, ↵ opens,
   ⌘↵ asks Sotto.
+- **Files (Phase 4)** — `src/components/uploads`, `src/components/player`, `src/screens/parts`:
+  - **ProgressRing** — every upload's progress, weighed by size, as a ring around the + button
+    (phones) and the sidebar's New icon. No banner: progress is visible from every screen. The
+    arc follows the bytes with no transition of its own; the ring fades in and out.
+  - **TransferRow / TransferList** — one upload: kind icon, title, a bar that slides (a
+    `translate`, never a width; grey when paused), what's happening ("9.8 MB of 24.6 MB",
+    "Waiting", "Paused while you're offline", "Finishing") and 44 px controls: Pause or
+    Resume, Retry when trying again can help, Cancel, or Dismiss when it can't. A failure
+    swaps the bar for its reason in red, up to three lines. Lives in the Add sheet on
+    `card-nested`.
+  - **File rows** — `FileRow` (Docs) and `RecordingRow` (Meetings) on `ActionRow`: kind icon
+    (documents on a rounded square tinted by type, recordings on a circle), and while a file is
+    processed the subtitle becomes its step ("Transcribing, 42%", "Reading", "Writing notes")
+    with a small sliding bar, or the failure in red with Retry in the row's actions.
+  - **WaveformScrubber** — the player's scrubber: the recording's waveform (72 bars, peaks from
+    the transcriber), played part in indigo, a playhead with a card-coloured halo, and the
+    elapsed and remaining times in tabular figures. Driven per frame by two opposing
+    translates on the compositor, never by React renders; a transparent native range input on
+    top gives dragging, tapping, arrow keys and the screen-reader value ("12:34 of 30:00").
+    Without peaks it's an even, quiet track.
+  - **Player** — the scrubber, then back 15 s, play/pause, forward 15 s and a speed menu
+    (0.75–2×, the menu-picker pattern) in thumb reach. Media Session gives lock-screen
+    controls. Space, ← and → while the meeting is in front.
+  - **Transcript** — one column of lines, each with its time in a left gutter (and the speaker
+    when diarization names one). The playing line is tinted and kept in view; tap a line to
+    play from it; scrolling yourself pauses the following for a few seconds. Search steps
+    through matches in order ("2 of 5"), highlighted in the text.
+  - **Recorder sheet** — a consent reminder, then a live waveform drawn from the microphone
+    (it moves only because sound does, and holds still when paused), pause and resume, then a
+    name. Nothing leaves the device until Save; then it uploads like any file.
+  - **Recently deleted** — Docs → Recently deleted: what was deleted and when, with Restore
+    (one tap, undoable) and Delete for good (ConfirmAction). Everything is purged after 30 days.
+  - **Drop target** — dragging files over the window raises one target over the whole app;
+    letting go uploads into the collection on screen. Viewers see why they can't instead.
 - **Widget states** — `AsyncWidget` renders loading, empty, error and content for every data
   widget (see §8).
 - **Shell** — tab bar (phones), sidebar (768 px and up), nav bar with large title, + button,
@@ -254,6 +288,14 @@ skeleton, and keep their Save in view at the bottom.
 - **Error:** what went wrong in plain words, a 44 px Retry that refetches only that widget, and
   collapsible details with the request ID.
 
+### Files in progress
+
+Every file shows where it is: Uploading → Waiting to start → Transcribing (with a percentage)
+→ Reading or Writing notes → Ready, live over `GET /events`, without refreshing. A file that
+isn't Ready opens to its step, not to an empty reader. Failed says why in plain words and what
+to do, with Retry. Mock engines (sample meetings, the demo's stand-in transcription) are
+labelled on screen.
+
 ## 9. Motion
 
 ### Principles
@@ -301,6 +343,8 @@ Durations for plain fades: fast 150 ms (hover, colour), base 220 ms (bars, overl
 | Swipe row               | Follows the finger with rubber-banding; snaps open or closed with the release speed                                                                    |
 | Delete                  | The row slides out (full swipe) or the preview fades, then the row folds away; Undo brings it back                                                     |
 | Theme change            | A View Transition crossfade                                                                                                                            |
+| Upload progress         | Bars slide by `translate` on a 300 ms ease-out; the + ring follows the bytes directly                                                                  |
+| Playback                | The scrubber's played part and playhead move every frame by `translate` (no React renders); a seek jumps, it never animates                            |
 | Press                   | `scale(0.97)` in 70 ms, back on `snappy`                                                                                                               |
 
 ## 10. Responsive rules

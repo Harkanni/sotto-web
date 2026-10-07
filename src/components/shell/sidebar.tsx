@@ -9,10 +9,13 @@ import { Kbd, ModKey } from '@/components/ui/kbd';
 import { menuContent, menuItem } from '@/components/ui/row-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
+import { ProgressRing } from '@/components/uploads/transfers';
 import { useActiveWorkspace, useWorkspaces } from '@/lib/api/hooks';
 import type { Tab } from '@/lib/nav/routes';
 import { navigate } from '@/lib/nav/store';
 import { ROLE_LABEL } from '@/lib/roles';
+import { useCanAdd } from '@/lib/uploads/permissions';
+import { overallProgress, useUploads } from '@/lib/uploads/store';
 import { cn } from '@/lib/utils';
 import { emitShellEvent } from './shell-events';
 import { selectTab } from './tab-bar';
@@ -156,6 +159,8 @@ function WorkspaceSwitcher() {
  * the new-item button. Translucent like the tab bar.
  */
 export const Sidebar = memo(function Sidebar({ active }: { active: Tab }) {
+  const canAdd = useCanAdd();
+  const progress = overallProgress(useUploads());
   return (
     <aside className="sidebar material-bar" aria-label="Sidebar">
       <div className="flex flex-col gap-1 px-3 pt-3">
@@ -184,15 +189,26 @@ export const Sidebar = memo(function Sidebar({ active }: { active: Tab }) {
       </nav>
 
       <div className="mt-auto flex flex-col gap-1 px-3 pb-3">
-        <button
-          type="button"
-          onClick={() => emitShellEvent('open-add')}
-          aria-keyshortcuts="N"
-          className="flex min-h-11 items-center gap-3 rounded-button px-3 text-[16px] leading-6 font-semibold text-primary-text select-none hover:bg-primary-tint active:bg-primary-tint-strong can-hover:min-h-9"
-        >
-          <Plus aria-hidden className="size-5.5" strokeWidth={2} />
-          New
-        </button>
+        {canAdd && (
+          <button
+            type="button"
+            onClick={() => emitShellEvent('open-add')}
+            aria-keyshortcuts="N"
+            aria-label={progress === null ? 'New' : `New, uploading ${Math.round(progress * 100)}%`}
+            className="flex min-h-11 items-center gap-3 rounded-button px-3 text-[16px] leading-6 font-semibold text-primary-text select-none hover:bg-primary-tint active:bg-primary-tint-strong can-hover:min-h-9"
+          >
+            <span className="grid size-6 place-items-center">
+              <Plus aria-hidden className="col-start-1 row-start-1 size-5.5" strokeWidth={2} />
+              <ProgressRing
+                progress={progress}
+                size={28}
+                stroke={2}
+                className="col-start-1 row-start-1"
+              />
+            </span>
+            New
+          </button>
+        )}
         <SidebarItem {...TAB_ITEMS.find((t) => t.tab === 'profile')!} active={active} />
       </div>
     </aside>

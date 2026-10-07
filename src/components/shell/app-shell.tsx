@@ -7,12 +7,14 @@ import { DEFAULT_TITLE, TABS, parseStack, tabOf } from '@/lib/nav/routes';
 import { startNavigation } from '@/lib/nav/store';
 import { useTitle } from '@/lib/nav/titles';
 import { Toaster } from '@/components/ui/toaster';
+import { RecorderSheet } from '@/components/uploads/recorder-sheet';
+import { UploadSync } from '@/components/uploads/upload-sync';
 import { renderScreen, renderPlaceholder } from '@/screens';
 import { AddSheet } from './add-sheet';
 import { CommandPalette } from './command-palette';
 import { DropOverlay } from './drop-overlay';
 import { Fab } from './fab';
-import { MoveSheet, RenameSheet } from './item-sheets';
+import { LabelSheet, MoveSheet, RenameSheet, TagsSheet } from './item-sheets';
 import { ScreenWarmup } from './screen-warmup';
 import { ServiceWorker } from './service-worker';
 import { OfflineBanner, ThemeColorSync, useVisualViewport } from './system';
@@ -41,8 +43,12 @@ const Overlays = memo(function Overlays() {
   return (
     <>
       <AddSheet />
+      <RecorderSheet />
+      <UploadSync />
       <MoveSheet />
       <RenameSheet />
+      <LabelSheet />
+      <TagsSheet />
       <CommandPalette />
       <ShortcutsSheet />
       <DropOverlay />

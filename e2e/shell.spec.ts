@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { standInFileRoute } from '../src/stories/file-fixtures';
 
 /**
  * The app shell against brief §9: tabs keep their stacks, screens push and pop, the + sheet
@@ -10,11 +11,11 @@ import { expect, test, type Page } from '@playwright/test';
 const SCREENS = [
   '/home',
   '/docs',
-  '/docs/d_launch',
+  '/docs/f_launch',
   '/ask',
   '/ask/t_risks',
   '/meetings',
-  '/meetings/m_crit',
+  '/meetings/f_crit',
   '/profile',
   '/profile/appearance',
 ];
@@ -69,6 +70,14 @@ async function standInApi(page: Page) {
   for (const [path, body] of Object.entries(STAND_IN)) {
     await page.route(`**/api/v1/${path}`, (route) => route.fulfill({ json: body }));
   }
+  // Files, meetings and live status: the shared stand-in library (src/stories/file-fixtures).
+  await page.route(
+    (url) => standInFileRoute(url) !== undefined,
+    (route) => {
+      const answer = standInFileRoute(new URL(route.request().url()))!;
+      return route.fulfill({ status: answer.status, json: answer.json });
+    },
+  );
 }
 
 async function open(page: Page, path: string) {
@@ -98,8 +107,8 @@ test.describe('phone', () => {
 
   test('tabs keep their stacks; re-tapping a tab pops to its root', async ({ page }) => {
     await open(page, '/docs');
-    await top(page).locator('a[href="/docs/d_launch"]').first().click();
-    await expect(page).toHaveURL(/\/docs\/d_launch$/);
+    await top(page).locator('a[href="/docs/f_launch"]').first().click();
+    await expect(page).toHaveURL(/\/docs\/f_launch$/);
     await expect(
       top(page).getByRole('heading', { name: 'Lagos launch plan', level: 1 }),
     ).toBeAttached();
@@ -107,7 +116,7 @@ test.describe('phone', () => {
     await page.locator('.tab-bar a[data-tab="home"]').click();
     await expect(page).toHaveURL(/\/home$/);
     await page.locator('.tab-bar a[data-tab="docs"]').click();
-    await expect(page).toHaveURL(/\/docs\/d_launch$/);
+    await expect(page).toHaveURL(/\/docs\/f_launch$/);
 
     await page.locator('.tab-bar a[data-tab="docs"]').click();
     await expect(page).toHaveURL(/\/docs$/);
@@ -115,12 +124,12 @@ test.describe('phone', () => {
 
   test('back returns to the list, and the browser back button agrees', async ({ page }) => {
     await open(page, '/meetings');
-    await top(page).locator('a[href="/meetings/m_crit"]').first().click();
-    await expect(page).toHaveURL(/\/meetings\/m_crit$/);
+    await top(page).locator('a[href="/meetings/f_crit"]').first().click();
+    await expect(page).toHaveURL(/\/meetings\/f_crit$/);
     await top(page).locator('[data-back]').click();
     await expect(page).toHaveURL(/\/meetings$/);
     await page.goForward();
-    await expect(page).toHaveURL(/\/meetings\/m_crit$/);
+    await expect(page).toHaveURL(/\/meetings\/f_crit$/);
     await page.goBack();
     await expect(page).toHaveURL(/\/meetings$/);
   });
@@ -186,7 +195,7 @@ test.describe('desktop', () => {
       'Pricing review notes',
     );
     await page.keyboard.press('Enter');
-    await expect(page).toHaveURL(/\/docs\/d_pricing$/);
+    await expect(page).toHaveURL(/\/docs\/f_pricing$/);
     await expect(palette).toBeHidden();
   });
 

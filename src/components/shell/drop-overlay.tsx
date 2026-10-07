@@ -2,11 +2,13 @@
 
 import { Upload } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { toastPreview } from '@/components/ui/toaster';
+import { toast } from 'sonner';
 import { prefersReducedMotion } from '@/lib/motion/driver';
 import { springEasing, springs } from '@/lib/motion/spring';
+import { useCanAdd } from '@/lib/uploads/permissions';
+import { VIEWER_CANT_ADD, startUploads } from './add-sheet';
 
-const READABLE = /\.(pdf|docx?|txt|md|markdown|rtf|mp3|m4a|wav|webm|ogg|aac|flac)$/i;
+const READABLE = /\.(pdf|docx|txt|md|markdown|mp3|m4a|mp4|wav|webm|ogg|oga|opus|aac|flac)$/i;
 
 function readable(file: File) {
   return file.type.startsWith('audio/') || READABLE.test(file.name);
@@ -21,30 +23,27 @@ function plural(n: number, word: string) {
   return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-/** Says what a drop would have done, in the same words as the + sheet's pickers. */
-function report(files: File[]) {
+/** Uploads what Sotto can read and says what it skipped, in the same words as the pickers. */
+function add(files: File[]) {
   const ok = files.filter(readable);
   const skipped = files.filter((f) => !readable(f));
-  const skippedNote = skipped.length
-    ? ` Skipped ${plural(skipped.length, 'file')} (${[...new Set(skipped.map((f) => extension(f.name)))].join(', ')}): Sotto reads PDF, Word, text, Markdown and audio.`
-    : '';
-  if (ok.length)
-    toastPreview(
-      `${plural(ok.length, 'file')} ready`,
-      `Uploading arrives in Phase 4. Nothing has left your device.${skippedNote}`,
-    );
-  else toastPreview('Nothing Sotto can read', skippedNote.trim());
+  if (ok.length) startUploads(ok);
+  if (skipped.length) {
+    const kinds = [...new Set(skipped.map((f) => extension(f.name)))].join(', ');
+    toast(ok.length ? `Skipped ${plural(skipped.length, 'file')}` : 'Nothing Sotto can read', {
+      description: `${kinds}: Sotto reads PDF, Word, text, Markdown and audio.`,
+    });
+  }
 }
 
 /**
  * Drag-and-drop upload anywhere (brief §9): dragging files over the window raises a drop target
- * over the whole app; letting go adds them.
- *
- * PREVIEW (Phase 2): dropped files are counted and checked, never read or sent; uploading
- * arrives in Phase 4.
+ * over the whole app; letting go uploads them into the collection on screen. Viewers see why
+ * they can't instead of a target.
  */
 export function DropOverlay() {
   const [visible, setVisible] = useState(false);
+  const canAdd = useCanAdd();
 
   useEffect(() => {
     let depth = 0;
@@ -84,7 +83,9 @@ export function DropOverlay() {
       e.preventDefault();
       hide();
       const files = [...(e.dataTransfer?.files ?? [])];
-      if (files.length) report(files);
+      if (!files.length) return;
+      if (canAdd) add(files);
+      else toast(VIEWER_CANT_ADD);
     };
     window.addEventListener('dragenter', onEnter);
     window.addEventListener('dragover', onOver);
@@ -97,7 +98,7 @@ export function DropOverlay() {
       window.removeEventListener('dragleave', onLeave);
       window.removeEventListener('drop', onDrop);
     };
-  }, []);
+  }, [canAdd]);
 
   return <DropTarget visible={visible} />;
 }
@@ -132,8 +133,7 @@ export function DropTarget({ visible }: { visible: boolean }) {
         <div>
           <p className="text-title-2">Drop to add to Sotto</p>
           <p className="mt-1 text-callout text-foreground/75">
-            PDF, Word, text, Markdown and audio. Preview: files stay on this device until uploads
-            arrive in Phase 4.
+            PDF, Word, text, Markdown and audio.
           </p>
         </div>
       </div>

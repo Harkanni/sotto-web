@@ -19,6 +19,8 @@ type ShellEvents = {
   'pick-files': 'files' | 'audio';
   /** Open the keyboard shortcuts sheet. */
   'open-shortcuts': undefined;
+  /** Open the recorder (Record a meeting). */
+  'open-recorder': undefined;
 };
 
 type Handler<K extends keyof ShellEvents> = (detail: ShellEvents[K]) => void;

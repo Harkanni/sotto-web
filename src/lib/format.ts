@@ -54,6 +54,7 @@ export function dayGroup(t: number, now = Date.now()): string {
 
 /** "42 min", "1 h 1 min". */
 export function duration(seconds: number): string {
+  if (seconds < 60) return `${Math.max(1, Math.round(seconds))} sec`;
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);

@@ -1,3 +1,5 @@
+// First: files and meetings come from a stand-in library, before the API client captures fetch.
+import '../src/stories/stand-in-fetch';
 import { withThemeByDataAttribute } from '@storybook/addon-themes';
 import type { Decorator, Preview } from '@storybook/nextjs-vite';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

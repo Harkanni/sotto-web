@@ -21,6 +21,7 @@ export type ItemKind = (typeof ITEM_KINDS)[number];
 
 /** Named screens, and the tabs they may appear in. */
 export const NAMED_SCREENS = {
+  trash: 'docs',
   account: 'profile',
   appearance: 'profile',
   workspace: 'profile',
@@ -67,6 +68,7 @@ const ROLE: Record<ScreenKind, PaneRole> = {
   meetings: 'list',
   profile: 'list',
   collection: 'list',
+  trash: 'list',
   doc: 'detail',
   meeting: 'detail',
   thread: 'detail',
@@ -92,6 +94,7 @@ export const DEFAULT_TITLE: Record<ScreenKind, string> = {
   meetings: 'Meetings',
   profile: 'Profile',
   collection: 'Collection',
+  trash: 'Recently deleted',
   doc: 'Document',
   meeting: 'Meeting',
   thread: 'Chat',
