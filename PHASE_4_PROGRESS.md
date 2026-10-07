@@ -211,10 +211,8 @@ None. Phase 4's PRs are ready for review.
 
 ## Remaining work
 
-- Owner: review and merge in order (sotto-api#4 → `terraform apply` in `terraform/dev` →
-  sotto-web#4 → sotto-platform#4), and decide demo capacity (STATUS).
-- Carried, outside this phase: sotto-web's `accounts` job needs `sotto/api` in ECR (the same
-  `terraform apply`).
+- Owner: merge sotto-web#4 (sotto-api#4 and sotto-platform#4 are merged), and decide demo
+  capacity (STATUS).
 
 ## Next steps
 
@@ -275,8 +273,10 @@ Identified, not invented around:
 
 ## Known issues
 
-- The `accounts` CI job in sotto-web still fails: ECR has no `sotto/api` (owner's
-  `terraform apply`, carried from Phase 3).
+- The `accounts` CI job ran for the first time once ECR had `sotto/api` (after sotto-api#4
+  merged), and failed at "Explore with sample content": since Phase 4 that creates real files,
+  and the job gave the API no storage or queue. Fixed: the job now starts SeaweedFS and
+  RabbitMQ for it, and puts the API's errors on the PR as annotations.
 - The sandbox reaches npm and PyPI (Phase 3's didn't), but not Docker registries or Hugging
   Face: no pgvector, RabbitMQ or Whisper weights here. Real vectors, the queue and real
   transcription are exercised in CI (pgvector service, the smoke stack, models downloaded
