@@ -167,7 +167,7 @@ function matchKey(text: string): string {
  * list), then every block from there to the end of what the quote spans is marked. The cited
  * page is tried first.
  */
-function findPassage(
+export function findPassage(
   pages: { page: number; text: string }[],
   quote: string,
   page: number | null,
