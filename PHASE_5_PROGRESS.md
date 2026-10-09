@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 5 — Ask and search. Phases 0–4 and the upload fixes (`fix/p4-uploads`) are
   merged (sotto-api `37040b3`, sotto-web `cfa7d98`, sotto-platform `8aa06a6`).
 - **Overall:** in progress.
-- **Current milestone:** M3 (Ask API).
+- **Current milestone:** M4 (eval set).
 
 ## Requirements
 
@@ -94,7 +94,7 @@ outside model.
 | M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                         | all       | done    |
 | M1  | Schema + migration (Conversation, Message, Citation, Note); retrieval core (hybrid SQL, visibility, scope, sensitivity, hidden count) on real pgvector     | sotto-api | done    |
 | M2  | `GET /search` (files, passages, moments, highlights); notes API (`POST/PATCH /notes`, notes through the pipeline); integration tests per role              | sotto-api | done    |
-| M3  | Ask API: conversations (create, list + search, get, delete), SSE answers (prompt, citations, follow-ups, not-found), regenerate, stop, feedback, audit     | sotto-api | pending |
+| M3  | Ask API: conversations (create, list + search, get, delete), SSE answers (prompt, citations, follow-ups, not-found), regenerate, stop, feedback, audit     | sotto-api | done    |
 | M4  | Eval set (~20 fictional pairs + unanswerable + access cases) and runner; CI `evals` job with real embeddings; the Viewer check                             | sotto-api | pending |
 | M5  | Web: API client (ask, search, notes); Ask and chat screens on the API: streaming, citations, actions, follow-ups, scope chips, @-mentions; sample chats go | sotto-web | pending |
 | M6  | Web: citations open the exact spot (page highlight, timestamp); Ask panel; ⌘K hybrid search; phone search under the large title; Home recent chats         | sotto-web | pending |
@@ -138,13 +138,28 @@ outside model.
   `note.edited`, `ask.asked` (never content). Worker: a note edited while its job runs is
   left to the newer job (no stale Ready). Shared test fixture `test/integration/kestrel.ts`.
 
+- **M3 (sotto-api `8e4a3a5`):** `apps/api/src/ask/`: `answer.ts` (search query for short
+  follow-ups = previous question + this one; grounded prompt with rules, last 3 turns,
+  numbered sources in inert `<source>` tags; `FollowUpSplitter` holding back a partial
+  sentinel; `CitationStream` renumbering by first use as tokens arrive, holding back split
+  markers and trailing spaces, dropping numbers that aren't sources), `ask.service.ts`
+  (question + empty answer saved in one transaction, audit `ask.asked`, retrieval with the
+  chat's allowed sensitivities, no model call when nothing is relevant, passages only when no
+  model is configured, content saved every 1.5 s, stop via the saved status checked every
+  second so it works from any api instance, failures saved with a code and never retried on
+  another model, a "streaming" answer older than 3 minutes shown as interrupted, citations
+  re-checked for access on read), `conversations.controller.ts` (create with a scope the
+  person can open, list + `q` + keyset cursor, get, rename/rescope, delete, SSE ask,
+  regenerate in place, stop, feedback). Rate limit `ASK_RATE_PER_MINUTE` (Redis, as auth).
+  `.env.example`: `AI_ASK_CHAT`, `ASK_RATE_PER_MINUTE`.
+
 ## Work in progress
 
-M3.
+M4.
 
 ## Remaining work
 
-M3–M8 (table above).
+M4–M8 (table above).
 
 ## Next steps
 
