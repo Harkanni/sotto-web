@@ -187,6 +187,17 @@
   }
 }
 
+/* The caret at the end of an answer being written. */
+@keyframes caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
 @keyframes spinner-pulse {
   50% {
     opacity: 0.35;
