@@ -161,14 +161,16 @@ function matchKey(text: string): string {
 }
 
 /**
- * Where a cited passage starts: the first block (on the cited page first) whose text holds the
- * passage's opening words. Chunks can start mid-paragraph, so it's a substring match.
+ * Which blocks a cited passage covers: its opening words are found in the page's text (letters
+ * and digits only, joined across blocks, since a passage can start in a heading and run into a
+ * list), then every block from there to the end of what the quote spans is marked. The cited
+ * page is tried first.
  */
 function findPassage(
   pages: { page: number; text: string }[],
   quote: string,
   page: number | null,
-): { page: number; block: number } | null {
+): { page: number; blocks: Set<number> } | null {
   const key = matchKey(quote);
   if (key.length < 8) return null;
   const ordered = page
@@ -177,9 +179,18 @@ function findPassage(
   for (const length of [48, 24]) {
     const probe = key.slice(0, length);
     for (const p of ordered) {
-      const blocks = blocksOf(p.text);
-      const i = blocks.findIndex((b) => matchKey(b).includes(probe));
-      if (i !== -1) return { page: p.page, block: i };
+      const keys = blocksOf(p.text).map(matchKey);
+      const joined = keys.join('');
+      const at = joined.indexOf(probe);
+      if (at === -1) continue;
+      const end = at + Math.max(probe.length, Math.min(key.length, 400));
+      const blocks = new Set<number>();
+      let offset = 0;
+      keys.forEach((k, i) => {
+        if (offset < end && offset + k.length > at) blocks.add(i);
+        offset += k.length;
+      });
+      return { page: p.page, blocks };
     }
   }
   return null;
@@ -271,11 +282,11 @@ function Content({
                   </p>
                 )}
                 {blocksOf(page.text).map((block, i) =>
-                  found && found.page === page.page && found.block === i ? (
+                  found && found.page === page.page && found.blocks.has(i) ? (
                     // The cited passage: tinted like a citation, and named for screen readers.
                     <div
                       key={i}
-                      data-cited
+                      data-cited={found.blocks.values().next().value === i || undefined}
                       role="mark"
                       aria-label="Cited passage"
                       className="-mx-2.5 animate-[fade-in_400ms_var(--ease-out)] rounded-[8px] bg-primary-tint-strong px-2.5 py-1.5"
