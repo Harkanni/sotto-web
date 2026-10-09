@@ -642,6 +642,7 @@ export interface components {
                     collections: {
                         [key: string]: string;
                     };
+                    filesLoaded: boolean;
                 } | null;
             } | null;
             csrfToken: string;

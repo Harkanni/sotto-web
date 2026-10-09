@@ -30,6 +30,7 @@ export const STORY_ME: Schemas['Me'] = {
         board: 'col_board',
         handbook: 'col_handbook',
       },
+      filesLoaded: true,
     },
   },
   csrfToken: 'story',

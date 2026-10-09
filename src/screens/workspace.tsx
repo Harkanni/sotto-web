@@ -29,12 +29,15 @@ function peopleLabel(count: number): string {
   return `${count} ${count === 1 ? 'person' : 'people'}`;
 }
 
-/** Fictional collections to explore with (owners). Loading twice changes nothing. */
+/**
+ * Fictional collections to explore with (owners). Loading twice changes nothing; a load whose
+ * files didn't all arrive (storage or the queue was down) is finished by loading again.
+ */
 function SampleContent() {
   const workspace = useActiveWorkspace();
   const load = useLoadSampleContent();
   if (!workspace) return null;
-  if (workspace.sample) {
+  if (workspace.sample?.filesLoaded) {
     return (
       <List
         header="Sample content"
@@ -48,14 +51,19 @@ function SampleContent() {
       </List>
     );
   }
+  const finishing = Boolean(workspace.sample);
   return (
     <List
       header="Sample content"
-      footer="Adds four collections of fictional memos, meetings and chats, labelled as samples."
+      footer={
+        finishing
+          ? 'The sample collections are here, but their memos and meetings didn’t all arrive.'
+          : 'Adds four collections of fictional memos, meetings and chats, labelled as samples.'
+      }
     >
       <ListRow
         leading={<RowIcon icon={Sparkles} tint="purple" />}
-        title="Load sample content"
+        title={finishing ? 'Finish loading sample content' : 'Load sample content'}
         trailing={
           load.isPending ? <Spinner size={18} className="text-muted-foreground" /> : undefined
         }
