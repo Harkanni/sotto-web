@@ -207,7 +207,32 @@ worker ──Redis pub/sub──▶ api ──GET /events (SSE)──▶ browser
 
 ## Work in progress
 
-None. Phase 4's PRs are ready for review.
+None. Phase 4's PRs are merged. Post-merge fixes below.
+
+## Post-merge fixes (2026-10-09)
+
+The owner reported on the demo: "I can't upload docs; I keep getting an error." Branch
+`fix/p4-uploads` in all three repos.
+
+- **Root cause (infrastructure):** the demo's api, worker and transcriber had no AWS
+  credentials. Phase 4's demo Compose relied on the server's IAM role, but the instance requires
+  IMDSv2 with a hop limit of 1 (Phase 1, on purpose), so the role never reaches a container.
+  Every upload failed at `CreateMultipartUpload` with a generic 500; reading pages, peaks and
+  sample files failed too. CI never saw it: CI and local Compose use SeaweedFS with static keys.
+- **Fix — sotto-platform#6:** an IAM user scoped to `files/*` whose key Terraform writes to SSM
+  (`/sotto/demo/S3_*`); Compose passes it to the three services; the instance role loses its
+  unused `files/` access; `deploy.sh` fails a deploy whose api isn't ready (ADR 0018). Needs the
+  owner's `terraform apply` (it also applies Phase 4's CORS rule). Steps: STATUS.
+- **Fix — sotto-api#5:** storage in `/readyz` (lists `files/`, so the scoped key passes);
+  storage failures answer `503 STORAGE_UNAVAILABLE` ("Sotto can't reach file storage right
+  now") instead of a 500; "Explore with sample content" that fails part-way retries cleanly (no
+  duplicates, none stuck at Uploaded, one audit entry).
+- **Checked, no change needed:** live status through Caddy's `encode` (an SSE stream arrived
+  event by event through Caddy 2.10 with compression on); the service worker ignores uploads
+  (non-GET, cross-origin); the browser's part PUTs send no headers the CORS rule doesn't allow
+  (sliced Blobs carry no Content-Type); the scoped key covers every S3 call the api, worker and
+  transcriber make (multipart, ListParts, Head/Get/Put, DeleteObjects, ListObjectsV2 under
+  `files/`); SSE-KMS with the AWS-managed key needs no extra KMS grant in the same account.
 
 ## Remaining work
 
@@ -216,10 +241,14 @@ None. Phase 4's PRs are ready for review.
 
 ## Next steps
 
-1. If review asks for changes: make them on the same branches, rerun the checks, update this
-   log and STATUS.
-2. After the merges: Phase 5 (Ask and search) starts from `docs/PLAN.md`; create
-   `PHASE_5_PROGRESS.md` the same way.
+1. Owner: merge sotto-api#5, run `terraform apply` in `sotto-platform/terraform/dev` on
+   `fix/p4-uploads` (STATUS lists what the plan should show), merge sotto-platform#6 and this
+   log's PR, then upload a PDF on the demo.
+2. If uploads still fail after that: the api's log names the SDK error class
+   (`docker compose logs api` on the server via `terraform output shell`), and `deploy-config`'s
+   output shows `/readyz` per dependency. Fix on `fix/p4-uploads`.
+3. Then Phase 5 (Ask and search) starts from `docs/PLAN.md`; create `PHASE_5_PROGRESS.md` the
+   same way.
 
 ## Decisions
 
@@ -291,22 +320,25 @@ Identified, not invented around:
 
 ## Tests and checks run
 
-| When                      | Check                                                                                                                                                                                      | Result |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| `5c4e4f0` (M0)            | sotto-api build; unit tests (51; integration skipped, no DB)                                                                                                                               | Pass   |
-| `c8bccdb` (M1)            | All three migrations on PGlite with real pgvector, pg_trgm, citext; vector helpers end to end (partial HNSW used, upsert, refusals)                                                        | Pass   |
-| `c8bccdb` (M1)            | sotto-api lint, format, typecheck, build; db 17, storage 7 (multipart vs moto S3), contracts 8, api 59 (integration on local Postgres 16)                                                  | Pass   |
-| `9779b76` (M2)            | api 82 tests (files: access matrix, formats, cursors; integration per role vs Postgres + moto S3 + Redis, incl. SSE filtering); lint; openapi                                              | Pass   |
-| `9779b76` (M2)            | CI: node (with Redis + SeaweedFS), smoke, python, secrets, sync                                                                                                                            | Pass   |
-| `158b8c0` (M3)            | worker 22 tests (real PDF pages + Word; chunking; notes; pipeline vs Postgres + S3: PDF → READY pages 1–3, 30-minute transcript → READY with correct times, failures, trash purge); ai 14  | Pass   |
-| `1e15db7`–`5aa7fd1` (M4)  | transcriber 16 tests (every browser format through ffmpeg, peaks, jobs vs in-process S3, windowing); CI python job with real faster-whisper (tiny) on synthetic speech                     | Pass   |
-| `606a7db`, `118eca1` (M5) | api 89 tests (meetings, content, sample files, action items, per role); worker 23                                                                                                          | Pass   |
-| `5aa7fd1`                 | sotto-api CI: node, python (real Whisper), smoke, secrets, sync                                                                                                                            | Pass   |
-| `bc795e0` (M6–M8)         | sotto-web lint, format, typecheck, 65 unit tests (upload engine with a fake transport, cache keys), production build                                                                       | Pass   |
-| `24ee672`                 | `pnpm e2e` shell spec (iPhone + desktop): 8 passed, 6 layout-skipped; `pnpm test:stories`: 124 passed, light + dark, axe                                                                   | Pass   |
-| `24ee672`                 | Rendered walkthrough vs the sandbox rig (see Completed work), iPhone light/dark and desktop                                                                                                | Pass   |
-| `0fdc122`–`362ff2d` (M9)  | sotto-api CI `ingestion`: PDF → Ready, pages 1–3 correct; 30-minute recording → Ready, 30:00, lines at 0:02, 20:29, 29:30, no stray text, search, peaks, notes (after the word-time fix)   | Pass   |
-| `a244392` (M9)            | transcriber 18 tests + 1 skipped locally (word-time line splitting); sotto-api CI all green incl. real Whisper                                                                             | Pass   |
-| `26e77c5` (M9)            | sotto-platform: local and demo `docker compose config` valid; Terraform reviewed by hand (no terraform binary here; CI runs fmt and validate)                                              | Pass   |
-| M9 (sotto-web)            | lint, format, typecheck, 65 unit tests, production build; `pnpm e2e` 22 passed (20 accounts tests skipped without the API); `pnpm test:stories` 136 passed (68 stories, light + dark, axe) | Pass   |
-| M9 (sotto-web)            | `pnpm smoothness` 4×: network 0 on every step, one body load per first push; worst frames 17–83 ms, within `main`'s spread on this sandbox                                                 | Pass   |
+| When                      | Check                                                                                                                                                                                        | Result |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `5c4e4f0` (M0)            | sotto-api build; unit tests (51; integration skipped, no DB)                                                                                                                                 | Pass   |
+| `c8bccdb` (M1)            | All three migrations on PGlite with real pgvector, pg_trgm, citext; vector helpers end to end (partial HNSW used, upsert, refusals)                                                          | Pass   |
+| `c8bccdb` (M1)            | sotto-api lint, format, typecheck, build; db 17, storage 7 (multipart vs moto S3), contracts 8, api 59 (integration on local Postgres 16)                                                    | Pass   |
+| `9779b76` (M2)            | api 82 tests (files: access matrix, formats, cursors; integration per role vs Postgres + moto S3 + Redis, incl. SSE filtering); lint; openapi                                                | Pass   |
+| `9779b76` (M2)            | CI: node (with Redis + SeaweedFS), smoke, python, secrets, sync                                                                                                                              | Pass   |
+| `158b8c0` (M3)            | worker 22 tests (real PDF pages + Word; chunking; notes; pipeline vs Postgres + S3: PDF → READY pages 1–3, 30-minute transcript → READY with correct times, failures, trash purge); ai 14    | Pass   |
+| `1e15db7`–`5aa7fd1` (M4)  | transcriber 16 tests (every browser format through ffmpeg, peaks, jobs vs in-process S3, windowing); CI python job with real faster-whisper (tiny) on synthetic speech                       | Pass   |
+| `606a7db`, `118eca1` (M5) | api 89 tests (meetings, content, sample files, action items, per role); worker 23                                                                                                            | Pass   |
+| `5aa7fd1`                 | sotto-api CI: node, python (real Whisper), smoke, secrets, sync                                                                                                                              | Pass   |
+| `bc795e0` (M6–M8)         | sotto-web lint, format, typecheck, 65 unit tests (upload engine with a fake transport, cache keys), production build                                                                         | Pass   |
+| `24ee672`                 | `pnpm e2e` shell spec (iPhone + desktop): 8 passed, 6 layout-skipped; `pnpm test:stories`: 124 passed, light + dark, axe                                                                     | Pass   |
+| `24ee672`                 | Rendered walkthrough vs the sandbox rig (see Completed work), iPhone light/dark and desktop                                                                                                  | Pass   |
+| `0fdc122`–`362ff2d` (M9)  | sotto-api CI `ingestion`: PDF → Ready, pages 1–3 correct; 30-minute recording → Ready, 30:00, lines at 0:02, 20:29, 29:30, no stray text, search, peaks, notes (after the word-time fix)     | Pass   |
+| `a244392` (M9)            | transcriber 18 tests + 1 skipped locally (word-time line splitting); sotto-api CI all green incl. real Whisper                                                                               | Pass   |
+| `26e77c5` (M9)            | sotto-platform: local and demo `docker compose config` valid; Terraform reviewed by hand (no terraform binary here; CI runs fmt and validate)                                                | Pass   |
+| M9 (sotto-web)            | lint, format, typecheck, 65 unit tests, production build; `pnpm e2e` 22 passed (20 accounts tests skipped without the API); `pnpm test:stories` 136 passed (68 stories, light + dark, axe)   | Pass   |
+| M9 (sotto-web)            | `pnpm smoothness` 4×: network 0 on every step, one body load per first push; worst frames 17–83 ms, within `main`'s spread on this sandbox                                                   | Pass   |
+| `fix/p4-uploads` (api)    | lint, format, typecheck, build; storage 8 + api 37 unit tests (incl. a real SDK client with no credentials → storage error); CI: node (integration incl. the sample retry), smoke, ingestion | Pass   |
+| `fix/p4-uploads` (plat.)  | demo `docker compose config` with the new keys; `shellcheck` deploy.sh; Caddy 2.10.2 validate (both Caddyfiles); CI terraform fmt/validate                                                   | Pass   |
+| `fix/p4-uploads` (web)    | typecheck, 65 unit tests on `main` (no web code changed)                                                                                                                                     | Pass   |
