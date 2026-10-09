@@ -13,9 +13,10 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 
 - **Current phase:** 5 — Ask and search. Phases 0–4 and the upload fixes (`fix/p4-uploads`) are
   merged (sotto-api `37040b3`, sotto-web `cfa7d98`, sotto-platform `8aa06a6`).
-- **Overall:** in progress.
-- **Current milestone:** M8 (config, ADRs, docs, PRs ready). M5–M7 done; M4's CI `evals` job
-  now starts Ollama and embeds; its first full run failed on storage (disk), fix pushed.
+- **Overall:** complete, waiting for the owner's review. Merge order: sotto-api#6, then
+  sotto-web#6, then sotto-platform#7.
+- **Current milestone:** none; M0–M8 done. CI green in all three repos (sotto-api's `evals` job
+  included, with real `nomic-embed-text` embeddings).
 
 ## Requirements
 
@@ -90,17 +91,17 @@ No chat model configured (the demo today): no model is called; the answer is the
 passages, labelled "Passages only — no AI model on this server". Never a silent fallback to an
 outside model.
 
-| #   | Milestone                                                                                                                                                  | Repo      | State   |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------- |
-| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                         | all       | done    |
-| M1  | Schema + migration (Conversation, Message, Citation, Note); retrieval core (hybrid SQL, visibility, scope, sensitivity, hidden count) on real pgvector     | sotto-api | done    |
-| M2  | `GET /search` (files, passages, moments, highlights); notes API (`POST/PATCH /notes`, notes through the pipeline); integration tests per role              | sotto-api | done    |
-| M3  | Ask API: conversations (create, list + search, get, delete), SSE answers (prompt, citations, follow-ups, not-found), regenerate, stop, feedback, audit     | sotto-api | done    |
-| M4  | Eval set (~20 fictional pairs + unanswerable + access cases) and runner; CI `evals` job with real embeddings; the Viewer check                             | sotto-api | done*   |
-| M5  | Web: API client (ask, search, notes); Ask and chat screens on the API: streaming, citations, actions, follow-ups, scope chips, @-mentions; sample chats go | sotto-web | done    |
-| M6  | Web: citations open the exact spot (page highlight, timestamp); Ask panel; ⌘K hybrid search; phone search under the large title; Home recent chats         | sotto-web | done    |
-| M7  | Web: notes (New note, save answer as note, edit); stories, unit tests, e2e (ask → citation opens the source), axe, smoothness                              | sotto-web | done    |
-| M8  | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                        | all       | pending |
+| #   | Milestone                                                                                                                                                  | Repo      | State |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
+| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                         | all       | done  |
+| M1  | Schema + migration (Conversation, Message, Citation, Note); retrieval core (hybrid SQL, visibility, scope, sensitivity, hidden count) on real pgvector     | sotto-api | done  |
+| M2  | `GET /search` (files, passages, moments, highlights); notes API (`POST/PATCH /notes`, notes through the pipeline); integration tests per role              | sotto-api | done  |
+| M3  | Ask API: conversations (create, list + search, get, delete), SSE answers (prompt, citations, follow-ups, not-found), regenerate, stop, feedback, audit     | sotto-api | done  |
+| M4  | Eval set (~20 fictional pairs + unanswerable + access cases) and runner; CI `evals` job with real embeddings; the Viewer check                             | sotto-api | done  |
+| M5  | Web: API client (ask, search, notes); Ask and chat screens on the API: streaming, citations, actions, follow-ups, scope chips, @-mentions; sample chats go | sotto-web | done  |
+| M6  | Web: citations open the exact spot (page highlight, timestamp); Ask panel; ⌘K hybrid search; phone search under the large title; Home recent chats         | sotto-web | done  |
+| M7  | Web: notes (New note, save answer as note, edit); stories, unit tests, e2e (ask → citation opens the source), axe, smoothness                              | sotto-web | done  |
+| M8  | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                        | all       | done  |
 
 ## Completed work
 
@@ -163,10 +164,7 @@ outside model.
   pgvector, keyword search with mock embeddings, passages-only answers; measured recall@5
   100%, MRR 0.66, moments 88%, 3/3 declined, 0 leaks), `scripts/eval.ts` + CI job `evals`
   (built images + Ollama `nomic-embed-text`). Mock embeddings now report `keyword` mode.
-  \*The `evals` job hasn't run green yet: Ollama failed to start twice (exit 125, then a
-  `docker run` error); now it uses `compose.deps.yaml`'s `ai` profile and reports setup errors
-  as annotations (this sandbox can't download job logs; annotations can be read through the
-  API). Thresholds for hybrid mode get calibrated from its first real run.
+  The CI job runs green since `dedb941` (see M8 for how it got there).
 - **M5 (sotto-web `458e1c4`, `ab82482`, `1a0685f`):** `lib/api/ask.ts` (chats, SSE reader,
   `live` store so tokens re-render only the answer being written, optimistic question and a
   "thinking" answer, search, notes); `components/ask/answer.tsx` (smooth reveal paced per frame,
@@ -199,6 +197,29 @@ outside model.
   tests: citation links, answer blocks, scope, passage finding. The stand-in fixtures take
   the library as an argument so plain Node (`pnpm smoothness`) loads them; each caller composes
   the file and chat routers.
+- **M8 (sotto-api `5565c91`, `d7fe9a3`, `dedb941`, `4ac4e69`; sotto-platform `95c49ca`,
+  `e14a6be`; sotto-web `0d42365` → this commit):**
+  - CI `evals` green with real embeddings. Fixes on the way: free runner disk (the Ollama
+    image left SeaweedFS no room for volumes: `STORAGE_UNAVAILABLE` on sample content);
+    `scripts/eval-similarity.ts` reports the real model's similarities as a notice (answers
+    0.53–0.85, unrelated questions up to 0.63), so the relevance floor is per model and
+    measured: nomic-embed-text 0.65, others 0.5, `ASK_MIN_SIMILARITY` overrides. Measured
+    (hybrid): recall@1/3/5 88/96/100%, MRR 0.92, moments 100%, 3/3 declined, 96% cited; the
+    hybrid gates sit just under that.
+  - Keyword ties: equal cover-density ranks fell to random chunk ids, so the in-process eval
+    swung between 88% and 100% recall@5 (it failed CI once). Ties now fall to `ts_rank`
+    (length-normalised), then the id: 10 runs in a row at 100%.
+  - sotto-platform: the api embeds each question, so it needs the worker's embedding settings:
+    a shared `ai-env` block in local Compose (Ollama) and the demo (the hash mock: keyword
+    search, labelled passages); `ASK_RATE_PER_MINUTE`. ADRs 0019 (hybrid retrieval, access in
+    SQL, per-model floor), 0020 (grounded answers, no silent fallback), 0021 (eval set gates
+    retrieval), 0022 (notes are files). STATUS with merge order.
+  - `UI_DESIGN_SYSTEM.md`: an Ask section (chat, answer text, citation chip, sources, route
+    badge, hidden notice, actions, answer states, composer and @ picker, chats list, note
+    sheet, cited passage, palette search).
+  - Final pass in the rendered app (rig, iPhone dark + desktop light): Ask list, @ picker,
+    streaming, answer with sources, citation → document with the passage marked; no console
+    errors.
 - **Rendered and checked** (sandbox rig: real api + worker on local Postgres 16 + pgvector,
   Redis, RabbitMQ 3.12, moto S3, an SMTP sink, a stand-in OpenAI-compatible model on :5080 —
   Node's fetch refuses port 5060): sign up → sample content → 11 files Ready → Ask → @ picker
@@ -209,28 +230,19 @@ outside model.
 
 ## Work in progress
 
-M8. sotto-api CI `evals` re-running with `5565c91` (frees runner disk; annotates service errors).
+None.
 
 ## Remaining work
 
-- M4: get the CI `evals` job green with real embeddings; calibrate hybrid thresholds from it.
-  Last run (`153ee8f`): Ollama up and embedding; `POST /onboarding/sample-content` → 503
-  `STORAGE_UNAVAILABLE` (readiness passed, so likely the S3 store out of disk after the
-  Ollama image).
-- M8 (table above).
+None for Phase 5. Carried to later phases (see Missing specifications): a chat model on the
+demo, Switch model, workspace modes for Confidential/Restricted routing (Phase 6).
 
 ## Next steps
 
-1. Check sotto-api CI on `5565c91`: `gh run list --branch feat/p5-ask`, then
-   `gh api repos/Harkanni/sotto-api/check-runs/<job id>/annotations` (job logs can't be
-   downloaded here). Fix until `evals` is green; set the hybrid thresholds in `evals/score.ts`
-   just under the measured values.
-2. M8: sotto-platform `local/` and `deploy/demo/` Compose: `AI_ASK_CHAT`,
-   `ASK_RATE_PER_MINUTE` (demo: passages only, no chat model). ADRs 0019+ (hybrid retrieval
-   with access inside SQL; no model → passages only, no fallback on failure; eval set gates
-   CI; notes are files). `UI_DESIGN_SYSTEM.md`: Ask section (answer, citation chips, sources,
-   route badge, hidden notice, composer + @ picker, note sheet, palette search groups, cited
-   passage mark). STATUS, PR checklists, mark PRs ready when CI is green.
+1. The owner reviews and merges sotto-api#6, then sotto-web#6, then sotto-platform#7. The api
+   migration `ask_and_search` runs on deploy (`scripts/migrate.sh`).
+2. The next session starts Phase 6 from `docs/PLAN.md` (Milestones row 6), with a new
+   `PHASE_6_PROGRESS.md`.
 
 ## Decisions
 
@@ -257,6 +269,11 @@ Identified, not invented around:
 
 ## Known issues
 
+- Meeting citations point to the start of the cited chunk's time window (chunks group several
+  transcript lines), not the exact line.
+- A not-found answer suggests trying other words or all sources in its text; model-written
+  follow-ups only come with a model's answer.
+
 - This sandbox has Node 22 (the repos ask for 24) and can't reach `binaries.prisma.sh`;
   `node_modules` comes from CI's `dev-cache` snapshot (through the GitHub API), which carries
   Prisma's engines. Local pgvector is 0.6 (CI's image is newer).
@@ -273,3 +290,7 @@ Identified, not invented around:
 | `cd915ab` (M7, web)              | `pnpm smoothness` 4×: network 0 on every step; worst frames 17–50 ms, 5 steps over two frames (within `main`'s spread on this sandbox, see Phase 4)                                 | Pass   |
 | `0d42365` (M7, web)              | 78 unit tests (11 new: citation links, answer blocks, scope, passage finding)                                                                                                       | Pass   |
 | `153ee8f` (M4, api CI)           | `evals` job: Ollama started and embedded; eval run failed at sample content (`STORAGE_UNAVAILABLE`); node, ingestion, smoke, python green                                           | Fail   |
+| `d7fe9a3` (M8, api)              | `evals.spec` 10 runs in a row: recall@5 100%, MRR 0.63–0.65, 3/3 declined, 100% cited; retrieval, search, ask specs (29)                                                            | Pass   |
+| `dedb941` (M8, api CI)           | All jobs green; `evals` (hybrid, nomic-embed-text): recall@1/3/5 88/96/100%, MRR 0.92, moments 100%, 3/3 declined, 96% cited, 0 viewer leaks                                        | Pass   |
+| `95c49ca` (M8, plat.)            | `docker compose config` for local and demo (api and worker share the AI settings); CI green                                                                                         | Pass   |
+| M8 (web)                         | Rig screenshots, iPhone dark + desktop light: Ask, @ picker, streaming, answer, citation → passage marked; no console errors                                                        | Pass   |
