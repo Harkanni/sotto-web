@@ -46,7 +46,7 @@ const STAND_IN = {
       id: 'w_e2e',
       name: 'Kestrel Labs',
       role: 'owner',
-      sample: { collections: SAMPLE },
+      sample: { collections: SAMPLE, filesLoaded: true },
     },
     csrfToken: 'e2e',
   },
