@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 5 — Ask and search. Phases 0–4 and the upload fixes (`fix/p4-uploads`) are
   merged (sotto-api `37040b3`, sotto-web `cfa7d98`, sotto-platform `8aa06a6`).
 - **Overall:** in progress.
-- **Current milestone:** M4 (eval set).
+- **Current milestone:** M5 (web Ask) mostly done; M4's CI `evals` job being made to start.
 
 ## Requirements
 
@@ -95,7 +95,7 @@ outside model.
 | M1  | Schema + migration (Conversation, Message, Citation, Note); retrieval core (hybrid SQL, visibility, scope, sensitivity, hidden count) on real pgvector     | sotto-api | done    |
 | M2  | `GET /search` (files, passages, moments, highlights); notes API (`POST/PATCH /notes`, notes through the pipeline); integration tests per role              | sotto-api | done    |
 | M3  | Ask API: conversations (create, list + search, get, delete), SSE answers (prompt, citations, follow-ups, not-found), regenerate, stop, feedback, audit     | sotto-api | done    |
-| M4  | Eval set (~20 fictional pairs + unanswerable + access cases) and runner; CI `evals` job with real embeddings; the Viewer check                             | sotto-api | pending |
+| M4  | Eval set (~20 fictional pairs + unanswerable + access cases) and runner; CI `evals` job with real embeddings; the Viewer check                             | sotto-api | done*   |
 | M5  | Web: API client (ask, search, notes); Ask and chat screens on the API: streaming, citations, actions, follow-ups, scope chips, @-mentions; sample chats go | sotto-web | pending |
 | M6  | Web: citations open the exact spot (page highlight, timestamp); Ask panel; ⌘K hybrid search; phone search under the large title; Home recent chats         | sotto-web | pending |
 | M7  | Web: notes (New note, save answer as note, edit); stories, unit tests, e2e (ask → citation opens the source), axe, smoothness                              | sotto-web | pending |
@@ -153,13 +153,46 @@ outside model.
   regenerate in place, stop, feedback). Rate limit `ASK_RATE_PER_MINUTE` (Redis, as auth).
   `.env.example`: `AI_ASK_CHAT`, `ASK_RATE_PER_MINUTE`.
 
+- **M4 (sotto-api `795a38b`, `a9f8ee4`):** `evals/kestrel.ts` (24 questions worded as people ask,
+  with the files that answer them, meeting moments, key answer words, 2 only in the restricted
+  Board and finance collection; 3 unanswerable), `evals/score.ts` (recall@1/3/5 and MRR over
+  `/search`'s fused ranking — search results now carry `rank` —, meeting moments, answers,
+  unanswerable declined, a viewer never reaching the board; gates per search mode),
+  `apps/api/test/integration/evals.spec.ts` (in-process on every run: real worker handlers,
+  pgvector, keyword search with mock embeddings, passages-only answers; measured recall@5
+  100%, MRR 0.66, moments 88%, 3/3 declined, 0 leaks), `scripts/eval.ts` + CI job `evals`
+  (built images + Ollama `nomic-embed-text`). Mock embeddings now report `keyword` mode.
+  \*The `evals` job hasn't run green yet: Ollama failed to start twice (exit 125, then a
+  `docker run` error); now it uses `compose.deps.yaml`'s `ai` profile and reports setup errors
+  as annotations (this sandbox can't download job logs; annotations can be read through the
+  API). Thresholds for hybrid mode get calibrated from its first real run.
+- **M5 (sotto-web `458e1c4`, `ab82482`, `1a0685f`):** `lib/api/ask.ts` (chats, SSE reader,
+  `live` store so tokens re-render only the answer being written, optimistic question and a
+  "thinking" answer, search, notes); `components/ask/answer.tsx` (smooth reveal paced per frame,
+  light Markdown with citation chips, sources opening at the page or moment, data-route badge,
+  hidden-sources notice); `components/ask/actions.tsx` (copy, answer again, save as note,
+  helpful/not, switch model labelled for Phase 6; follow-ups); composer (scope chips incl.
+  collections, @-mention picker with keyboard, Stop); `screens/ask.tsx` (chats with search and
+  swipe-delete + Undo, chat screen with every answer state, follows a streaming answer until
+  the question reaches the top, one 720 px reading column; Ask panel scoped to its file; phone
+  Ask button opens `/ask?about=<file>` with the file picked).
+- **Rendered and checked** (sandbox rig: real api + worker on local Postgres 16 + pgvector,
+  Redis, RabbitMQ 3.12, moto S3, an SMTP sink, a stand-in OpenAI-compatible model on :5080 —
+  Node's fetch refuses port 5060): sign up → sample content → 11 files Ready → Ask → @ picker
+  → stream → answer with sources, actions, follow-ups → citation opens the document. iPhone
+  and desktop, light and dark, no console errors. Fixed from what the screenshots showed:
+  caret on its own line, chips showing through the @ picker, a two-line placeholder, the start
+  of a long answer scrolled away, Markdown in chat previews, an over-wide reading column.
+
 ## Work in progress
 
-M4.
+M6.
 
 ## Remaining work
 
-M4–M8 (table above).
+- M4: get the CI `evals` job green with real embeddings; calibrate hybrid thresholds.
+- M5: still uses `lib/sample` threads on Home (Recent chats) and in the palette (→ M6).
+- M6–M8 (table above).
 
 ## Next steps
 
