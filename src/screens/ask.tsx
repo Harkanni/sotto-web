@@ -288,8 +288,9 @@ export function AskScreen() {
 // ── One chat ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * Keeps the newest words in view while an answer is written, but only while you're at the bottom:
- * scroll up to read and it stops following. Watches the conversation's size, not every token.
+ * Keeps an answer being written in view while you're at the bottom, but only until your
+ * question reaches the top of the screen: from there you read from the start, as you would a
+ * page. Scroll up yourself and it stops following. Watches the conversation's size, not tokens.
  */
 function useStickToBottom(ref: React.RefObject<HTMLElement | null>) {
   useLayoutEffect(() => {
@@ -302,7 +303,20 @@ function useStickToBottom(ref: React.RefObject<HTMLElement | null>) {
     };
     scroller.addEventListener('scroll', onScroll, { passive: true });
     const observer = new ResizeObserver(() => {
-      if (atBottom) scroller.scrollTop = scroller.scrollHeight;
+      if (!atBottom) return;
+      const bottom = scroller.scrollHeight - scroller.clientHeight;
+      const questions = el.querySelectorAll<HTMLElement>('[data-question]');
+      const last = questions[questions.length - 1];
+      let top = bottom;
+      if (last) {
+        const bar = scroller.querySelector<HTMLElement>('.navbar')?.offsetHeight ?? 0;
+        const at =
+          last.getBoundingClientRect().top -
+          scroller.getBoundingClientRect().top +
+          scroller.scrollTop;
+        top = Math.min(bottom, at - bar - 12);
+      }
+      if (top > scroller.scrollTop) scroller.scrollTop = top;
     });
     observer.observe(el);
     return () => {
@@ -323,7 +337,7 @@ function useStickToBottom(ref: React.RefObject<HTMLElement | null>) {
 
 function UserMessage({ text }: { text: string }) {
   return (
-    <div className="flex justify-end">
+    <div data-question className="flex justify-end">
       <p className="max-w-[85%] rounded-[20px] rounded-br-[6px] bg-primary px-4 py-2.5 text-body break-words whitespace-pre-wrap text-primary-foreground">
         {text}
       </p>
@@ -464,7 +478,8 @@ export function ConversationView({
   const where = scope === 'All sources' ? 'your library' : scope;
   const lastAnswer = chat.messages.findLast((m) => m.role === 'assistant');
   return (
-    <div className="flex flex-col gap-6 px-[var(--gutter)] pt-2 pb-4">
+    // One reading column (~70 characters) however wide the pane.
+    <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-[var(--gutter)] pt-2 pb-4">
       {chat.messages.map((m, i) => {
         if (m.role === 'user') return <UserMessage key={m.id} text={m.content} />;
         const question = chat.messages.slice(0, i).findLast((x) => x.role === 'user')?.content;

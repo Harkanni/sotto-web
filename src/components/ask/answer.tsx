@@ -74,7 +74,10 @@ export function useSmoothText(text: string, streaming: boolean): string {
 
 // ── Answer text ───────────────────────────────────────────────────────────────────────────
 
-type Block = { kind: 'p'; lines: string[] } | { kind: 'ul' | 'ol'; items: string[] };
+type Block =
+  | { kind: 'p'; lines: string[] }
+  | { kind: 'h'; text: string }
+  | { kind: 'ul' | 'ol'; items: string[] };
 
 const BULLET = /^\s*(?:[-*•]\s+)/;
 const NUMBERED = /^\s*\d+[.)]\s+/;
@@ -95,6 +98,14 @@ export function blocksOf(text: string): Block[] {
       list = null;
     };
     for (const line of lines) {
+      // A heading from a model reads as a bold line, never as a literal "#".
+      const heading = /^\s*#{1,6}\s+(.*)$/.exec(line);
+      if (heading) {
+        flushPara();
+        flushList();
+        blocks.push({ kind: 'h', text: heading[1]!.trim() });
+        continue;
+      }
       const kind = BULLET.test(line) ? 'ul' : NUMBERED.test(line) ? 'ol' : null;
       if (kind) {
         flushPara();
@@ -199,29 +210,49 @@ export function AnswerText({
   const shown = useSmoothText(text, streaming);
   const byN = new Map(citations.map((c) => [c.n, c]));
   const blocks = blocksOf(shown);
+  // The caret sits after the last word, inside the last block.
+  const caretAt = streaming ? blocks.length - 1 : -1;
   return (
     <div className={cn('prose-reading flex flex-col gap-3 text-foreground', className)}>
-      {blocks.map((b, i) =>
-        b.kind === 'p' ? (
-          <p key={i}>
-            {b.lines.map((line, j) => (
-              <Fragment key={j}>
-                {j > 0 && <br />}
-                <Inline text={line} citations={byN} base={base} />
-              </Fragment>
-            ))}
-          </p>
-        ) : (
+      {blocks.map((b, i) => {
+        const caret = i === caretAt ? <Caret /> : null;
+        if (b.kind === 'h') {
+          return (
+            <p key={i} className="font-semibold">
+              <Inline text={b.text} citations={byN} base={base} />
+              {caret}
+            </p>
+          );
+        }
+        if (b.kind === 'p') {
+          return (
+            <p key={i}>
+              {b.lines.map((line, j) => (
+                <Fragment key={j}>
+                  {j > 0 && <br />}
+                  <Inline text={line} citations={byN} base={base} />
+                </Fragment>
+              ))}
+              {caret}
+            </p>
+          );
+        }
+        return (
           <List key={i} ordered={b.kind === 'ol'}>
             {b.items.map((item, j) => (
               <li key={j} className="pl-1">
                 <Inline text={item} citations={byN} base={base} />
+                {j === b.items.length - 1 && caret}
               </li>
             ))}
           </List>
-        ),
+        );
+      })}
+      {streaming && !blocks.length && (
+        <p>
+          <Caret />
+        </p>
       )}
-      {streaming && <Caret />}
     </div>
   );
 }
@@ -240,7 +271,7 @@ function Caret() {
   return (
     <span
       aria-hidden
-      className="-mt-2 inline-block h-[18px] w-[3px] rounded-full bg-primary-text motion-safe:animate-[caret_1s_var(--ease-in-out)_infinite]"
+      className="ml-1 inline-block h-[1.05em] w-[3px] translate-y-[0.15em] rounded-full bg-primary-text motion-safe:animate-[caret_1s_var(--ease-in-out)_infinite]"
     />
   );
 }

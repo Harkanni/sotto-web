@@ -74,7 +74,7 @@ export function Composer({
   onMentionsChange,
   running = false,
   onStop,
-  placeholder = 'Ask about your memos and meetings',
+  placeholder = 'Ask anything, or type @',
   autoFocus,
   className,
 }: {
@@ -137,19 +137,27 @@ export function Composer({
 
   return (
     <div className={cn('relative flex flex-col gap-2 pt-2 pb-2', className)}>
-      {mentioning && mentions!.length > 0 ? (
-        <MentionChips mentions={mentions!} onChange={onMentionsChange!} />
-      ) : (
-        scope !== undefined &&
-        onScopeChange && (
-          <ChipGroup
-            aria-label="Search in"
-            value={scope}
-            onValueChange={onScopeChange}
-            options={scopes ?? [...SCOPES]}
-          />
-        )
-      )}
+      {/* The @ picker opens over this row, so the row steps back while it's open. */}
+      <div
+        className={cn(
+          'transition-opacity duration-150 ease-[var(--ease-out)]',
+          picking && 'pointer-events-none opacity-0',
+        )}
+      >
+        {mentioning && mentions!.length > 0 ? (
+          <MentionChips mentions={mentions!} onChange={onMentionsChange!} />
+        ) : (
+          scope !== undefined &&
+          onScopeChange && (
+            <ChipGroup
+              aria-label="Search in"
+              value={scope}
+              onValueChange={onScopeChange}
+              options={scopes ?? [...SCOPES]}
+            />
+          )
+        )}
+      </div>
       <form
         className="relative mx-[var(--gutter)] flex items-end gap-2 rounded-[22px] bg-card py-1 pr-1 pl-4 shadow-[0_0_0_0.5px_var(--separator),0_2px_10px_rgb(0_0_0/0.06)]"
         onSubmit={(e) => {
@@ -324,7 +332,7 @@ function MentionPicker({
       id={id}
       role="listbox"
       aria-label="Files to ask about"
-      className="material-thick absolute inset-x-0 bottom-[calc(100%+8px)] z-[var(--z-popover)] flex origin-bottom animate-[menu-in_180ms_var(--ease-out)] flex-col overflow-hidden rounded-menu p-1 shadow-menu"
+      className="palette absolute inset-x-0 bottom-[calc(100%+8px)] z-[var(--z-popover)] flex origin-bottom animate-[menu-in_180ms_var(--ease-out)] flex-col overflow-hidden rounded-menu p-1 shadow-menu"
     >
       {options.length ? (
         options.map((f, i) => (
