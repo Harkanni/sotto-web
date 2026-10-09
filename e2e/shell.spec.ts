@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { standInFileRoute } from '../src/stories/file-fixtures';
+import { standInAskRoute } from '../src/stories/ask-fixtures';
+import { STAND_IN_FILES, standInFileRoute } from '../src/stories/file-fixtures';
 
 /**
  * The app shell against brief §9: tabs keep their stacks, screens push and pop, the + sheet
@@ -70,11 +71,12 @@ async function standInApi(page: Page) {
   for (const [path, body] of Object.entries(STAND_IN)) {
     await page.route(`**/api/v1/${path}`, (route) => route.fulfill({ json: body }));
   }
-  // Files, meetings and live status: the shared stand-in library (src/stories/file-fixtures).
+  // Files, meetings, chats and search: the shared stand-in library (src/stories/*-fixtures).
+  const standInRoute = (url: URL) => standInAskRoute(url, STAND_IN_FILES) ?? standInFileRoute(url);
   await page.route(
-    (url) => standInFileRoute(url) !== undefined,
+    (url) => standInRoute(url) !== undefined,
     (route) => {
-      const answer = standInFileRoute(new URL(route.request().url()))!;
+      const answer = standInRoute(new URL(route.request().url()))!;
       return route.fulfill({ status: answer.status, json: answer.json });
     },
   );
@@ -208,6 +210,32 @@ test.describe('desktop', () => {
     await page.keyboard.press('m');
     await expect(page).toHaveURL(/\/meetings$/);
   });
+});
+
+test('a citation opens its source at the cited page, with the passage marked', async ({ page }) => {
+  await open(page, '/ask/c_risks');
+  const answer = page.getByRole('article', { name: 'Answer' }).last();
+  await expect(answer.getByText('Private · Ollama (in your cluster)')).toBeVisible();
+  await answer
+    .getByRole('link', { name: /^Source 1: Lagos launch plan, page 3/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/doc\/f_launch\?page=3&hl=/);
+  await expect(top(page).getByRole('heading', { name: 'Lagos launch plan' }).first()).toBeVisible();
+  // Back returns to the answer.
+  await page.goBack();
+  await expect(page).toHaveURL(/\/ask\/c_risks$/);
+});
+
+test('a meeting citation opens the meeting at its moment', async ({ page }) => {
+  await open(page, '/ask/c_risks');
+  await page
+    .getByRole('article', { name: 'Answer' })
+    .last()
+    .getByRole('link', { name: /^Source 2: Weekly product sync, 3:08/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/\/meeting\/f_weekly\?t=188&play=1/);
 });
 
 test('main screens pass axe (WCAG 2.1 AA)', async ({ page }) => {

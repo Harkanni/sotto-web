@@ -1,10 +1,10 @@
 /**
  * STAND-IN chats and search for Storybook and the shell's e2e (no API there): one finished chat
  * that cites a document and a meeting moment, and a search that matches file titles. Shaped
- * exactly like the API's answers, so the real screens render them.
+ * exactly like the API's answers, so the real screens render them. No imports beyond types (the
+ * search takes the stand-in library as an argument), so Node can load it as it is.
  */
 import type { Schemas } from '@/lib/api/client';
-import { STAND_IN_FILES } from './file-fixtures';
 
 type Message = Schemas['Message'];
 type Citation = Schemas['Citation'];
@@ -92,17 +92,23 @@ function summary(chat: Schemas['Conversation']): Schemas['ConversationSummary'] 
 }
 
 /** Search: files whose title shares a word with the question; no passages or moments. */
-function search(q: string): Schemas['SearchResults'] {
+function search(q: string, library: Schemas['File'][]): Schemas['SearchResults'] {
   const words = q.toLowerCase().split(/\W+/).filter(Boolean);
-  const files = STAND_IN_FILES.filter((f) =>
-    words.some((w) => f.title.toLowerCase().includes(w)),
-  ).map((file) => ({ file, match: 'title' as const }));
+  const files = library
+    .filter((f) => words.some((w) => f.title.toLowerCase().includes(w)))
+    .map((file) => ({ file, match: 'title' as const }));
   return { mode: 'hybrid', files, passages: [], moments: [] };
 }
 
-export function standInAskRoute(url: URL): { status: number; json?: unknown } | undefined {
+/** The answer for any /api/v1 chat or search route, or undefined when it isn't one. */
+export function standInAskRoute(
+  url: URL,
+  library: Schemas['File'][],
+): { status: number; json?: unknown } | undefined {
   const path = url.pathname.replace(/^.*\/api\/v1\//, '');
-  if (path === 'search') return { status: 200, json: search(url.searchParams.get('q') ?? '') };
+  if (path === 'search') {
+    return { status: 200, json: search(url.searchParams.get('q') ?? '', library) };
+  }
   if (path === 'conversations') {
     const q = (url.searchParams.get('q') ?? '').toLowerCase();
     const items = [summary(STAND_IN_CHAT)].filter(

@@ -1,5 +1,4 @@
 import type { Schemas } from '@/lib/api/client';
-import { standInAskRoute } from './ask-fixtures';
 
 /**
  * A stand-in library for Storybook and the shell E2E, which run without the API: a few memos
@@ -131,9 +130,6 @@ export function standInFilePage(url: URL): Schemas['FilePage'] {
  * are 404 / 409 like a sample meeting (no audio); `events` has nothing to say.
  */
 export function standInFileRoute(url: URL): { status: number; json?: unknown } | undefined {
-  // Chats and search (./ask-fixtures) answer from here too, so one router covers the shell.
-  const ask = standInAskRoute(url);
-  if (ask) return ask;
   const path = url.pathname.replace(/^.*\/api\/v1\//, '');
   if (path === 'files') return { status: 200, json: standInFilePage(url) };
   if (path === 'continue-listening') return { status: 200, json: [] };
@@ -150,23 +146,4 @@ export function standInFileRoute(url: URL): { status: number; json?: unknown } |
   if (sub === 'content') return { status: 200, json: STAND_IN_CONTENT };
   if (sub === 'position') return { status: 204 };
   return { status: 404, json: { error: { code: 'NOT_FOUND', message: 'Not found' } } };
-}
-
-/**
- * Storybook only: answers the file routes from this stand-in library, so every story sees the
- * same files however it queries them. Anything else goes to the real fetch.
- */
-export function installStandInFetch(): void {
-  if (typeof window === 'undefined' || (window as { __standIn?: boolean }).__standIn) return;
-  (window as { __standIn?: boolean }).__standIn = true;
-  const real = window.fetch.bind(window);
-  window.fetch = async (input, init) => {
-    const url = new URL(input instanceof Request ? input.url : String(input), window.location.href);
-    const answer = url.pathname.includes('/api/v1/') ? standInFileRoute(url) : undefined;
-    if (!answer) return real(input, init);
-    return new Response(answer.json === undefined ? null : JSON.stringify(answer.json), {
-      status: answer.status,
-      headers: { 'content-type': 'application/json' },
-    });
-  };
 }
