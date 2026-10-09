@@ -14,7 +14,8 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 5 — Ask and search. Phases 0–4 and the upload fixes (`fix/p4-uploads`) are
   merged (sotto-api `37040b3`, sotto-web `cfa7d98`, sotto-platform `8aa06a6`).
 - **Overall:** in progress.
-- **Current milestone:** M5 (web Ask) mostly done; M4's CI `evals` job being made to start.
+- **Current milestone:** M8 (config, ADRs, docs, PRs ready). M5–M7 done; M4's CI `evals` job
+  now starts Ollama and embeds; its first full run failed on storage (disk), fix pushed.
 
 ## Requirements
 
@@ -96,9 +97,9 @@ outside model.
 | M2  | `GET /search` (files, passages, moments, highlights); notes API (`POST/PATCH /notes`, notes through the pipeline); integration tests per role              | sotto-api | done    |
 | M3  | Ask API: conversations (create, list + search, get, delete), SSE answers (prompt, citations, follow-ups, not-found), regenerate, stop, feedback, audit     | sotto-api | done    |
 | M4  | Eval set (~20 fictional pairs + unanswerable + access cases) and runner; CI `evals` job with real embeddings; the Viewer check                             | sotto-api | done*   |
-| M5  | Web: API client (ask, search, notes); Ask and chat screens on the API: streaming, citations, actions, follow-ups, scope chips, @-mentions; sample chats go | sotto-web | pending |
-| M6  | Web: citations open the exact spot (page highlight, timestamp); Ask panel; ⌘K hybrid search; phone search under the large title; Home recent chats         | sotto-web | pending |
-| M7  | Web: notes (New note, save answer as note, edit); stories, unit tests, e2e (ask → citation opens the source), axe, smoothness                              | sotto-web | pending |
+| M5  | Web: API client (ask, search, notes); Ask and chat screens on the API: streaming, citations, actions, follow-ups, scope chips, @-mentions; sample chats go | sotto-web | done    |
+| M6  | Web: citations open the exact spot (page highlight, timestamp); Ask panel; ⌘K hybrid search; phone search under the large title; Home recent chats         | sotto-web | done    |
+| M7  | Web: notes (New note, save answer as note, edit); stories, unit tests, e2e (ask → citation opens the source), axe, smoothness                              | sotto-web | done    |
 | M8  | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                        | all       | pending |
 
 ## Completed work
@@ -176,6 +177,28 @@ outside model.
   swipe-delete + Undo, chat screen with every answer state, follows a streaming answer until
   the question reaches the top, one 720 px reading column; Ask panel scoped to its file; phone
   Ask button opens `/ask?about=<file>` with the file picked).
+- **M6 (sotto-web `cabba86`, `a83c0f4`; sotto-api `e96ea29`, `9a22712`):** a document
+  citation pushes `/…/doc/<id>?page=&hl=<opening words>`; the document scrolls to the cited
+  page and marks every block the passage spans (matched on letters and digits joined across
+  blocks, since a chunk can start in a heading and run into a list). A meeting citation pushes
+  `/…/meeting/<id>?t=<s>&play=1`, landing the transcript at that moment and playing from it.
+  ⌘K searches the API (`useSearch`): Files, Passages, Meeting moments and Chats groups with
+  highlighted words, the best server result selected unless you moved; New note and Record
+  as commands. Phone Home has a search field under the large title that opens the palette.
+  Home's Recent chats and the palette's chats are real conversations; the sample chat layer
+  (`lib/sample/answer.ts`, `THREADS`) is gone. Snippets and chat previews are plain text.
+- **M7 (sotto-web `a2df4c3`, `cd915ab`, `0d42365`; sotto-api `153ee8f`):** `NoteSheet`
+  (`components/ask/note-sheet.tsx`): New note from the + sheet and ⌘K, Edit note on a note's
+  screen, Save as note on an answer; a fresh editor each time, Save in the footer, ⌘Enter
+  saves, the toast says Ask can cite it in a moment. Notes list under Documents (api
+  `kind=document` includes notes) labelled "Note". Stories `Ask/Chat` (answered, streaming,
+  thinking, passages only, not found, hidden sources, failed, stopped with an unavailable
+  source; composer idle, with files, running) over stand-in chats (`src/stories/ask-fixtures.ts`).
+  e2e: a citation opens the document at the cited page with the passage marked; a meeting
+  citation opens the meeting at its moment; `/ask/c_risks` joins the axe + 44 px sweep. Unit
+  tests: citation links, answer blocks, scope, passage finding. The stand-in fixtures take
+  the library as an argument so plain Node (`pnpm smoothness`) loads them; each caller composes
+  the file and chat routers.
 - **Rendered and checked** (sandbox rig: real api + worker on local Postgres 16 + pgvector,
   Redis, RabbitMQ 3.12, moto S3, an SMTP sink, a stand-in OpenAI-compatible model on :5080 —
   Node's fetch refuses port 5060): sign up → sample content → 11 files Ready → Ask → @ picker
@@ -186,21 +209,28 @@ outside model.
 
 ## Work in progress
 
-M6.
+M8. sotto-api CI `evals` re-running with `5565c91` (frees runner disk; annotates service errors).
 
 ## Remaining work
 
-- M4: get the CI `evals` job green with real embeddings; calibrate hybrid thresholds.
-- M5: still uses `lib/sample` threads on Home (Recent chats) and in the palette (→ M6).
-- M6–M8 (table above).
+- M4: get the CI `evals` job green with real embeddings; calibrate hybrid thresholds from it.
+  Last run (`153ee8f`): Ollama up and embedding; `POST /onboarding/sample-content` → 503
+  `STORAGE_UNAVAILABLE` (readiness passed, so likely the S3 store out of disk after the
+  Ollama image).
+- M8 (table above).
 
 ## Next steps
 
-1. M3: Ask API in `apps/api/src/ask/`: `answer.ts` (grounded prompt, follow-up sentinel
-   splitter, citation renumbering by first use), `conversations.controller.ts` (create, list
-   with `?q`, get with citations re-checked for access, delete; `POST
-/conversations/:id/messages` as an SSE response; regenerate, stop, feedback), passages-only
-   answers when no chat model is configured. Tests per role with the fake chat.
+1. Check sotto-api CI on `5565c91`: `gh run list --branch feat/p5-ask`, then
+   `gh api repos/Harkanni/sotto-api/check-runs/<job id>/annotations` (job logs can't be
+   downloaded here). Fix until `evals` is green; set the hybrid thresholds in `evals/score.ts`
+   just under the measured values.
+2. M8: sotto-platform `local/` and `deploy/demo/` Compose: `AI_ASK_CHAT`,
+   `ASK_RATE_PER_MINUTE` (demo: passages only, no chat model). ADRs 0019+ (hybrid retrieval
+   with access inside SQL; no model → passages only, no fallback on failure; eval set gates
+   CI; notes are files). `UI_DESIGN_SYSTEM.md`: Ask section (answer, citation chips, sources,
+   route badge, hidden notice, composer + @ picker, note sheet, palette search groups, cited
+   passage mark). STATUS, PR checklists, mark PRs ready when CI is green.
 
 ## Decisions
 
@@ -233,8 +263,13 @@ Identified, not invented around:
 
 ## Tests and checks run
 
-| When           | Check                                                                                                             | Result |
-| -------------- | ----------------------------------------------------------------------------------------------------------------- | ------ |
-| `37040b3` (M0) | sotto-api build; 168 tests (config 2, ai 14, contracts 8, db 17, storage 10, worker 23, api 94) incl. integration | Pass   |
-| `4f807c6` (M1) | Fresh database from all migrations = schema (only hand-written indexes differ, as in Phase 4)                     | Pass   |
-| `4f807c6` (M1) | sotto-api lint, format, typecheck, build; 183 tests (api 109: retrieval 10 on real pgvector, keywords 5)          | Pass   |
+| When                             | Check                                                                                                                                                                               | Result |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `37040b3` (M0)                   | sotto-api build; 168 tests (config 2, ai 14, contracts 8, db 17, storage 10, worker 23, api 94) incl. integration                                                                   | Pass   |
+| `4f807c6` (M1)                   | Fresh database from all migrations = schema (only hand-written indexes differ, as in Phase 4)                                                                                       | Pass   |
+| `4f807c6` (M1)                   | sotto-api lint, format, typecheck, build; 183 tests (api 109: retrieval 10 on real pgvector, keywords 5)                                                                            | Pass   |
+| `cabba86`–`a2df4c3` (M6–M7, web) | Rendered in the rig (iPhone + desktop, light + dark): palette search groups, phone search, citation → page with passage marked, meeting moment, New note → Ready → cited, Edit note | Pass   |
+| `cd915ab` (M7, web)              | lint (1 existing warning), format, typecheck, 67 unit tests, production build; e2e 26 passed (20 project-skipped); Storybook build + 158 story renders with axe, light and dark     | Pass   |
+| `cd915ab` (M7, web)              | `pnpm smoothness` 4×: network 0 on every step; worst frames 17–50 ms, 5 steps over two frames (within `main`'s spread on this sandbox, see Phase 4)                                 | Pass   |
+| `0d42365` (M7, web)              | 78 unit tests (11 new: citation links, answer blocks, scope, passage finding)                                                                                                       | Pass   |
+| `153ee8f` (M4, api CI)           | `evals` job: Ollama started and embedded; eval run failed at sample content (`STORAGE_UNAVAILABLE`); node, ingestion, smoke, python green                                           | Fail   |
