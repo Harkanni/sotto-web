@@ -3,18 +3,18 @@
 The running record for Phase 5, kept current at every checkpoint. A new session follows the
 recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** below.
 
-| Repo           | Branch           | Pull request                                   |
-| -------------- | ---------------- | ---------------------------------------------- |
-| sotto-api      | `feat/p5-ask`    | (draft, opened at M0; merges first)            |
-| sotto-web      | `feat/p5-ask`    | (draft, opened at M0)                          |
-| sotto-platform | `docs/p5-status` | (draft, opened at M0; companion: STATUS, ADRs) |
+| Repo           | Branch           | Pull request                                                                                      |
+| -------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
+| sotto-api      | `feat/p5-ask`    | [Harkanni/sotto-api#6](https://github.com/Harkanni/sotto-api/pull/6) (draft; merges first)        |
+| sotto-web      | `feat/p5-ask`    | [Harkanni/sotto-web#6](https://github.com/Harkanni/sotto-web/pull/6) (draft)                      |
+| sotto-platform | `docs/p5-status` | [Harkanni/sotto-platform#7](https://github.com/Harkanni/sotto-platform/pull/7) (draft; companion) |
 
 ## Project status
 
 - **Current phase:** 5 — Ask and search. Phases 0–4 and the upload fixes (`fix/p4-uploads`) are
   merged (sotto-api `37040b3`, sotto-web `cfa7d98`, sotto-platform `8aa06a6`).
 - **Overall:** in progress.
-- **Current milestone:** M0 (recovery and plan).
+- **Current milestone:** M2 (search and notes API).
 
 ## Requirements
 
@@ -92,7 +92,7 @@ outside model.
 | #   | Milestone                                                                                                                                                  | Repo      | State   |
 | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------- |
 | M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                         | all       | done    |
-| M1  | Schema + migration (Conversation, Message, Citation, Note); retrieval core (hybrid SQL, visibility, scope, sensitivity, hidden count) on real pgvector     | sotto-api | pending |
+| M1  | Schema + migration (Conversation, Message, Citation, Note); retrieval core (hybrid SQL, visibility, scope, sensitivity, hidden count) on real pgvector     | sotto-api | done    |
 | M2  | `GET /search` (files, passages, moments, highlights); notes API (`POST/PATCH /notes`, notes through the pipeline); integration tests per role              | sotto-api | pending |
 | M3  | Ask API: conversations (create, list + search, get, delete), SSE answers (prompt, citations, follow-ups, not-found), regenerate, stop, feedback, audit     | sotto-api | pending |
 | M4  | Eval set (~20 fictional pairs + unanswerable + access cases) and runner; CI `evals` job with real embeddings; the Viewer check                             | sotto-api | pending |
@@ -114,19 +114,33 @@ outside model.
   screen yet). Baseline on `main`: sotto-api builds; 168 tests pass, integration included,
   against local Postgres 16 with real pgvector 0.6, Redis and an S3 stand-in (moto).
 
+- **M1 (sotto-api `4f807c6`):** migration `20261009150000_ask_and_search` (conversations,
+  messages with status, route, hidden counts, follow-ups and feedback; citations keeping the
+  passage and title as they were; notes; trigram indexes for chat history and file titles;
+  CHECKs), checked by building a fresh database from every migration and diffing it against
+  the schema. `apps/api/src/ask/`: `RetrievalService` (one SQL statement: keyword half on the
+  generated `tsv` with OR-ed light-stemmed prefixes, vector half on the serving model with
+  exact distances inside the eligible set, RRF k = 60; workspace, READY, not trashed,
+  `visibleTo` collections or unfiled, scope, allowed sensitivities in its WHERE; a second pass
+  over the excluded sensitivities counts relevant files without selecting text); relevance
+  floor (a shared word, or cosine ≥ 0.5 on a real model); per-file cap. `AiService` (query
+  vector for the serving model, keyword-only when it can't, the Ask chat and its badge).
+  `AI_ASK_CHAT` setting (`askChatFrom`).
+
 ## Work in progress
 
-M1.
+M2.
 
 ## Remaining work
 
-M1–M8 (table above).
+M2–M8 (table above).
 
 ## Next steps
 
-1. M1: in sotto-api, add the Phase 5 models to `schema.prisma` and write migration
-   `20261009150000_ask_and_search`; then `apps/api/src/ask/retrieval.ts` (hybrid SQL) with
-   integration tests against real pgvector.
+1. M2: `GET /search` in `apps/api/src/ask/search.controller.ts` (files by title + content,
+   passages with highlight ranges, meeting moments; Viewer+), and notes: `POST /notes`,
+   `PATCH /notes/:id` (a NOTE file whose Markdown body is its stored original, then the
+   normal `file.uploaded` pipeline; check the worker extracts NOTE like a document).
 
 ## Decisions
 
@@ -162,3 +176,5 @@ Identified, not invented around:
 | When           | Check                                                                                                             | Result |
 | -------------- | ----------------------------------------------------------------------------------------------------------------- | ------ |
 | `37040b3` (M0) | sotto-api build; 168 tests (config 2, ai 14, contracts 8, db 17, storage 10, worker 23, api 94) incl. integration | Pass   |
+| `4f807c6` (M1) | Fresh database from all migrations = schema (only hand-written indexes differ, as in Phase 4)                     | Pass   |
+| `4f807c6` (M1) | sotto-api lint, format, typecheck, build; 183 tests (api 109: retrieval 10 on real pgvector, keywords 5)          | Pass   |
