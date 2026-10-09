@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 5 — Ask and search. Phases 0–4 and the upload fixes (`fix/p4-uploads`) are
   merged (sotto-api `37040b3`, sotto-web `cfa7d98`, sotto-platform `8aa06a6`).
 - **Overall:** in progress.
-- **Current milestone:** M2 (search and notes API).
+- **Current milestone:** M3 (Ask API).
 
 ## Requirements
 
@@ -93,7 +93,7 @@ outside model.
 | --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------- |
 | M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                         | all       | done    |
 | M1  | Schema + migration (Conversation, Message, Citation, Note); retrieval core (hybrid SQL, visibility, scope, sensitivity, hidden count) on real pgvector     | sotto-api | done    |
-| M2  | `GET /search` (files, passages, moments, highlights); notes API (`POST/PATCH /notes`, notes through the pipeline); integration tests per role              | sotto-api | pending |
+| M2  | `GET /search` (files, passages, moments, highlights); notes API (`POST/PATCH /notes`, notes through the pipeline); integration tests per role              | sotto-api | done    |
 | M3  | Ask API: conversations (create, list + search, get, delete), SSE answers (prompt, citations, follow-ups, not-found), regenerate, stop, feedback, audit     | sotto-api | pending |
 | M4  | Eval set (~20 fictional pairs + unanswerable + access cases) and runner; CI `evals` job with real embeddings; the Viewer check                             | sotto-api | pending |
 | M5  | Web: API client (ask, search, notes); Ask and chat screens on the API: streaming, citations, actions, follow-ups, scope chips, @-mentions; sample chats go | sotto-web | pending |
@@ -127,20 +127,32 @@ outside model.
   vector for the serving model, keyword-only when it can't, the Ask chat and its badge).
   `AI_ASK_CHAT` setting (`askChatFrom`).
 
+- **M2 (sotto-api `73ccc4f`):** `GET /search` (files by title — best title match first, ties
+  broken by content rank — then by content; passages with `[start, end)` highlight offsets
+  from the same stems the keyword search used; meeting moments with times; scope by
+  collection or kind). Notes: `POST /notes`, `GET/PATCH /notes/:id` (file id): a NOTE file
+  with source `WRITTEN` (new enum value) whose Markdown body is stored as its original and
+  queued as `file.uploaded`, so the worker extracts, chunks and embeds it like a document;
+  editing the text re-indexes, a title alone doesn't; members write, viewers read, unfiled
+  notes are edited by their writer and admins (ADR 0016). Audit actions `note.created`,
+  `note.edited`, `ask.asked` (never content). Worker: a note edited while its job runs is
+  left to the newer job (no stale Ready). Shared test fixture `test/integration/kestrel.ts`.
+
 ## Work in progress
 
-M2.
+M3.
 
 ## Remaining work
 
-M2–M8 (table above).
+M3–M8 (table above).
 
 ## Next steps
 
-1. M2: `GET /search` in `apps/api/src/ask/search.controller.ts` (files by title + content,
-   passages with highlight ranges, meeting moments; Viewer+), and notes: `POST /notes`,
-   `PATCH /notes/:id` (a NOTE file whose Markdown body is its stored original, then the
-   normal `file.uploaded` pipeline; check the worker extracts NOTE like a document).
+1. M3: Ask API in `apps/api/src/ask/`: `answer.ts` (grounded prompt, follow-up sentinel
+   splitter, citation renumbering by first use), `conversations.controller.ts` (create, list
+   with `?q`, get with citations re-checked for access, delete; `POST
+/conversations/:id/messages` as an SSE response; regenerate, stop, feedback), passages-only
+   answers when no chat model is configured. Tests per role with the fake chat.
 
 ## Decisions
 
