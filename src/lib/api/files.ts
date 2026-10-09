@@ -114,7 +114,7 @@ function listedFile(
   return undefined;
 }
 
-export function useFile(id: string) {
+export function useFile(id: string, enabled = true) {
   const ws = useActiveWorkspace()?.id;
   const client = useQueryClient();
   return useHydrationSafe(
@@ -128,7 +128,7 @@ export function useFile(id: string) {
             throw error;
           },
         ),
-      enabled: Boolean(ws),
+      enabled: Boolean(ws) && enabled,
       // Seeded from the list the row was in, as old as that list: a push makes no request
       // while the list is fresh, and live events patch both caches in the meantime.
       initialData: () => (ws ? listedFile(client, ws, id)?.file : undefined),

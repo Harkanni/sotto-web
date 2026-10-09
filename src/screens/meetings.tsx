@@ -652,7 +652,7 @@ export function MeetingScreen() {
   usePlayerKeys(rootRef, audio, ready && hasAudio);
 
   return (
-    <DetailWithAsk about={file?.title ?? 'this meeting'} base={entry.key}>
+    <DetailWithAsk about={file?.title ?? 'this meeting'} fileId={id} base={entry.key}>
       <Screen
         title={file?.title ?? 'Meeting'}
         largeTitle={false}
@@ -672,7 +672,7 @@ export function MeetingScreen() {
         actions={
           file && (
             <>
-              <AskButton scopeLabel={file.title} />
+              <AskButton scopeLabel={file.title} fileId={file.id} />
               <MoreMenu actions={actionsFor(file, entry.key)} />
             </>
           )

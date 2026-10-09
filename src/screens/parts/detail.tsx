@@ -13,14 +13,16 @@ const AskToggleContext = createContext<AskToggle>(null);
 
 /**
  * A detail screen with a resizable Ask panel beside it on wide windows (brief §9). On phones the
- * same button opens Ask scoped to the item instead.
+ * same button opens Ask with the item picked (@), so answers come from it.
  */
 export function DetailWithAsk({
   about,
+  fileId,
   base,
   children,
 }: {
   about: string;
+  fileId: string;
   base: string;
   children: React.ReactNode;
 }) {
@@ -58,7 +60,7 @@ export function DetailWithAsk({
           onResize={(size) => setOpen(size.inPixels > 0)}
           className="relative"
         >
-          {open && <AskPanel about={about} base={base} />}
+          {open && <AskPanel about={about} fileId={fileId} base={base} />}
         </Panel>
       </Group>
     </AskToggleContext>
@@ -66,7 +68,7 @@ export function DetailWithAsk({
 }
 
 /** The nav bar's Ask button: toggles the side panel on wide windows, opens Ask on phones. */
-export function AskButton({ scopeLabel }: { scopeLabel: string }) {
+export function AskButton({ scopeLabel, fileId }: { scopeLabel: string; fileId: string }) {
   const toggle = use(AskToggleContext);
   return (
     <Button
@@ -79,7 +81,11 @@ export function AskButton({ scopeLabel }: { scopeLabel: string }) {
       aria-keyshortcuts="A"
       data-ask-toggle
       icon={<MessageCircle aria-hidden />}
-      onClick={() => (toggle ? toggle.toggle() : navigate('/ask', { intent: 'none' }))}
+      onClick={() =>
+        toggle
+          ? toggle.toggle()
+          : navigate(`/ask?about=${encodeURIComponent(fileId)}`, { intent: 'none' })
+      }
       className={toggle?.open ? 'bg-primary-tint' : undefined}
     />
   );

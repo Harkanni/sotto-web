@@ -1,7 +1,7 @@
 'use client';
 
 import { AudioLines, EyeOff, FileText, Lock, NotebookPen, Sparkles } from 'lucide-react';
-import { Fragment, memo, useEffect, useRef, useState } from 'react';
+import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ChatMessage, Citation } from '@/lib/api/ask';
 import { timestamp } from '@/lib/format';
 import { prefersReducedMotion } from '@/lib/motion/driver';
@@ -44,24 +44,22 @@ export function sourceHref(base: string, c: Citation): string | null {
  */
 export function useSmoothText(text: string, streaming: boolean): string {
   const [shown, setShown] = useState(() => (streaming ? 0 : text.length));
-  const shownRef = useRef(shown);
   const target = useRef(text);
-  target.current = text;
+  useLayoutEffect(() => {
+    target.current = text;
+  });
 
   useEffect(() => {
-    if (!streaming || prefersReducedMotion()) {
-      shownRef.current = target.current.length;
-      setShown(target.current.length);
-      return;
-    }
+    if (!streaming || prefersReducedMotion()) return;
+    let at = 0;
     let raf = 0;
     const tick = () => {
       const goal = target.current.length;
-      const backlog = goal - shownRef.current;
+      const backlog = goal - at;
       if (backlog > 0) {
         // A sixth of the backlog per frame, at least two characters: ~0.1 s behind the stream.
-        shownRef.current = Math.min(goal, shownRef.current + Math.max(2, Math.ceil(backlog / 6)));
-        setShown(shownRef.current);
+        at = Math.min(goal, at + Math.max(2, Math.ceil(backlog / 6)));
+        setShown(at);
       }
       raf = requestAnimationFrame(tick);
     };
@@ -69,8 +67,8 @@ export function useSmoothText(text: string, streaming: boolean): string {
     return () => cancelAnimationFrame(raf);
   }, [streaming]);
 
-  // Done streaming but mid-reveal: show the rest now (the saved text may differ by a trim).
-  if (!streaming) return text;
+  // Settled text, or reduced motion: all of it (the saved text may differ by a trim).
+  if (!streaming || prefersReducedMotion()) return text;
   return text.slice(0, shown);
 }
 

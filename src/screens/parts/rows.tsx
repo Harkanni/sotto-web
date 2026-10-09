@@ -64,7 +64,7 @@ export function KindIcon({ kind, size = 36 }: { kind: DocKind; size?: 36 | 44 })
   );
 }
 
-function TintIcon({ icon: Icon, tint }: { icon: typeof FileText; tint: string }) {
+export function TintIcon({ icon: Icon, tint }: { icon: typeof FileText; tint: string }) {
   return (
     <span aria-hidden className={cn('grid size-9 shrink-0 place-items-center rounded-full', tint)}>
       <Icon className="size-5" strokeWidth={1.9} />

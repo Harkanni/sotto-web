@@ -73,14 +73,14 @@ function summaryFromLists(client: QueryClient, ws: string, id: string) {
   return undefined;
 }
 
-export function useConversation(id: string) {
+export function useConversation(id: string, enabled = true) {
   const ws = useActiveWorkspace()?.id;
   const client = useQueryClient();
   return useHydrationSafe(
     useQuery({
       queryKey: askKeys.chat(ws ?? '-', id),
       queryFn: () => call(api.GET('/api/v1/conversations/{id}', { params: { path: { id } } })),
-      enabled: Boolean(ws),
+      enabled: Boolean(ws) && enabled,
       placeholderData: () => {
         const summary = ws ? summaryFromLists(client, ws, id) : undefined;
         return summary ? { ...summary, messages: [] } : undefined;

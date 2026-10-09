@@ -93,10 +93,13 @@ export function Composer({
 }) {
   const [text, setText] = useState('');
   const [caret, setCaret] = useState(0);
-  const [picking, setPicking] = useState<{ start: number; query: string } | null>(null);
+  // An @ picker closed with Escape stays closed for that @.
+  const [dismissed, setDismissed] = useState<number | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const canSend = text.trim().length > 0 && !running;
   const mentioning = mentions !== undefined && onMentionsChange !== undefined;
+  const typed = mentioning ? mentionQuery(text, caret) : null;
+  const picking = typed && typed.start !== dismissed ? typed : null;
 
   // Grow with the text up to six lines, then scroll. An empty field measures its placeholder,
   // so a new placeholder (narrower windows get a shorter one) measures again too.
@@ -107,17 +110,11 @@ export function Composer({
     el.style.height = `${Math.min(el.scrollHeight, 22 * 6 + 16)}px`;
   }, [text, placeholder]);
 
-  useEffect(() => {
-    if (!mentioning) return;
-    setPicking(mentionQuery(text, caret));
-  }, [text, caret, mentioning]);
-
   const send = () => {
     const value = text.trim();
     if (!value || running) return;
     onSend(value);
     setText('');
-    setPicking(null);
   };
 
   const pick = (file: FileItem) => {
@@ -126,7 +123,6 @@ export function Composer({
     const after = text.slice(caret);
     const next = `${before}${after}`.replace(/\s{2,}/g, ' ');
     setText(next);
-    setPicking(null);
     if (!mentions.some((m) => m.id === file.id)) {
       onMentionsChange([...mentions, { id: file.id, title: file.title, kind: file.kind }]);
     }
@@ -166,7 +162,7 @@ export function Composer({
             query={picking.query}
             exclude={mentions ?? []}
             onPick={pick}
-            onClose={() => setPicking(null)}
+            onClose={() => setDismissed(picking.start)}
             inputRef={ref}
           />
         )}

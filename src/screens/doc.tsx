@@ -246,7 +246,7 @@ export function DocScreen() {
   };
 
   return (
-    <DetailWithAsk about={file?.title ?? 'this document'} base={entry.key}>
+    <DetailWithAsk about={file?.title ?? 'this document'} fileId={id} base={entry.key}>
       <Screen
         title={file?.title ?? 'Document'}
         largeTitle={false}
@@ -265,7 +265,7 @@ export function DocScreen() {
                   onClick={() => void openOriginal()}
                 />
               )}
-              <AskButton scopeLabel={file.title} />
+              <AskButton scopeLabel={file.title} fileId={file.id} />
               <MoreMenu actions={actions} />
             </>
           )
