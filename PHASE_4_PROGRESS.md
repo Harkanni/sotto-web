@@ -227,6 +227,9 @@ The owner reported on the demo: "I can't upload docs; I keep getting an error." 
   storage failures answer `503 STORAGE_UNAVAILABLE` ("Sotto can't reach file storage right
   now") instead of a 500; "Explore with sample content" that fails part-way retries cleanly (no
   duplicates, none stuck at Uploaded, one audit entry).
+- **Fix — sotto-web#5:** an upload whose "complete" went through but whose answer was lost (a
+  dropped connection) showed as failed, and Retry answered "This upload has already finished".
+  `ALREADY_UPLOADED` now counts as done (unit-tested).
 - **Checked, no change needed:** live status through Caddy's `encode` (an SSE stream arrived
   event by event through Caddy 2.10 with compression on); the service worker ignores uploads
   (non-GET, cross-origin); the browser's part PUTs send no headers the CORS rule doesn't allow
@@ -341,4 +344,4 @@ Identified, not invented around:
 | M9 (sotto-web)            | `pnpm smoothness` 4×: network 0 on every step, one body load per first push; worst frames 17–83 ms, within `main`'s spread on this sandbox                                                   | Pass   |
 | `fix/p4-uploads` (api)    | lint, format, typecheck, build; storage 8 + api 37 unit tests (incl. a real SDK client with no credentials → storage error); CI: node (integration incl. the sample retry), smoke, ingestion | Pass   |
 | `fix/p4-uploads` (plat.)  | demo `docker compose config` with the new keys; `shellcheck` deploy.sh; Caddy 2.10.2 validate (both Caddyfiles); CI terraform fmt/validate                                                   | Pass   |
-| `fix/p4-uploads` (web)    | typecheck, 65 unit tests on `main` (no web code changed)                                                                                                                                     | Pass   |
+| `fix/p4-uploads` (web)    | lint (1 existing warning), format, typecheck, 67 unit tests (incl. the already-finished upload)                                                                                              | Pass   |

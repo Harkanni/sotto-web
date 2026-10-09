@@ -184,6 +184,15 @@ function transportFor(entry: Entry): Transport {
 
 // ── Scheduling ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * The api says this upload already finished: an earlier "complete" went through but its answer
+ * never arrived (a dropped connection on a phone), so the retry or resume finds it done. That's
+ * a success, not an error.
+ */
+export function finishedAlready(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 409 && error.code === 'ALREADY_UPLOADED';
+}
+
 function messageFor(error: unknown): { message: string; final: boolean } {
   if (error instanceof ApiError) {
     const final = [413, 415, 403, 404, 422].includes(error.status);
@@ -202,6 +211,19 @@ function pump() {
   ).length;
   const next = [...entries.values()].filter((e) => e.item.state === 'queued');
   for (const entry of next.slice(0, Math.max(0, MAX_ACTIVE - active))) void start(entry);
+}
+
+function finish(id: string, fileId: string) {
+  const entry = entries.get(id);
+  if (!entry) return;
+  update(id, { state: 'done', sent: entry.file.size, fileId, error: null });
+  const done = entries.get(id)!.item;
+  for (const listener of doneListeners) listener(done);
+  // A finished upload leaves the list after a beat; the file carries on in Processing.
+  setTimeout(() => {
+    entries.delete(id);
+    emit();
+  }, 2_500);
 }
 
 async function start(entry: Entry) {
@@ -223,18 +245,13 @@ async function start(entry: Entry) {
         update(id, { sent, state: sent >= item.size ? 'finishing' : 'uploading' });
       },
     });
-    update(id, { state: 'done', sent: entry.file.size, fileId });
-    const done = entries.get(id)!.item;
-    for (const listener of doneListeners) listener(done);
-    // A finished upload leaves the list after a beat; the file carries on in Processing.
-    setTimeout(() => {
-      entries.delete(id);
-      emit();
-    }, 2_500);
+    finish(id, fileId);
   } catch (error) {
     const item = entries.get(id)?.item;
     if (!item || item.state === 'canceled') return;
-    if (error instanceof AbortedError) {
+    if (item.fileId && finishedAlready(error)) {
+      finish(id, item.fileId);
+    } else if (error instanceof AbortedError) {
       update(id, { state: 'paused' });
     } else if (typeof navigator !== 'undefined' && navigator.onLine === false) {
       update(id, { state: 'paused', offline: true });

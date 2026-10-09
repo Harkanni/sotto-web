@@ -6,7 +6,8 @@ import {
   type StartedUpload,
   type Transport,
 } from '@/lib/uploads/engine';
-import { overallProgress, type UploadItem } from '@/lib/uploads/store';
+import { ApiError, OfflineError } from '@/lib/api/client';
+import { finishedAlready, overallProgress, type UploadItem } from '@/lib/uploads/store';
 
 const noWait = () => Promise.resolve();
 
@@ -178,6 +179,24 @@ describe('overall progress', () => {
     expect(
       overallProgress([item('uploading', 50, 100), item('queued', 0, 300), item('failed', 1, 1)]),
     ).toBe(0.125);
+  });
+});
+
+describe('an upload that already finished', () => {
+  it('counts as done: the complete went through but its answer was lost', () => {
+    expect(
+      finishedAlready(new ApiError('This upload has already finished.', 409, 'ALREADY_UPLOADED')),
+    ).toBe(true);
+  });
+
+  it('leaves real failures alone', () => {
+    expect(
+      finishedAlready(new ApiError('Some of the file didn’t arrive.', 409, 'PARTS_MISSING')),
+    ).toBe(false);
+    expect(finishedAlready(new ApiError('Storage is down.', 503, 'STORAGE_UNAVAILABLE'))).toBe(
+      false,
+    );
+    expect(finishedAlready(new OfflineError())).toBe(false);
   });
 });
 
