@@ -1,7 +1,8 @@
 'use client';
 
 import { ExternalLink, RotateCw, ShieldAlert } from 'lucide-react';
-import { Fragment } from 'react';
+import { Fragment, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useNav } from '@/lib/nav/hooks';
 import { toast } from 'sonner';
 import { messageOf } from '@/components/account/workspace-actions';
 import { Screen } from '@/components/shell/screen';
@@ -154,6 +155,40 @@ export function NotReady({ file }: { file: FileItem }) {
   );
 }
 
+/** Letters and digits only: Markdown, spacing and punctuation never stop a passage matching. */
+function matchKey(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+/**
+ * Where a cited passage starts: the first block (on the cited page first) whose text holds the
+ * passage's opening words. Chunks can start mid-paragraph, so it's a substring match.
+ */
+function findPassage(
+  pages: { page: number; text: string }[],
+  quote: string,
+  page: number | null,
+): { page: number; block: number } | null {
+  const key = matchKey(quote);
+  if (key.length < 8) return null;
+  const ordered = page
+    ? [...pages].sort((a, b) => Number(b.page === page) - Number(a.page === page))
+    : pages;
+  for (const length of [48, 24]) {
+    const probe = key.slice(0, length);
+    for (const p of ordered) {
+      const blocks = blocksOf(p.text);
+      const i = blocks.findIndex((b) => matchKey(b).includes(probe));
+      if (i !== -1) return { page: p.page, block: i };
+    }
+  }
+  return null;
+}
+
+function blocksOf(text: string): string[] {
+  return text.split(/\n{2,}/).filter((b) => b.trim());
+}
+
 /** A Markdown heading or list item reads as one; everything else is a paragraph. */
 function Block({ text }: { text: string }) {
   const heading = /^(#{1,3})\s+(.*)$/.exec(text);
@@ -178,8 +213,34 @@ function Block({ text }: { text: string }) {
   return <p>{text.replace(/\n/g, ' ')}</p>;
 }
 
-function Content({ file }: { file: FileItem }) {
+function Content({
+  file,
+  target,
+}: {
+  file: FileItem;
+  target: { page: number | null; hl: string | null };
+}) {
   const query = useFileContent(file.id, file.status === 'ready');
+  const content = query.data;
+  const found = useMemo(
+    () => (content && target.hl ? findPassage(content.pages, target.hl, target.page) : null),
+    [content, target.hl, target.page],
+  );
+  const rootRef = useRef<HTMLDivElement>(null);
+  const landed = useRef(false);
+
+  // A citation opens the document at its passage (or at least its page), centred, once.
+  useLayoutEffect(() => {
+    if (landed.current || !content || (!target.hl && !target.page)) return;
+    const root = rootRef.current;
+    const el =
+      root?.querySelector<HTMLElement>('[data-cited]') ??
+      (target.page ? root?.querySelector<HTMLElement>(`#page-${target.page}`) : null);
+    if (!el) return;
+    landed.current = true;
+    el.scrollIntoView({ block: el.hasAttribute('data-cited') ? 'center' : 'start' });
+  }, [content, target.hl, target.page]);
+
   return (
     <AsyncWidget
       query={query}
@@ -194,27 +255,37 @@ function Content({ file }: { file: FileItem }) {
       skeleton={<DocSkeleton />}
     >
       {(content) => (
-        <div className="mx-[var(--gutter)] rounded-card bg-card px-5 py-5">
+        <div ref={rootRef} className="mx-[var(--gutter)] rounded-card bg-card px-5 py-5">
           <div className="prose-reading mx-auto flex flex-col gap-4">
             {content.pages.map((page) => (
               <Fragment key={page.page}>
                 {content.paged && (
-                  // Page markers match what citations will name (Phase 5): "p. 3".
+                  // Page markers match what citations name: "page 3".
                   <p
                     id={`page-${page.page}`}
-                    className="flex items-center gap-3 pt-2 text-footnote text-muted-foreground first:pt-0"
+                    className="flex scroll-mt-16 items-center gap-3 pt-2 text-footnote text-muted-foreground first:pt-0"
                   >
                     <span className="h-px flex-1 bg-separator" aria-hidden />
                     Page {page.page}
                     <span className="h-px flex-1 bg-separator" aria-hidden />
                   </p>
                 )}
-                {page.text
-                  .split(/\n{2,}/)
-                  .filter((b) => b.trim())
-                  .map((block, i) => (
+                {blocksOf(page.text).map((block, i) =>
+                  found && found.page === page.page && found.block === i ? (
+                    // The cited passage: tinted like a citation, and named for screen readers.
+                    <div
+                      key={i}
+                      data-cited
+                      role="mark"
+                      aria-label="Cited passage"
+                      className="-mx-2.5 animate-[fade-in_400ms_var(--ease-out)] rounded-[8px] bg-primary-tint-strong px-2.5 py-1.5"
+                    >
+                      <Block text={block} />
+                    </div>
+                  ) : (
                     <Block key={i} text={block} />
-                  ))}
+                  ),
+                )}
               </Fragment>
             ))}
           </div>
@@ -231,6 +302,12 @@ export function DocScreen() {
   const query = useFile(id);
   const actionsFor = useFileActions();
   const file = query.data;
+  const nav = useNav();
+  // A citation opens the document at its page and passage: ?page=3&hl=<the passage's start>.
+  const [target] = useState(() => {
+    const params = new URLSearchParams(nav.search);
+    return { page: Number(params.get('page')) || null, hl: params.get('hl') };
+  });
   const actions = file ? actionsFor(file, entry.key) : [];
 
   const openOriginal = async () => {
@@ -303,7 +380,11 @@ export function DocScreen() {
                     </p>
                   </div>
                 )}
-                {f.status === 'ready' ? <Content file={f} /> : <NotReady file={f} />}
+                {f.status === 'ready' ? (
+                  <Content file={f} target={target} />
+                ) : (
+                  <NotReady file={f} />
+                )}
               </article>
             )
           }

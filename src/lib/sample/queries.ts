@@ -14,7 +14,7 @@ import {
   type QueryClient,
 } from '@tanstack/react-query';
 import * as api from './api';
-import type { Doc, Meeting, Thread } from './data';
+import type { Doc, Meeting } from './data';
 import { useHydrationSafe } from '@/lib/api/hydration';
 import { resolveScope } from './scope';
 
@@ -25,8 +25,6 @@ export const keys = {
   docCounts: () => ['sample', 'doc-counts'] as const,
   meetings: () => ['sample', 'meetings'] as const,
   meeting: (id: string) => ['sample', 'meeting', id] as const,
-  threads: () => ['sample', 'threads'] as const,
-  thread: (id: string) => ['sample', 'thread', id] as const,
   actionItems: () => ['sample', 'action-items'] as const,
   stats: (range: api.StatsRange) => ['sample', 'stats', range] as const,
   processing: () => ['sample', 'processing'] as const,
@@ -99,27 +97,6 @@ export function useMeeting(id: string) {
       queryKey: keys.meeting(id),
       queryFn: async () => api.getMeeting(await resolveScope(client), id),
       placeholderData: () => fromLists<Meeting>(client, 'meetings', id),
-    }),
-  );
-}
-
-export function useThreads() {
-  const client = useQueryClient();
-  return useHydrationSafe(
-    useQuery({
-      queryKey: keys.threads(),
-      queryFn: async () => api.listThreads(await resolveScope(client)),
-    }),
-  );
-}
-
-export function useThread(id: string) {
-  const client = useQueryClient();
-  return useHydrationSafe(
-    useQuery({
-      queryKey: keys.thread(id),
-      queryFn: async () => api.getThread(await resolveScope(client), id),
-      placeholderData: () => fromLists<Thread>(client, 'threads', id),
     }),
   );
 }

@@ -4,7 +4,6 @@ import { FileAudio, Mic, PenLine, Upload, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Sheet } from '@/components/ui/sheet';
-import { toastPreview } from '@/components/ui/toaster';
 import { TransferList } from '@/components/uploads/transfers';
 import { useWorkspaceCollections } from '@/lib/api/hooks';
 import { useCanAdd } from '@/lib/uploads/permissions';
@@ -102,7 +101,7 @@ function Destination() {
 /**
  * "Add to Sotto" (brief §9), opened by the + button, the sidebar's New button or the N key.
  * Uploads go straight to storage with progress, pause and resume (src/lib/uploads); the ones in
- * flight are listed at the top. New notes arrive with Ask in Phase 5.
+ * flight are listed at the top. New note opens the note editor.
  */
 export function AddSheet() {
   const [open, setOpen] = useState(false);
@@ -144,11 +143,7 @@ export function AddSheet() {
     if (id === 'upload') filesRef.current?.click();
     else if (id === 'audio') audioRef.current?.click();
     else if (id === 'record') emitShellEvent('open-recorder');
-    else
-      toastPreview(
-        'Notes arrive in Phase 5',
-        'Writing notes comes with Ask. Nothing is saved yet.',
-      );
+    else emitShellEvent('open-note', { fileId: null });
   }
 
   const picked = (input: HTMLInputElement, kind: 'file' | 'recording') => {

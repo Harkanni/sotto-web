@@ -11,7 +11,7 @@ import { emitScreenEvent } from './screen-events';
 
 type Kind = api.ItemKind;
 
-const PREFIX: Record<Kind, string> = { doc: 'docs', meeting: 'meetings', thread: 'threads' };
+const PREFIX: Record<Kind, string> = { doc: 'docs', meeting: 'meetings' };
 
 /** Optimistically drops an item from every cached list, so it vanishes at once. */
 function removeFromLists(client: QueryClient, kind: Kind, id: string) {
@@ -47,7 +47,7 @@ export function useItemActions() {
     path: string,
   ): RowAction[] {
     const actions: RowAction[] = [];
-    if (kind !== 'thread') {
+    {
       actions.push({
         id: 'pin',
         label: item.pinned ? 'Unpin' : 'Pin',

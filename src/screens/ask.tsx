@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryClient } from '@tanstack/react-query';
-import { AlertCircle, MessageCircle, RotateCcw, SearchX, Trash2 } from 'lucide-react';
+import { AlertCircle, MessageCircle, Pencil, RotateCcw, SearchX, Trash2 } from 'lucide-react';
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { messageOf } from '@/components/account/workspace-actions';
@@ -42,6 +42,7 @@ import { getSnapshot, navigate } from '@/lib/nav/store';
 import { cn } from '@/lib/utils';
 import { Composer, scopeLabel, scopeOf, useScopeOptions, type Mention } from './parts/composer';
 import { RowsSkeleton, THREAD_TINT, TintIcon } from './parts/rows';
+import { emitScreenEvent } from './parts/screen-events';
 
 // ── Asking ────────────────────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ function ChatPreview({ chat }: { chat: ConversationSummary }) {
   );
 }
 
-const ChatRow = memo(function ChatRow({
+export const ChatRow = memo(function ChatRow({
   chat,
   href,
   selected,
@@ -110,6 +111,13 @@ const ChatRow = memo(function ChatRow({
     <ActionRow
       label={chat.title}
       actions={[
+        {
+          id: 'rename',
+          label: 'Rename',
+          icon: Pencil,
+          onSelect: () =>
+            emitScreenEvent('rename', { kind: 'thread', id: chat.id, title: chat.title }),
+        },
         {
           id: 'delete',
           label: 'Delete',
@@ -143,7 +151,7 @@ const ChatRow = memo(function ChatRow({
  * Delete never asks (brief §9): the chat leaves the list at once and is deleted when the toast
  * closes, so Undo just puts it back.
  */
-function useDeleteChat(listKey: string) {
+export function useDeleteChat(listKey: string) {
   const client = useQueryClient();
   const ws = useActiveWorkspace()?.id ?? '-';
   return useCallback(

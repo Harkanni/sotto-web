@@ -1,4 +1,5 @@
 import type { Schemas } from '@/lib/api/client';
+import { standInAskRoute } from './ask-fixtures';
 
 /**
  * A stand-in library for Storybook and the shell E2E, which run without the API: a few memos
@@ -130,6 +131,9 @@ export function standInFilePage(url: URL): Schemas['FilePage'] {
  * are 404 / 409 like a sample meeting (no audio); `events` has nothing to say.
  */
 export function standInFileRoute(url: URL): { status: number; json?: unknown } | undefined {
+  // Chats and search (./ask-fixtures) answer from here too, so one router covers the shell.
+  const ask = standInAskRoute(url);
+  if (ask) return ask;
   const path = url.pathname.replace(/^.*\/api\/v1\//, '');
   if (path === 'files') return { status: 200, json: standInFilePage(url) };
   if (path === 'continue-listening') return { status: 200, json: [] };

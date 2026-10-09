@@ -7,17 +7,14 @@
  * generated OpenAPI client (src/lib/api); the query hooks keep their names.
  */
 
-import { localThread, localThreads } from './answer';
 import {
   ACTION_ITEMS,
   DOCS,
   MEETINGS,
-  THREADS,
   WEEK_STATS,
   type ActionItem,
   type Doc,
   type Meeting,
-  type Thread,
 } from './data';
 import type { SampleScope } from './scope';
 
@@ -96,7 +93,6 @@ async function respond<T>(
 const deleted = new Set<string>();
 const docs = DOCS.map((d) => ({ ...d }));
 const meetings = MEETINGS.map((m) => ({ ...m }));
-const threads = THREADS.map((t) => ({ ...t }));
 const actionItems = ACTION_ITEMS.map((a) => ({ ...a }));
 
 export type DocSort = 'recent' | 'name';
@@ -163,26 +159,6 @@ export function getMeeting(scope: SampleScope, id: string): Promise<Meeting | nu
   return respond(scope, () => meetings.find((m) => m.id === id && !deleted.has(id)) ?? null);
 }
 
-/**
- * Chats. Questions asked in this browser (./answer) are yours, so they show in any workspace;
- * the sample chats only with sample content.
- */
-export async function listThreads(scope: SampleScope): Promise<Thread[]> {
-  const sample = await respond(scope, () => threads.filter((t) => !deleted.has(t.id)), {
-    emptyValue: [],
-  });
-  return [...structuredClone(localThreads()), ...sample]
-    .filter((t) => !deleted.has(t.id))
-    .sort((a, b) => b.updatedAt - a.updatedAt);
-}
-
-export async function getThread(scope: SampleScope, id: string): Promise<Thread | null> {
-  if (deleted.has(id)) return null;
-  const local = localThread(id);
-  if (local) return structuredClone(local);
-  return respond(scope, () => threads.find((t) => t.id === id) ?? null);
-}
-
 export function listActionItems(scope: SampleScope): Promise<ActionItem[]> {
   return respond(scope, () => actionItems.filter((a) => !deleted.has(a.id)), { emptyValue: [] });
 }
@@ -213,7 +189,7 @@ export function getContinueListening(scope: SampleScope) {
 }
 
 // ── Mutations (instant: sample data lives in memory) ───────────────────────────────────
-export type ItemKind = 'doc' | 'meeting' | 'thread';
+export type ItemKind = 'doc' | 'meeting';
 
 export function deleteItem(id: string) {
   deleted.add(id);
@@ -245,8 +221,7 @@ export function setActionItemDone(id: string, done: boolean) {
 }
 
 export function renameItem(kind: ItemKind, id: string, title: string) {
-  const list: { id: string; title: string }[] =
-    kind === 'doc' ? docs : kind === 'meeting' ? meetings : threads;
+  const list: { id: string; title: string }[] = kind === 'doc' ? docs : meetings;
   const item = list.find((x) => x.id === id);
   if (item) item.title = title;
 }

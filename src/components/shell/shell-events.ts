@@ -21,6 +21,8 @@ type ShellEvents = {
   'open-shortcuts': undefined;
   /** Open the recorder (Record a meeting). */
   'open-recorder': undefined;
+  /** Open the note editor: a new note (null), or an existing one by its file id. */
+  'open-note': { fileId: string | null };
 };
 
 type Handler<K extends keyof ShellEvents> = (detail: ShellEvents[K]) => void;

@@ -13,7 +13,7 @@ const SCREENS = [
   '/docs',
   '/docs/f_launch',
   '/ask',
-  '/ask/t_risks',
+  '/ask/c_risks',
   '/meetings',
   '/meetings/f_crit',
   '/profile',

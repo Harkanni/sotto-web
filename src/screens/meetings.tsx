@@ -264,11 +264,14 @@ function TranscriptView({
   position,
   onSeek,
   playing,
+  landAt = 0,
 }: {
   file: FileItem;
   position: number;
   onSeek: ((seconds: number) => void) | null;
   playing: boolean;
+  /** Seconds a citation opened the meeting at: that line is shown first, tinted. */
+  landAt?: number;
 }) {
   const query = useTranscript(file.id, true);
   const [search, setSearch] = useState('');
@@ -282,7 +285,9 @@ function TranscriptView({
   const listRef = useRef<HTMLOListElement>(null);
   const userScrolledAt = useRef(0);
   const segments = query.data?.segments;
-  const active = segments ? activeLine(segments, position * 1000) : -1;
+  // Until playback moves, the line a citation pointed at is the current one.
+  const at0 = playing || position > 0 ? position : landAt;
+  const active = segments ? activeLine(segments, at0 * 1000) : -1;
   const matchSet = useMemo(() => new Set(matches), [matches]);
 
   // Your own scrolling wins over following for a moment.
@@ -306,6 +311,16 @@ function TranscriptView({
       behavior: prefersReducedMotion() ? 'auto' : 'smooth',
     });
   }, [active, playing, term, segments]);
+
+  // Opened at a moment (a citation): centre that line once the transcript arrives.
+  const landed = useRef(false);
+  useEffect(() => {
+    if (landed.current || !landAt || active < 0 || !segments) return;
+    landed.current = true;
+    listRef.current
+      ?.querySelector(`[data-line="${segments[active]?.idx}"]`)
+      ?.scrollIntoView({ block: 'center' });
+  }, [landAt, active, segments]);
 
   const goTo = (i: number) => {
     if (!matches.length) return;
@@ -743,6 +758,7 @@ export function MeetingScreen() {
                         position={audio.state.position}
                         onSeek={seek}
                         playing={audio.state.playing}
+                        landAt={startAt}
                       />
                     ) : (
                       <NotesSection

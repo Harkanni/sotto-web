@@ -67,21 +67,6 @@ export type ActionItem = {
   done: boolean;
 };
 
-export type Citation =
-  { kind: 'doc'; id: string; page: number } | { kind: 'meeting'; id: string; at: number };
-
-export type Message =
-  | { role: 'user'; text: string; at: number }
-  | { role: 'assistant'; text: string; at: number; citations: Citation[] };
-
-export type Thread = {
-  id: string;
-  title: string;
-  updatedAt: number;
-  scope: string;
-  messages: Message[];
-};
-
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
@@ -529,72 +514,6 @@ export const ACTION_ITEMS: ActionItem[] = [
     ownerId: 'p_ada',
     due: null,
     done: true,
-  },
-];
-
-export const THREADS: Thread[] = [
-  {
-    id: 't_risks',
-    title: 'Risks for the Lagos launch',
-    updatedAt: now - 25 * MIN,
-    scope: 'All sources',
-    messages: [
-      { role: 'user', text: 'What risks did we flag for the Lagos launch?', at: now - 26 * MIN },
-      {
-        role: 'assistant',
-        at: now - 25 * MIN,
-        text: 'Three risks are on record. Connectivity on field visits, so recording has to work offline and upload later [1][2]. Data residency questions from health partners; the team confirmed audio and transcripts stay in London [2]. And pricing in naira, where exchange-rate changes still need a policy [1].',
-        citations: [
-          { kind: 'doc', id: 'd_launch', page: 3 },
-          { kind: 'meeting', id: 'm_weekly', at: 58 },
-        ],
-      },
-    ],
-  },
-  {
-    id: 't_pricing',
-    title: 'The pricing decision',
-    updatedAt: now - 1 * DAY,
-    scope: 'Product',
-    messages: [
-      { role: 'user', text: 'Summarise the pricing decision.', at: now - 1 * DAY },
-      {
-        role: 'assistant',
-        at: now - 1 * DAY,
-        text: 'The free tier stays at three members, private AI moves into Team, and Business is priced per seat with an annual discount [1]. Whether BYOK customers pay less is still open [1].',
-        citations: [{ kind: 'doc', id: 'd_pricing', page: 1 }],
-      },
-    ],
-  },
-  {
-    id: 't_security',
-    title: 'Encryption at rest',
-    updatedAt: now - 3 * DAY,
-    scope: 'Customers',
-    messages: [
-      { role: 'user', text: 'Do we encrypt customer data at rest?', at: now - 3 * DAY },
-      {
-        role: 'assistant',
-        at: now - 3 * DAY,
-        text: 'Yes. Files, audio and transcripts are encrypted at rest and in transit, and stored in London [1].',
-        citations: [{ kind: 'doc', id: 'd_security', page: 2 }],
-      },
-    ],
-  },
-  {
-    id: 't_onboarding',
-    title: 'Week one for new hires',
-    updatedAt: now - 9 * DAY,
-    scope: 'Handbook',
-    messages: [
-      { role: 'user', text: 'What does a new hire need in week one?', at: now - 9 * DAY },
-      {
-        role: 'assistant',
-        at: now - 9 * DAY,
-        text: 'Accounts for email, chat and Sotto on day one, a laptop set up by Operations, and introductions to their manager and a buddy [1].',
-        citations: [{ kind: 'doc', id: 'd_onboarding', page: 1 }],
-      },
-    ],
   },
 ];
 
