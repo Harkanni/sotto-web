@@ -1,11 +1,12 @@
 'use client';
 
-import { ExternalLink, RotateCw, ShieldAlert } from 'lucide-react';
+import { ExternalLink, Pencil, RotateCw, ShieldAlert } from 'lucide-react';
 import { Fragment, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNav } from '@/lib/nav/hooks';
 import { toast } from 'sonner';
 import { messageOf } from '@/components/account/workspace-actions';
 import { Screen } from '@/components/shell/screen';
+import { emitShellEvent } from '@/components/shell/shell-events';
 import { useLayer } from '@/components/shell/stack-context';
 import { Avatar } from '@/components/ui/avatar';
 import { Badge, SensitivityBadge } from '@/components/ui/badge';
@@ -351,6 +352,15 @@ export function DocScreen() {
                   aria-label="Open the original PDF"
                   icon={<ExternalLink aria-hidden />}
                   onClick={() => void openOriginal()}
+                />
+              )}
+              {file.kind === 'note' && accessAtLeast(file.access, 'edit') && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Edit note"
+                  icon={<Pencil aria-hidden />}
+                  onClick={() => emitShellEvent('open-note', { fileId: file.id })}
                 />
               )}
               <AskButton scopeLabel={file.title} fileId={file.id} />

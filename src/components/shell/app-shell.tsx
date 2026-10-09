@@ -7,6 +7,7 @@ import { DEFAULT_TITLE, TABS, parseStack, tabOf } from '@/lib/nav/routes';
 import { startNavigation } from '@/lib/nav/store';
 import { useTitle } from '@/lib/nav/titles';
 import { Toaster } from '@/components/ui/toaster';
+import { NoteSheet } from '@/components/ask/note-sheet';
 import { RecorderSheet } from '@/components/uploads/recorder-sheet';
 import { UploadSync } from '@/components/uploads/upload-sync';
 import { renderScreen, renderPlaceholder } from '@/screens';
@@ -44,6 +45,7 @@ const Overlays = memo(function Overlays() {
     <>
       <AddSheet />
       <RecorderSheet />
+      <NoteSheet />
       <UploadSync />
       <MoveSheet />
       <RenameSheet />
