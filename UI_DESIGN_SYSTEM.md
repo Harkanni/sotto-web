@@ -238,6 +238,51 @@ for focus, keyboard and labelling.
     (one tap, undoable) and Delete for good (ConfirmAction). Everything is purged after 30 days.
   - **Drop target** — dragging files over the window raises one target over the whole app;
     letting go uploads into the collection on screen. Viewers see why they can't instead.
+- **Ask (Phase 5)** — `src/components/ask`, `src/screens/ask.tsx`, `src/screens/parts/composer.tsx`:
+  - **Chat** — the question on the right in an indigo bubble (20 px radius, 6 px at the tail); the answer full width in
+    one reading column (at most 720 px, centred on wide screens), in the order: route badge,
+    answer text, hidden-sources notice, Sources, actions, follow-ups. A streaming answer is
+    followed until its question reaches the top, then left for the reader.
+  - **Answer text** — the little Markdown a grounded answer uses: paragraphs, bulleted and
+    numbered lists, and headings read as bold lines (never a literal "#"). While streaming,
+    words are revealed at an even pace per frame (a sixth of the backlog, at least two
+    characters) and a 3 px indigo caret pulses after the last word, inline; all at once under
+    reduced motion.
+  - **Citation chip** — the source number in a 20 px pill on `primary-tint-strong`, raised
+    2 px, with a 44 px invisible hit area; it opens the source pushed on the current stack.
+    `aria-label` names the source and its page or moment. A source you can no longer open is
+    a grey pill that goes nowhere ("no longer available to you").
+  - **Sources** — a card under the answer: each source with its number in a 24 px tinted
+    circle, kind icon, title, "page 3" or "12:34" in tabular figures, as a tappable row. A
+    passages-only answer shows each passage's text (three lines) instead of an answer.
+  - **Route badge** — every answer says where it was made, in a footnote line with an indigo
+    sparkle ("Private · Ollama (in your cluster)", "Passages only · no AI model"); a lock
+    when it stayed in the cluster, and a grey "Mock" pill for mock models.
+  - **Hidden-sources notice** — on `card-nested` with an eye-off icon: how many Restricted or
+    Confidential sources the answering model wasn't allowed to read.
+  - **Answer actions** — icon buttons under a finished answer: Copy, Answer again, Save as
+    note, Helpful / Not helpful (the chosen one filled), and Switch model labelled for Phase 6. Follow-ups ("Ask next") are 44 px card pills in indigo text that ask on tap.
+  - **Answer states** — thinking (three pulsing indigo dots and "Looking through your memos
+    and meetings", a `status` for screen readers), streaming, done, stopped (what
+    arrived is kept, "Stopped" under it), not found (said plainly, nothing to cite), failed
+    (the reason in plain words and Try again; nothing was sent anywhere else).
+  - **Composer** — scope chips above (All sources, Documents, Meetings, then each collection
+    you can open), a growing 17 px text field, Send in thumb reach; Send becomes Stop while
+    an answer is written. Typing `@` opens the mention picker on the palette's surface
+    (elevated, blur) above the field: files filtered as you type, ↑↓ and ↵, the scope chips
+    fading while it's open. Picked files replace the scope chips as removable chips.
+  - **Chats list** — `ActionRow`s with a tinted chat icon, title and preview; search filters on
+    the server; swipe to delete with Undo (sent when the toast closes); Rename in a sheet.
+  - **Note sheet** — New note and Edit note at the `large` detent: an optional title (17 px
+    semibold) and a Markdown body filling the sheet, Save in the footer, ⌘↵ saves. A fresh
+    editor each time it opens.
+  - **Cited passage** — a document opened from a citation scrolls to the cited page and marks
+    every block the passage spans on `primary-tint-strong` (8 px radius, `role="mark"`),
+    fading in over 400 ms; a meeting opens playing from the cited moment.
+  - **Search in the palette** — ⌘K searches the API as you type: Files, Passages, Meeting
+    moments and Chats, with matched words in semibold. The best server result is selected
+    unless you moved the highlight; Ask Sotto stays one row away. On phones, a search field
+    under Home's large title opens the palette.
 - **Widget states** — `AsyncWidget` renders loading, empty, error and content for every data
   widget (see §8).
 - **Shell** — tab bar (phones), sidebar (768 px and up), nav bar with large title, + button,
