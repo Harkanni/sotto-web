@@ -13,8 +13,9 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
-- **Overall:** in progress.
-- **Current milestone:** M10 (onboarding AI step, docs, ADRs, platform config, PRs ready).
+- **Overall:** complete, waiting for the owner's review. Merge order: sotto-api#7, then
+  sotto-web#7, then sotto-platform#8, once CI runs green.
+- **Current milestone:** none; M0–M10 done. PRs ready for review; CI blocked by GitHub billing (see Known issues).
 
 ## Requirements
 
@@ -107,19 +108,19 @@ api: canSend() re-checks every passage before the call (second line of defence)
 api: stream → UsageEvent (input/output tokens, route, model) → quota counters
 ```
 
-| #   | Milestone                                                                                                                                                     | Repo      | State       |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                            | all       | done        |
-| M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface) | sotto-api | done        |
-| M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection | sotto-api | done        |
-| M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                        | sotto-api | done        |
-| M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | done        |
-| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | done        |
-| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | done        |
-| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | done        |
-| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | done        |
-| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | done        |
-| M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | in progress |
+| #   | Milestone                                                                                                                                                     | Repo      | State |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----- |
+| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                            | all       | done  |
+| M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface) | sotto-api | done  |
+| M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection | sotto-api | done  |
+| M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                        | sotto-api | done  |
+| M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | done  |
+| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | done  |
+| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | done  |
+| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | done  |
+| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | done  |
+| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | done  |
+| M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | done  |
 
 ## Completed work
 
@@ -310,21 +311,39 @@ rabbitmq-server`, user sotto/sotto), moto S3 on :5100, an SMTP sink writing `mai
   - Run logs committed by mistake in `67154a3` were removed in the next commit (no secrets in
     them; `*.out` now ignored).
 
+- **M10, part 3:** web API client synced; STATUS (sotto-platform) says Phase 6 is ready, the
+  merge order, the owner's steps (CI billing, `terraform apply` for the demo master key,
+  optional Paystack test key and Managed key) and the open decisions; final checks (below);
+  the three PRs' checklists updated and marked ready for review.
+
 ## Work in progress
 
-- M10, part 3: STATUS, web client sync, CI, PRs ready.
+None.
 
 ## Remaining work
 
-M1–M10 above.
+None for Phase 6. Carried on purpose (each recorded with its reason):
+
+- Starting a re-index from the API (ADR 0027: an operator command instead); dropping retired
+  vectors.
+- Enforcing Business-only features (ADR 0025: the owner's decision).
+- A KMS key wrapper for production (Phase 11; a paid AWS resource).
+- Confirming Paystack's response shapes with a real test key (ADR 0026).
 
 ## Next steps
 
-1. M10 part 3: sync the web's API client (`pnpm api:sync`); STATUS in sotto-platform; check CI
-   on all three PRs and fix anything red; update PR checklists; mark the three PRs ready.
-2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
-postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
-   `sotto_shadow` and `sotto_test`.
+1. The owner: restore GitHub Actions (billing), re-run CI on the three PRs, review and merge
+   sotto-api#7, sotto-web#7, sotto-platform#8 in that order; `terraform apply` for the demo's
+   master key (STATUS → Next step).
+2. The next session starts Phase 7 (PLAN Milestones row 7, the live notetaker) with a new
+   `PHASE_7_PROGRESS.md`.
+3. Local rig for a later session (not committed; scratchpad): Postgres 16 + pgvector 0.6
+   (`apt-get install postgresql-16-pgvector`, `pg_ctlcluster 16 main start`, password
+   `postgres`), Redis, RabbitMQ (`apt-get install rabbitmq-server`, user sotto/sotto), moto S3
+   on :5100 (`pip install "moto[server]"`), an SMTP sink and an OpenAI-style stand-in model.
+   API integration tests with storage: `TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+TEST_S3_ENDPOINT=http://localhost:5100 S3_FORCE_PATH_STYLE=true` (bucket `sotto-test`).
+   Stop the rig's API before `pnpm e2e`: the status spec expects no API answering.
 
 ## Decisions
 
@@ -355,6 +374,14 @@ Identified, not invented around:
    a Terraform change the owner applies (live infrastructure: ask first).
 
 ## Known issues
+
+- **GitHub Actions refuses to start jobs** since the afternoon of 2026-10-10 in all three repos
+  ("recent account payments have failed or your spending limit needs to be increased"). CI last
+  ran green at sotto-api `4758cfd`; everything after was checked locally (table below).
+- `e2e/status.spec.ts` "the root opens the app with a session" fails if a real API answers on
+  :4000 (it plants a fake session cookie); run e2e with the rig's API stopped.
+- The rig's stand-in model doesn't use the follow-up marker, so its follow-ups show as text;
+  real models and the API's tests use the marker.
 
 - This sandbox has Node 22 (the repos ask for 24) and no npm registry; `node_modules` comes from
   CI's `dev-cache` snapshot.
