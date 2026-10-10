@@ -1,6 +1,5 @@
 'use client';
 
-import { useQueryClient } from '@tanstack/react-query';
 import { Check, Lock, Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -8,11 +7,10 @@ import { messageOf } from '@/components/account/workspace-actions';
 import { Badge, SensitivityBadge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet } from '@/components/ui/sheet';
+import { useRenameConversation } from '@/lib/api/ask';
 import { useUpdateFile, type Sensitivity } from '@/lib/api/files';
 import { useActiveWorkspace, useWorkspaceCollections } from '@/lib/api/hooks';
 import { accessAtLeast, atLeast } from '@/lib/roles';
-import * as sample from '@/lib/sample/api';
-import { keys } from '@/lib/sample/queries';
 import { cn } from '@/lib/utils';
 import { onScreenEvent } from '@/screens/parts/screen-events';
 
@@ -108,8 +106,8 @@ export function MoveSheet() {
 
 /** Rename a file, or a sample chat (chats are real from Phase 5). */
 export function RenameSheet() {
-  const client = useQueryClient();
   const update = useUpdateFile();
+  const renameChat = useRenameConversation();
   const [target, setTarget] = useState<{
     kind: 'doc' | 'meeting' | 'thread';
     id: string;
@@ -134,9 +132,13 @@ export function RenameSheet() {
     if (!target || !title) return;
     setOpen(false);
     if (target.kind === 'thread') {
-      sample.renameItem('thread', target.id, title);
-      void client.invalidateQueries({ queryKey: keys.all });
-      toast('Renamed', { description: title });
+      renameChat.mutate(
+        { id: target.id, title },
+        {
+          onSuccess: () => toast('Renamed', { description: title }),
+          onError: (e) => toast(messageOf(e)),
+        },
+      );
       return;
     }
     update.mutate(

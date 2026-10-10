@@ -609,6 +609,163 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search files, passages and meeting moments (hybrid, ranked). */
+        get: operations["SearchController_search"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Write a note. It is indexed like a document and can be cited. */
+        post: operations["NotesController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A note’s text as written (Markdown), for reading and editing. */
+        get: operations["NotesController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edit a note’s title or text. The text is indexed again. */
+        patch: operations["NotesController_update"];
+        trace?: never;
+    };
+    "/api/v1/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Your chats, most recent first; `q` searches titles and messages. */
+        get: operations["ConversationsController_list"];
+        put?: never;
+        /** Start a chat with a scope (the whole workspace by default). */
+        post: operations["ConversationsController_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One of your chats, with every message and its sources. */
+        get: operations["ConversationsController_get"];
+        put?: never;
+        post?: never;
+        /** Delete one of your chats and everything in it. */
+        delete: operations["ConversationsController_remove"];
+        options?: never;
+        head?: never;
+        /** Rename a chat or change where its answers come from. */
+        patch: operations["ConversationsController_update"];
+        trace?: never;
+    };
+    "/api/v1/conversations/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask a question in a chat. The answer streams back as Server-Sent Events: `start`, `cite` (each source as first cited), `token`, then `done` or `error` (AnswerEvent). */
+        post: operations["ConversationsController_askIn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/messages/{id}/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer the question again, replacing this answer (streamed). */
+        post: operations["ConversationsController_regenerate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/messages/{id}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop an answer while it’s being written; what arrived is kept. */
+        post: operations["ConversationsController_stop"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/messages/{id}/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rate an answer: 1 (helpful), -1 (not helpful) or 0 (clear). */
+        post: operations["ConversationsController_feedback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -771,7 +928,7 @@ export interface components {
             /** Format: date-time */
             at: string;
             /** @enum {string} */
-            action: "workspace.created" | "workspace.renamed" | "member.joined" | "member.role_changed" | "member.removed" | "invite.sent" | "invite.resent" | "invite.revoked" | "collection.created" | "collection.updated" | "collection.deleted" | "collection.access_changed" | "audit.exported" | "onboarding.sample_loaded" | "file.uploaded" | "file.recorded" | "file.renamed" | "file.moved" | "file.relabelled" | "file.trashed" | "file.restored" | "file.deleted" | "file.downloaded";
+            action: "workspace.created" | "workspace.renamed" | "member.joined" | "member.role_changed" | "member.removed" | "invite.sent" | "invite.resent" | "invite.revoked" | "collection.created" | "collection.updated" | "collection.deleted" | "collection.access_changed" | "audit.exported" | "onboarding.sample_loaded" | "file.uploaded" | "file.recorded" | "file.renamed" | "file.moved" | "file.relabelled" | "file.trashed" | "file.restored" | "file.deleted" | "file.downloaded" | "note.created" | "note.edited" | "ask.asked";
             summary: string;
             actor: {
                 id: string;
@@ -853,7 +1010,7 @@ export interface components {
         /** @enum {string} */
         FileKind: "document" | "audio" | "note";
         /** @enum {string} */
-        FileSource: "upload" | "recording" | "sample" | "import";
+        FileSource: "upload" | "recording" | "sample" | "import" | "written";
         /** @enum {string} */
         FileStatus: "uploading" | "uploaded" | "transcribing" | "indexing" | "ready" | "failed";
         PartUrl: {
@@ -953,6 +1110,170 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         }[];
+        SearchResults: {
+            /** @enum {string} */
+            mode: "hybrid" | "keyword";
+            files: {
+                file: components["schemas"]["File"];
+                /** @enum {string} */
+                match: "title" | "content";
+            }[];
+            passages: {
+                rank: number;
+                chunkId: string;
+                file: {
+                    id: string;
+                    title: string;
+                    /** @enum {string} */
+                    kind: "document" | "audio" | "note";
+                };
+                page: number | null;
+                snippet: components["schemas"]["Snippet"];
+            }[];
+            moments: {
+                rank: number;
+                chunkId: string;
+                file: {
+                    id: string;
+                    title: string;
+                    /** @enum {string} */
+                    kind: "document" | "audio" | "note";
+                };
+                startMs: number;
+                endMs: number;
+                snippet: components["schemas"]["Snippet"];
+            }[];
+        };
+        Snippet: {
+            text: string;
+            highlights: (number)[][];
+        };
+        CreateNote: {
+            title?: string;
+            body: string;
+            collectionId?: string | null;
+            sensitivity?: components["schemas"]["Sensitivity"];
+        };
+        Note: {
+            file: components["schemas"]["File"];
+            body: string;
+        };
+        UpdateNote: {
+            title?: string;
+            body?: string;
+        };
+        CreateConversation: {
+            /** @default {} */
+            scope: components["schemas"]["AskScope"];
+            title?: string;
+        };
+        AskScope: {
+            collectionId?: string | null;
+            fileIds?: string[];
+            /** @enum {string} */
+            kind?: "documents" | "meetings";
+        };
+        Conversation: {
+            id: string;
+            title: string;
+            scope: components["schemas"]["AskScope"];
+            preview: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            messages: components["schemas"]["Message"][];
+        };
+        Message: {
+            id: string;
+            /** @enum {string} */
+            role: "user" | "assistant";
+            content: string;
+            /** @enum {string} */
+            status: "streaming" | "done" | "stopped" | "failed";
+            model: string | null;
+            route: {
+                /** @enum {string|null} */
+                kind: "private" | "byok" | "managed" | null;
+                label: string;
+            } | null;
+            isMock: boolean;
+            passagesOnly: boolean;
+            hidden: {
+                restricted: number;
+                confidential: number;
+            };
+            notFound: boolean;
+            followUps: string[];
+            error: {
+                code: string;
+                message: string;
+            } | null;
+            feedback: number | null;
+            citations: components["schemas"]["Citation"][];
+            /** Format: date-time */
+            createdAt: string;
+        };
+        Citation: {
+            n: number;
+            available: boolean;
+            fileId: string | null;
+            /** @enum {string|null} */
+            kind: "document" | "audio" | "note" | null;
+            title: string | null;
+            page: number | null;
+            startMs: number | null;
+            endMs: number | null;
+            quote: string | null;
+        };
+        ConversationPage: {
+            items: components["schemas"]["ConversationSummary"][];
+            nextCursor: string | null;
+        };
+        ConversationSummary: {
+            id: string;
+            title: string;
+            scope: components["schemas"]["AskScope"];
+            preview: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        UpdateConversation: {
+            title?: string;
+            scope?: components["schemas"]["AskScope"];
+        };
+        AskBody: {
+            content: string;
+        };
+        AnswerEvent: {
+            /** @enum {string} */
+            type: "start";
+            conversationId: string;
+            question: components["schemas"]["Message"] | null;
+            answer: components["schemas"]["Message"];
+        } | {
+            /** @enum {string} */
+            type: "cite";
+            citation: components["schemas"]["Citation"];
+        } | {
+            /** @enum {string} */
+            type: "token";
+            text: string;
+        } | {
+            /** @enum {string} */
+            type: "done";
+            answer: components["schemas"]["Message"];
+        } | {
+            /** @enum {string} */
+            type: "error";
+            code: string;
+            message: string;
+        };
+        FeedbackBody: {
+            value: -1 | 0 | 1;
+        };
     };
     responses: never;
     parameters: never;
@@ -2342,6 +2663,421 @@ export interface operations {
                         change: "status" | "updated" | "removed";
                         /** Format: date-time */
                         at: string;
+                    };
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    SearchController_search: {
+        parameters: {
+            query: {
+                q: string;
+                collection?: string;
+                kind?: "documents" | "meetings";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    NotesController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateNote"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    NotesController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    NotesController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateNote"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Note"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_list: {
+        parameters: {
+            query?: {
+                q?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationPage"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateConversation"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Conversation"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateConversation"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationSummary"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_askIn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AskBody"];
+            };
+        };
+        responses: {
+            /** @description text/event-stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["AnswerEvent"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_regenerate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description text/event-stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["AnswerEvent"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_stop: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    ConversationsController_feedback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FeedbackBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        id: string;
+                        feedback: number | null;
                     };
                 };
             };

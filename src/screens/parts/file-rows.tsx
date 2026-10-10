@@ -14,10 +14,11 @@ import { useFileActions } from './file-actions';
 import { DOC_KINDS, MEETING_TINT } from './rows';
 
 /** What a document is, from its type: PDF, Word, Markdown or text. */
-export function documentKind(file: Pick<FileItem, 'mime'>): {
+export function documentKind(file: Pick<FileItem, 'mime'> & { kind?: FileItem['kind'] }): {
   key: keyof typeof DOC_KINDS;
   label: string;
 } {
+  if (file.kind === 'note') return { key: 'note', label: 'Note' };
   if (file.mime === 'application/pdf') return { key: 'pdf', label: 'PDF' };
   if (file.mime.includes('wordprocessingml')) return { key: 'memo', label: 'Word document' };
   if (file.mime === 'text/markdown') return { key: 'note', label: 'Markdown' };

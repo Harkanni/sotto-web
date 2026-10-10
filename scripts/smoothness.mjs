@@ -10,7 +10,8 @@
 // Env: BASE_URL (default http://localhost:3000), CHROMIUM_PATH (a local Chromium, optional).
 import { chromium, devices } from '@playwright/test';
 // Node strips the types on load; the e2e and Storybook use the same stand-in library.
-import { standInFileRoute } from '../src/stories/file-fixtures.ts';
+import { standInAskRoute } from '../src/stories/ask-fixtures.ts';
+import { STAND_IN_FILES, standInFileRoute } from '../src/stories/file-fixtures.ts';
 
 const args = process.argv.slice(2);
 const throttle = Number(args.find((a) => /^\d+$/.test(a)) ?? 4);
@@ -67,11 +68,12 @@ const standIn = {
 for (const [path, body] of Object.entries(standIn)) {
   await page.route(`**/api/v1/${path}`, (route) => route.fulfill({ json: body }));
 }
-// Files (Phase 4): the stand-in library, answered without an API.
+// Files (Phase 4), chats and search (Phase 5): the stand-in library, answered without an API.
+const standInRoute = (url) => standInAskRoute(url, STAND_IN_FILES) ?? standInFileRoute(url);
 await page.route(
-  (url) => standInFileRoute(url) !== undefined,
+  (url) => standInRoute(url) !== undefined,
   (route) => {
-    const answer = standInFileRoute(new URL(route.request().url()));
+    const answer = standInRoute(new URL(route.request().url()));
     return route.fulfill({ status: answer.status, json: answer.json });
   },
 );

@@ -147,22 +147,3 @@ export function standInFileRoute(url: URL): { status: number; json?: unknown } |
   if (sub === 'position') return { status: 204 };
   return { status: 404, json: { error: { code: 'NOT_FOUND', message: 'Not found' } } };
 }
-
-/**
- * Storybook only: answers the file routes from this stand-in library, so every story sees the
- * same files however it queries them. Anything else goes to the real fetch.
- */
-export function installStandInFetch(): void {
-  if (typeof window === 'undefined' || (window as { __standIn?: boolean }).__standIn) return;
-  (window as { __standIn?: boolean }).__standIn = true;
-  const real = window.fetch.bind(window);
-  window.fetch = async (input, init) => {
-    const url = new URL(input instanceof Request ? input.url : String(input), window.location.href);
-    const answer = url.pathname.includes('/api/v1/') ? standInFileRoute(url) : undefined;
-    if (!answer) return real(input, init);
-    return new Response(answer.json === undefined ? null : JSON.stringify(answer.json), {
-      status: answer.status,
-      headers: { 'content-type': 'application/json' },
-    });
-  };
-}

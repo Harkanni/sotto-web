@@ -1,14 +1,7 @@
 'use client';
 
 import { memo } from 'react';
-import {
-  AudioLines,
-  FileSpreadsheet,
-  FileText,
-  MessageCircle,
-  NotebookPen,
-  ScrollText,
-} from 'lucide-react';
+import { AudioLines, FileSpreadsheet, FileText, NotebookPen, ScrollText } from 'lucide-react';
 import { AvatarStack } from '@/components/ui/avatar';
 import { SensitivityBadge } from '@/components/ui/badge';
 import { ListRowContent } from '@/components/ui/list';
@@ -16,7 +9,7 @@ import { ActionRow } from '@/components/ui/row-actions';
 import { Skeleton } from '@/components/ui/skeleton';
 import { duration, relativeTime, whenInGroup } from '@/lib/format';
 import { navigate } from '@/lib/nav/store';
-import type { Doc, DocKind, Meeting, Thread } from '@/lib/sample/data';
+import type { Doc, DocKind, Meeting } from '@/lib/sample/data';
 import { personById } from '@/lib/sample/data';
 import { cn } from '@/lib/utils';
 import { useItemActions } from './item-actions';
@@ -64,7 +57,7 @@ export function KindIcon({ kind, size = 36 }: { kind: DocKind; size?: 36 | 44 })
   );
 }
 
-function TintIcon({ icon: Icon, tint }: { icon: typeof FileText; tint: string }) {
+export function TintIcon({ icon: Icon, tint }: { icon: typeof FileText; tint: string }) {
   return (
     <span aria-hidden className={cn('grid size-9 shrink-0 place-items-center rounded-full', tint)}>
       <Icon className="size-5" strokeWidth={1.9} />
@@ -132,20 +125,6 @@ function MeetingPreview({ meeting }: { meeting: Meeting }) {
         </p>
       )}
       <AvatarStack names={meeting.participantIds.map(ownerName)} max={5} />
-    </div>
-  );
-}
-
-function ThreadPreview({ thread }: { thread: Thread }) {
-  const answer = [...thread.messages].reverse().find((m) => m.role === 'assistant');
-  return (
-    <div className="flex flex-col gap-2 p-4">
-      <p className="text-headline">{thread.title}</p>
-      {answer && (
-        <p className="line-clamp-5 text-callout text-muted-foreground">
-          {answer.text.replace(/\[\d+\]/g, '')}
-        </p>
-      )}
     </div>
   );
 }
@@ -235,39 +214,7 @@ export const MeetingRow = memo(function MeetingRow({
   );
 });
 
-export const ThreadRow = memo(function ThreadRow({
-  thread,
-  href,
-  selected,
-}: {
-  thread: Thread;
-  href: string;
-  selected?: boolean;
-}) {
-  const actionsFor = useItemActions();
-  const last = thread.messages[thread.messages.length - 1];
-  return (
-    <ActionRow
-      label={thread.title}
-      actions={actionsFor('thread', thread, href)}
-      preview={<ThreadPreview thread={thread} />}
-      onOpen={() => navigate(href)}
-    >
-      <ListRowContent
-        href={href}
-        selected={selected}
-        leading={<TintIcon icon={MessageCircle} tint={THREAD_TINT} />}
-        title={thread.title}
-        subtitle={last ? last.text.replace(/\[\d+\]/g, '') : undefined}
-        detail={<span className="text-subhead">{relativeTime(thread.updatedAt)}</span>}
-        chevron={false}
-        rowProps={{ 'data-item': thread.id }}
-      />
-    </ActionRow>
-  );
-});
-
-/** Skeleton rows matching DocRow / MeetingRow / ThreadRow, so nothing shifts on load. */
+/** Skeleton rows matching the list rows, so nothing shifts on load. */
 export function RowsSkeleton({ rows = 4, round = false }: { rows?: number; round?: boolean }) {
   return (
     <ul className="overflow-hidden rounded-card bg-card">

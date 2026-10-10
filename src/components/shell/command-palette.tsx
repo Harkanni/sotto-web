@@ -6,6 +6,7 @@ import {
   AudioLines,
   CornerDownLeft,
   FileAudio,
+  FileText,
   Keyboard,
   MessageCircle,
   Mic,
@@ -20,20 +21,28 @@ import {
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { Dialog } from 'radix-ui';
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Kbd, ModKey } from '@/components/ui/kbd';
-import { toastPreview } from '@/components/ui/toaster';
-import { dayAndTime, duration, relativeTime } from '@/lib/format';
+import { dayAndTime, duration, relativeTime, timestamp } from '@/lib/format';
 import { ProgressDriver, prefersReducedMotion } from '@/lib/motion/driver';
 import { springs } from '@/lib/motion/spring';
 import { useActiveTab } from '@/lib/nav/hooks';
 import { tabOf, type Tab } from '@/lib/nav/routes';
 import { getSnapshot, navigate } from '@/lib/nav/store';
 import { setThemeSmoothly } from '@/lib/prefs/theme';
-import { createLocalThread } from '@/lib/sample/answer';
-import type { Thread } from '@/lib/sample/data';
-import { keys, useThreads } from '@/lib/sample/queries';
+import { messageOf } from '@/components/account/workspace-actions';
+import {
+  createConversation,
+  streamAnswer,
+  useConversations,
+  useSearch,
+  type ConversationSummary,
+  type SearchResults,
+  type Snippet,
+} from '@/lib/api/ask';
 import { useFiles, type FileItem } from '@/lib/api/files';
+import { useActiveWorkspace } from '@/lib/api/hooks';
+import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { documentKind } from '@/screens/parts/file-rows';
 import { DOC_KINDS, MEETING_TINT, THREAD_TINT } from '@/screens/parts/rows';
@@ -45,8 +54,9 @@ import { TAB_ITEMS } from './tabs';
  * The ⌘K palette (brief §9): one place to find a document, meeting or chat, jump to a section,
  * run a command, or ask Sotto. ↵ opens the highlighted result; ⌘↵ asks Sotto whatever you typed.
  *
- * SAMPLE (Phase 2): it searches the titles of the sample workspace on this device. Phase 5
- * replaces the matching with hybrid search over passages and meeting moments.
+ * Typing searches the workspace (GET /search: files by title and content, passages, meeting
+ * moments; hybrid, with your access in the query) and your chats; results come ranked from the
+ * server, so cmdk's own filtering is off and only the commands are matched here.
  */
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
@@ -84,17 +94,30 @@ function PalettePanel({
   const navigated = useRef(false);
   const [search, setSearch] = useState('');
   const searching = search.trim().length > 0;
-  // Titles only for now; searching inside files is Ask's job (Phase 5).
+  // Results follow the typing a beat behind, so each keystroke stays instant.
+  const term = useDeferredValue(search.trim());
   const docs = useFiles({ kind: 'document', sort: 'recent' });
   const meetings = useFiles({ kind: 'audio', sort: 'recent' });
-  const threads = useThreads();
+  const chats = useConversations(term);
+  const found = useSearch(term, {}, searching);
 
   // cmdk selects the first row it sees, which can be a command while the recent items are still
   // loading above it. Until you move the selection yourself, it stays on the first recent item.
   const [value, setValue] = useState('');
   const [moved, setMoved] = useState(false);
   const first = docs.data?.[0] ? `doc ${docs.data[0].id}` : null;
-  const selected = searching || moved || !first ? value : first;
+  // While searching, the best result stays selected as results arrive (they come ranked).
+  const results = searching ? found.data : undefined;
+  const best = results?.files[0]
+    ? `file ${results.files[0].file.id}`
+    : results?.passages[0]
+      ? `passage ${results.passages[0].chunkId}`
+      : results?.moments[0]
+        ? `moment ${results.moments[0].chunkId}`
+        : searching && chats.data?.[0]
+          ? `chat ${chats.data[0].id}`
+          : null;
+  const selected = moved ? value : ((searching ? best : first) ?? value);
 
   // Drops in from just above, a touch small, and settles: quick in, quicker out.
   useLayoutEffect(() => {
@@ -136,12 +159,19 @@ function PalettePanel({
   };
 
   const client = useQueryClient();
-  const ask = (question: string) => {
+  const ws = useActiveWorkspace()?.id;
+  const ask = async (question: string) => {
     const text = question.trim();
-    if (!text) return;
-    const thread = createLocalThread(text, 'All sources');
-    void client.invalidateQueries({ queryKey: keys.threads() });
-    go(`/ask/${thread.id}`);
+    if (!text || !ws) return;
+    try {
+      const chat = await createConversation({});
+      go(`/ask/${chat.id}`);
+      void streamAnswer(client, ws, { conversationId: chat.id, question: text }).catch((e) =>
+        toast(messageOf(e)),
+      );
+    } catch (error) {
+      toast(messageOf(error));
+    }
   };
 
   return (
@@ -170,7 +200,7 @@ function PalettePanel({
             loop
             value={selected}
             onValueChange={setValue}
-            filter={matchWords}
+            shouldFilter={false}
             className="flex min-h-0 flex-col"
             onPointerMove={() => {
               if (!moved) setMoved(true);
@@ -179,7 +209,7 @@ function PalettePanel({
               if (MOVE_KEYS.has(e.key) || (e.ctrlKey && 'jknp'.includes(e.key))) setMoved(true);
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && searching) {
                 e.preventDefault();
-                ask(search);
+                void ask(search);
               }
             }}
           >
@@ -187,7 +217,11 @@ function PalettePanel({
               <Search aria-hidden className="size-5 shrink-0 text-muted-foreground" />
               <Command.Input
                 value={search}
-                onValueChange={setSearch}
+                onValueChange={(next) => {
+                  setSearch(next);
+                  // A new search starts back at its best result.
+                  setMoved(false);
+                }}
                 placeholder="Search or ask Sotto"
                 className="h-14 min-w-0 flex-1 bg-transparent text-[17px] leading-[22px] tracking-[var(--tracking-body)] outline-none placeholder:text-muted-foreground"
               />
@@ -197,10 +231,11 @@ function PalettePanel({
               search={search}
               docs={docs.data}
               meetings={meetings.data}
-              threads={threads.data}
-              loading={docs.isPending || meetings.isPending || threads.isPending}
+              chats={chats.data}
+              found={searching ? found.data : undefined}
+              loading={searching ? found.isPending : docs.isPending || meetings.isPending}
               go={go}
-              ask={ask}
+              ask={(q) => void ask(q)}
               onClose={onClose}
             />
             <Footer />
@@ -245,7 +280,8 @@ function Results({
   search,
   docs,
   meetings,
-  threads,
+  chats,
+  found,
   loading,
   go,
   ask,
@@ -254,7 +290,8 @@ function Results({
   search: string;
   docs: FileItem[] | undefined;
   meetings: FileItem[] | undefined;
-  threads: Thread[] | undefined;
+  chats: ConversationSummary[] | undefined;
+  found: SearchResults | undefined;
   loading: boolean;
   go: (href: string) => void;
   ask: (question: string) => void;
@@ -264,20 +301,26 @@ function Results({
   const highlightRef = useRef<HTMLDivElement>(null);
   const active = useActiveTab();
   const { resolvedTheme, theme, setTheme } = useTheme();
-  const searching = search.trim().length > 0;
+  const q = search.trim();
+  const searching = q.length > 0;
+  /** Commands and sections are matched here; files and passages come ranked from the server. */
+  const shows = (...words: string[]) => !searching || matchWords('', q, words) > 0;
 
   useSlidingHighlight(listRef, highlightRef);
-
-  // Empty: a few recent items. Searching: everything, for the filter to narrow.
-  const recentDocs = searching ? docs : docs?.slice(0, 3);
-  const recentMeetings = searching ? meetings : meetings?.slice(0, 2);
-  const recentThreads = searching ? threads : threads?.slice(0, 2);
 
   // Runs a command that opens something else (a picker, a sheet) once the palette has gone.
   const thenClose = (run: () => void) => {
     run();
     onClose();
   };
+
+  const fileHref = (f: { id: string; kind: string }) =>
+    f.kind === 'audio' ? `/meetings/${f.id}` : `/docs/${f.id}`;
+  const anything =
+    !searching ||
+    Boolean(
+      found?.files.length || found?.passages.length || found?.moments.length || chats?.length,
+    );
 
   return (
     <Command.List
@@ -289,14 +332,16 @@ function Results({
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 rounded-[10px] bg-fill opacity-0"
       />
-      {loading && <Command.Loading label="Loading your files">{null}</Command.Loading>}
-      <Command.Empty className="px-3 pt-3 pb-1 text-subhead text-muted-foreground">
-        No titles match “{search.trim()}”. Ask searches inside files (⌘↵).
-      </Command.Empty>
+      {loading && <Command.Loading label="Searching">{null}</Command.Loading>}
+      {searching && !loading && !anything && (
+        <p className="px-3 pt-3 pb-1 text-subhead text-muted-foreground">
+          Nothing in your library matches “{q}”. Ask Sotto instead (⌘↵).
+        </p>
+      )}
 
-      {!!recentDocs?.length && (
-        <Command.Group heading={searching ? 'Documents' : 'Recent'}>
-          {recentDocs.map((doc) => {
+      {!searching && (!!docs?.length || !!meetings?.length || !!chats?.length) && (
+        <Command.Group heading="Recent">
+          {docs?.slice(0, 3).map((doc) => {
             const { key, label } = documentKind(doc);
             const kind = DOC_KINDS[key];
             const owner = doc.owner?.name ?? 'Someone';
@@ -304,7 +349,6 @@ function Results({
               <Item
                 key={doc.id}
                 value={`doc ${doc.id}`}
-                keywords={[doc.title, label, owner, ...doc.tags]}
                 icon={<IconTile icon={kind.icon} tint={kind.tint} square />}
                 title={doc.title}
                 subtitle={`${label}, ${owner}, ${relativeTime(new Date(doc.updatedAt).getTime())}`}
@@ -312,45 +356,10 @@ function Results({
               />
             );
           })}
-          {!searching &&
-            recentMeetings?.map((m) => (
-              <Item
-                key={m.id}
-                value={`meeting ${m.id}`}
-                keywords={[m.title]}
-                icon={<IconTile icon={AudioLines} tint={MEETING_TINT} />}
-                title={m.title}
-                subtitle={[
-                  dayAndTime(new Date(m.createdAt).getTime()),
-                  m.durationMs ? duration(m.durationMs / 1000) : null,
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
-                onSelect={() => go(`/meetings/${m.id}`)}
-              />
-            ))}
-          {!searching &&
-            recentThreads?.map((t) => (
-              <Item
-                key={t.id}
-                value={`chat ${t.id}`}
-                keywords={[t.title]}
-                icon={<IconTile icon={MessageCircle} tint={THREAD_TINT} />}
-                title={t.title}
-                subtitle={`Chat, ${relativeTime(t.updatedAt)}`}
-                onSelect={() => go(`/ask/${t.id}`)}
-              />
-            ))}
-        </Command.Group>
-      )}
-
-      {searching && !!recentMeetings?.length && (
-        <Command.Group heading="Meetings">
-          {recentMeetings.map((m) => (
+          {meetings?.slice(0, 2).map((m) => (
             <Item
               key={m.id}
               value={`meeting ${m.id}`}
-              keywords={[m.title, m.owner?.name ?? '', ...m.tags]}
               icon={<IconTile icon={AudioLines} tint={MEETING_TINT} />}
               title={m.title}
               subtitle={[
@@ -362,122 +371,197 @@ function Results({
               onSelect={() => go(`/meetings/${m.id}`)}
             />
           ))}
-        </Command.Group>
-      )}
-
-      {searching && !!recentThreads?.length && (
-        <Command.Group heading="Chats">
-          {recentThreads.map((t) => (
+          {chats?.slice(0, 2).map((c) => (
             <Item
-              key={t.id}
-              value={`chat ${t.id}`}
-              keywords={[t.title]}
+              key={c.id}
+              value={`chat ${c.id}`}
               icon={<IconTile icon={MessageCircle} tint={THREAD_TINT} />}
-              title={t.title}
-              subtitle={`Chat, ${relativeTime(t.updatedAt)}`}
-              onSelect={() => go(`/ask/${t.id}`)}
+              title={c.title}
+              subtitle={`Chat, ${relativeTime(new Date(c.updatedAt).getTime())}`}
+              onSelect={() => go(`/ask/${c.id}`)}
             />
           ))}
         </Command.Group>
       )}
 
-      <Command.Group heading="Go to">
-        {TAB_ITEMS.map(({ tab, label, icon }) => (
-          <Item
-            key={tab}
-            value={`go ${tab}`}
-            keywords={[label, 'go to', 'open']}
-            icon={<IconTile icon={icon} plain />}
-            title={label}
-            hint={<GoHint tab={tab} />}
-            onSelect={() => {
-              onClose();
-              selectTab(tab, active);
-            }}
-          />
-        ))}
-      </Command.Group>
+      {searching && !!found?.files.length && (
+        <Command.Group heading="Files">
+          {found.files.map(({ file, match }) => {
+            const audio = file.kind === 'audio';
+            const kind = audio ? null : DOC_KINDS[documentKind(file).key];
+            return (
+              <Item
+                key={file.id}
+                value={`file ${file.id}`}
+                icon={
+                  audio ? (
+                    <IconTile icon={AudioLines} tint={MEETING_TINT} />
+                  ) : (
+                    <IconTile icon={kind!.icon} tint={kind!.tint} square />
+                  )
+                }
+                title={file.title}
+                subtitle={[
+                  file.collection?.name ?? null,
+                  match === 'content' ? 'Mentions it' : null,
+                  relativeTime(new Date(file.updatedAt).getTime()),
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+                onSelect={() => go(fileHref(file))}
+              />
+            );
+          })}
+        </Command.Group>
+      )}
+
+      {searching && !!found?.passages.length && (
+        <Command.Group heading="Passages">
+          {found.passages.map((p) => {
+            const params = new URLSearchParams();
+            if (p.page !== null) params.set('page', String(p.page));
+            params.set('hl', p.snippet.text.replace(/^…/, '').slice(0, 120));
+            return (
+              <Item
+                key={p.chunkId}
+                value={`passage ${p.chunkId}`}
+                icon={<IconTile icon={FileText} plain />}
+                title={`${p.file.title}${p.page !== null ? `, page ${p.page}` : ''}`}
+                subtitle={<Highlighted snippet={p.snippet} />}
+                onSelect={() => go(`/docs/${p.file.id}?${params}`)}
+              />
+            );
+          })}
+        </Command.Group>
+      )}
+
+      {searching && !!found?.moments.length && (
+        <Command.Group heading="Meeting moments">
+          {found.moments.map((m) => (
+            <Item
+              key={m.chunkId}
+              value={`moment ${m.chunkId}`}
+              icon={<IconTile icon={AudioLines} plain />}
+              title={`${m.file.title}, ${timestamp(m.startMs / 1000)}`}
+              subtitle={<Highlighted snippet={m.snippet} />}
+              onSelect={() => go(`/meetings/${m.file.id}?t=${Math.floor(m.startMs / 1000)}&play=1`)}
+            />
+          ))}
+        </Command.Group>
+      )}
+
+      {searching && !!chats?.length && (
+        <Command.Group heading="Chats">
+          {chats.slice(0, 4).map((c) => (
+            <Item
+              key={c.id}
+              value={`chat ${c.id}`}
+              icon={<IconTile icon={MessageCircle} tint={THREAD_TINT} />}
+              title={c.title}
+              subtitle={c.preview ?? `Chat, ${relativeTime(new Date(c.updatedAt).getTime())}`}
+              onSelect={() => go(`/ask/${c.id}`)}
+            />
+          ))}
+        </Command.Group>
+      )}
+
+      {TAB_ITEMS.some(({ label }) => shows(label, 'go to', 'open')) && (
+        <Command.Group heading="Go to">
+          {TAB_ITEMS.filter(({ label }) => shows(label, 'go to', 'open')).map(
+            ({ tab, label, icon }) => (
+              <Item
+                key={tab}
+                value={`go ${tab}`}
+                icon={<IconTile icon={icon} plain />}
+                title={label}
+                hint={<GoHint tab={tab} />}
+                onSelect={() => {
+                  onClose();
+                  selectTab(tab, active);
+                }}
+              />
+            ),
+          )}
+        </Command.Group>
+      )}
 
       <Command.Group heading="Commands">
-        <Item
-          value="upload files"
-          keywords={['upload', 'add', 'import', 'pdf', 'document', 'word']}
-          icon={<IconTile icon={Upload} plain />}
-          title="Upload files"
-          // The picker opens inside this keypress or click; browsers allow nothing later.
-          onSelect={() => thenClose(() => emitShellEvent('pick-files', 'files'))}
-        />
-        <Item
-          value="import audio"
-          keywords={['audio', 'voice memo', 'recording', 'mp3', 'm4a']}
-          icon={<IconTile icon={FileAudio} plain />}
-          title="Import audio"
-          onSelect={() => thenClose(() => emitShellEvent('pick-files', 'audio'))}
-        />
-        <Item
-          value="record a meeting"
-          keywords={['record', 'meeting', 'microphone']}
-          icon={<IconTile icon={Mic} plain />}
-          title="Record a meeting"
-          onSelect={() =>
-            thenClose(() =>
-              toastPreview('Recording arrives in Phase 4', 'Nothing is recorded yet.'),
-            )
-          }
-        />
-        <Item
-          value="new note"
-          keywords={['note', 'write', 'create']}
-          icon={<IconTile icon={PenLine} plain />}
-          title="New note"
-          onSelect={() =>
-            thenClose(() => toastPreview('Notes arrive in Phase 4', 'Nothing is saved yet.'))
-          }
-        />
-        {resolvedTheme === 'dark' ? (
+        {shows('upload files', 'upload', 'add', 'import', 'pdf', 'document', 'word') && (
           <Item
-            value="light appearance"
-            keywords={['theme', 'appearance', 'light mode']}
-            icon={<IconTile icon={Sun} plain />}
-            title="Switch to light appearance"
-            onSelect={() => thenClose(() => setThemeSmoothly('light', setTheme))}
-          />
-        ) : (
-          <Item
-            value="dark appearance"
-            keywords={['theme', 'appearance', 'dark mode']}
-            icon={<IconTile icon={Moon} plain />}
-            title="Switch to dark appearance"
-            onSelect={() => thenClose(() => setThemeSmoothly('dark', setTheme))}
+            value="upload files"
+            icon={<IconTile icon={Upload} plain />}
+            title="Upload files"
+            // The picker opens inside this keypress or click; browsers allow nothing later.
+            onSelect={() => thenClose(() => emitShellEvent('pick-files', 'files'))}
           />
         )}
-        {theme !== 'system' && (
+        {shows('import audio', 'audio', 'voice memo', 'recording', 'mp3', 'm4a') && (
+          <Item
+            value="import audio"
+            icon={<IconTile icon={FileAudio} plain />}
+            title="Import audio"
+            onSelect={() => thenClose(() => emitShellEvent('pick-files', 'audio'))}
+          />
+        )}
+        {shows('record a meeting', 'record', 'meeting', 'microphone') && (
+          <Item
+            value="record a meeting"
+            icon={<IconTile icon={Mic} plain />}
+            title="Record a meeting"
+            onSelect={() => thenClose(() => emitShellEvent('open-recorder'))}
+          />
+        )}
+        {shows('new note', 'note', 'write', 'create') && (
+          <Item
+            value="new note"
+            icon={<IconTile icon={PenLine} plain />}
+            title="New note"
+            onSelect={() => thenClose(() => emitShellEvent('open-note', { fileId: null }))}
+          />
+        )}
+        {resolvedTheme === 'dark'
+          ? shows('switch to light appearance', 'theme', 'light mode') && (
+              <Item
+                value="light appearance"
+                icon={<IconTile icon={Sun} plain />}
+                title="Switch to light appearance"
+                onSelect={() => thenClose(() => setThemeSmoothly('light', setTheme))}
+              />
+            )
+          : shows('switch to dark appearance', 'theme', 'dark mode') && (
+              <Item
+                value="dark appearance"
+                icon={<IconTile icon={Moon} plain />}
+                title="Switch to dark appearance"
+                onSelect={() => thenClose(() => setThemeSmoothly('dark', setTheme))}
+              />
+            )}
+        {theme !== 'system' && shows('match the system appearance', 'theme', 'automatic') && (
           <Item
             value="system appearance"
-            keywords={['theme', 'appearance', 'automatic', 'system']}
             icon={<IconTile icon={SunMoon} plain />}
             title="Match the system appearance"
             onSelect={() => thenClose(() => setThemeSmoothly('system', setTheme))}
           />
         )}
-        <Item
-          value="keyboard shortcuts"
-          keywords={['keys', 'shortcuts', 'help', 'cheat sheet']}
-          icon={<IconTile icon={Keyboard} plain />}
-          title="Keyboard shortcuts"
-          hint={<Kbd>?</Kbd>}
-          onSelect={() => thenClose(() => emitShellEvent('open-shortcuts'))}
-        />
+        {shows('keyboard shortcuts', 'keys', 'help', 'cheat sheet') && (
+          <Item
+            value="keyboard shortcuts"
+            icon={<IconTile icon={Keyboard} plain />}
+            title="Keyboard shortcuts"
+            hint={<Kbd>?</Kbd>}
+            onSelect={() => thenClose(() => emitShellEvent('open-shortcuts'))}
+          />
+        )}
       </Command.Group>
 
       {searching && (
-        <Command.Group heading="Ask Sotto" forceMount>
+        <Command.Group heading="Ask Sotto">
           <Item
             value="ask sotto"
-            forceMount
             icon={<IconTile icon={Sparkles} tint="bg-primary text-primary-foreground" />}
-            title={`Ask “${search.trim()}”`}
-            subtitle="A sample answer with sources, until Phase 5"
+            title={`Ask “${q}”`}
+            subtitle="An answer from your library, with its sources"
             hint={
               <>
                 <Kbd>
@@ -492,6 +576,23 @@ function Results({
       )}
     </Command.List>
   );
+}
+
+/** A snippet with the words that matched in bold, the rest muted. */
+function Highlighted({ snippet }: { snippet: Snippet }) {
+  const parts: React.ReactNode[] = [];
+  let at = 0;
+  snippet.highlights.forEach(([start = 0, end = 0], i) => {
+    if (start > at) parts.push(snippet.text.slice(at, start));
+    parts.push(
+      <mark key={i} className="bg-transparent font-semibold text-foreground">
+        {snippet.text.slice(start, end)}
+      </mark>,
+    );
+    at = end;
+  });
+  parts.push(snippet.text.slice(at));
+  return <>{parts}</>;
 }
 
 function GoHint({ tab }: { tab: Tab }) {
@@ -518,7 +619,7 @@ function Item({
   keywords?: string[];
   icon: React.ReactNode;
   title: string;
-  subtitle?: string;
+  subtitle?: React.ReactNode;
   hint?: React.ReactNode;
   forceMount?: boolean;
   onSelect: () => void;
@@ -535,7 +636,7 @@ function Item({
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[16px] leading-[21px]">{title}</span>
         {subtitle && (
-          <span className="block truncate text-[13px] leading-[18px] text-muted-foreground">
+          <span className="line-clamp-2 text-[13px] leading-[18px] text-muted-foreground">
             {subtitle}
           </span>
         )}
@@ -584,7 +685,7 @@ function Footer() {
   return (
     <div className="flex shrink-0 items-center gap-4 px-4 py-2.5 text-footnote text-muted-foreground shadow-[inset_0_0.5px_0_var(--separator)]">
       <span className="min-w-0 flex-1 truncate">
-        Searching titles of the sample content. Full search arrives in Phase 5.
+        Searches titles, documents and meetings, only what you can open.
       </span>
       <span className="flex shrink-0 items-center gap-1.5 max-sm:hidden">
         <Kbd>↵</Kbd> Open

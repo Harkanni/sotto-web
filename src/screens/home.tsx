@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Play, RotateCw, X } from 'lucide-react';
+import { Check, Play, RotateCw, Search, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Screen } from '@/components/shell/screen';
@@ -26,7 +26,7 @@ import { NavLink } from '@/lib/nav/link';
 import { pushPath } from '@/lib/nav/routes';
 import { navigate } from '@/lib/nav/store';
 import { useActiveWorkspace } from '@/lib/api/hooks';
-import { useThreads } from '@/lib/sample/queries';
+import { useConversations } from '@/lib/api/ask';
 import { NOTICE_STORAGE_KEY } from '@/lib/prefs/boot-script';
 import { readStored, writeStored } from '@/lib/prefs/stored';
 import { accessAtLeast } from '@/lib/roles';
@@ -34,7 +34,8 @@ import { useUploads } from '@/lib/uploads/store';
 import { cn } from '@/lib/utils';
 import { emitShellEvent } from '@/components/shell/shell-events';
 import { FileRow } from './parts/file-rows';
-import { RowsSkeleton, ThreadRow } from './parts/rows';
+import { ChatRow, useDeleteChat } from './ask';
+import { RowsSkeleton } from './parts/rows';
 
 function Section({
   title,
@@ -485,7 +486,8 @@ function RecentFiles() {
 
 function RecentChats() {
   const { entry } = useLayer();
-  const query = useThreads();
+  const query = useConversations();
+  const onDelete = useDeleteChat(entry.key);
   return (
     <AsyncWidget
       query={query}
@@ -502,10 +504,15 @@ function RecentChats() {
       }}
       skeleton={<RowsSkeleton rows={3} round />}
     >
-      {(threads) => (
+      {(chats) => (
         <ul className="overflow-hidden rounded-card bg-card">
-          {threads.slice(0, 3).map((t) => (
-            <ThreadRow key={t.id} thread={t} href={pushPath(entry.key, 'thread', t.id)} />
+          {chats.slice(0, 3).map((c) => (
+            <ChatRow
+              key={c.id}
+              chat={c}
+              href={pushPath(entry.key, 'thread', c.id)}
+              onDelete={onDelete}
+            />
           ))}
         </ul>
       )}
@@ -597,7 +604,31 @@ function ThisWeek() {
 export function HomeScreen() {
   // Brief §9 order. Wide windows flow the same widgets into two columns, keeping that order.
   return (
-    <Screen title="Home">
+    <Screen
+      title="Home"
+      header={
+        // Phones search from here (brief §9); wider windows have the sidebar's field and ⌘K.
+        <div className="px-[var(--gutter)] pb-3 md:hidden">
+          <label className="relative flex h-9 items-center gap-1.5 rounded-input bg-fill pl-2 text-muted-foreground before:absolute before:inset-x-0 before:-inset-y-1 before:content-['']">
+            <Search aria-hidden className="size-[18px] shrink-0" strokeWidth={2} />
+            {/* Focus moves straight into search, which has its own field and results. */}
+            <input
+              type="search"
+              aria-label="Search memos, meetings and chats"
+              aria-haspopup="dialog"
+              placeholder="Search memos, meetings and chats"
+              value=""
+              onChange={() => undefined}
+              onFocus={(e) => {
+                e.currentTarget.blur();
+                emitShellEvent('open-palette');
+              }}
+              className="h-full min-w-0 flex-1 bg-transparent text-[17px] leading-[22px] tracking-[var(--tracking-body)] text-foreground outline-none placeholder:text-muted-foreground"
+            />
+          </label>
+        </div>
+      }
+    >
       <div className="flex flex-col gap-7 pt-2 lg:mx-auto lg:block lg:max-w-[1180px] lg:columns-2 lg:gap-x-2 lg:px-2 [&>*]:break-inside-avoid lg:[&>*]:mb-7">
         <SampleNotice />
         <Section title="Continue listening">
