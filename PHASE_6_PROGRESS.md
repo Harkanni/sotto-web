@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M7 (web: AI settings).
+- **Current milestone:** M8 (web: Switch model, Switch to Private).
 
 ## Requirements
 
@@ -116,8 +116,8 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
 | M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | done        |
 | M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | done        |
 | M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | done        |
-| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | in progress |
-| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | pending     |
+| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | done        |
+| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | in progress |
 | M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | pending     |
 | M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | pending     |
 
@@ -230,9 +230,33 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
   `plan`/`plan_object` and the subscription list's fields were taken from Paystack's docs and
   SDK typings, not exercised against Paystack itself; the stand-in follows them.
 
+- **M7 (sotto-web `34da304` → this commit; sotto-api `fix(ai): badge words`):** API client
+  synced; `src/lib/api/ai.ts` (hooks; optimistic policy and model switches with rollback;
+  `MODE_COPY`); `src/components/ui/menu-picker.tsx` (the ⇅ pattern, grouped choices with a
+  detail line); `src/screens/ai-settings.tsx` replacing the `ai` placeholder: Where questions
+  are answered (a switch per mode, short line, why unavailable; the last mode stays on with a
+  toast), Default (model picker grouped by mode; "Passages only" with no model), Confidential
+  files (per outside mode; Restricted Private-only stated), Your API keys (rows with provider,
+  ••••last4, Working/problem; Add a key sheet at the `large` detent: provider segments, name,
+  server address for Other, key, tested before saving, errors inline; detail sheet: models,
+  last checked, address, Test connection, Replace key, Remove key with ConfirmAction), Models
+  people can choose (switches; none for the default or a mode that's off). Non-admins get a
+  read-only "Where your questions go". Profile's AI settings row shows the default mode. API:
+  unnamed platform models read "Sotto-hosted model" (BRIEF §3), Managed ones "Sotto’s hosted
+  model".
+- **Rig** (scratchpad, not committed): Postgres 16 + pgvector, Redis, RabbitMQ (`apt-get install
+rabbitmq-server`, user sotto/sotto), moto S3 on :5100, an SMTP sink writing `mail.log` on
+  :1025, an OpenAI-style stand-in model on :5080 (`llm.py`), api + worker from `dist`, web from
+  `next build`; `rig.mjs` signs in through the real magic link and screenshots.
+- **Rendered and checked:** iPhone dark + light, desktop light: modes, last-mode toast, BYOK on,
+  Add key sheet, key error inline, key saved toast, default-model menu, key detail sheet.
+  Fixed from what the screenshots showed: truncated mode lines, disabled switches that read as
+  broken in dark mode, the server's field prefix in an error, an awkward sentence, truncated
+  key subtitles, the adapter id as a model's label.
+
 ## Work in progress
 
-- M7: web AI settings.
+- M8: Switch model and Switch to Private in Ask.
 
 ## Remaining work
 
@@ -240,16 +264,15 @@ M1–M10 above.
 
 ## Next steps
 
-1. M7 in sotto-web on `feat/p6-ai-modes`: restore deps (`scripts/agent-deps.sh`), regenerate
-   the API client from `../sotto-api/openapi.json` (see `package.json` scripts), add hooks in
-   `src/lib/api` (AI settings, keys, models, catalog, usage, billing), then replace
-   `LaterScreen` for routes `ai` (and later `usage`) in `src/screens/index.tsx` with
-   `src/screens/ai-settings.tsx`: modes as a grouped list with plain-language privacy lines
-   and availability, default model (menu picker), Confidential rule (switches per outside
-   mode), keys (rows with provider, last 4, verified; Add key sheet with provider picker, key
-   field, base URL for openai-compatible, Test connection inline on Save), the model catalog
-   (switch per model). Viewers/members: the Profile row hides for non-admins or shows a
-   read-only view. Profile row detail = the effective default mode.
+1. M8 in sotto-web: `src/components/ask/actions.tsx` Switch model (today labelled "arrives in
+   Phase 6") → a menu of `useAiModels()` models (the MenuPicker menu style) that regenerates the
+   answer with `{ model }`; `src/lib/api/ask.ts` send/regenerate pass `model`; the composer may
+   offer the model for the next question (check the Phase 5 composer first; keep it quiet).
+   Hidden-sources notice: "Switch to Private to include them" as a button when a Private model
+   is usable (regenerate with that model). Answer errors `key_rejected`, `provider_limited`,
+   402 `QUOTA_EXCEEDED`/`PLAN_REQUIRED` shown in plain words with what to do (link to AI
+   settings / Usage and billing). Route badge already shows BYOK/Managed labels from the API.
+   Then the onboarding AI mode step (`src/components/auth/welcome.tsx`).
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
