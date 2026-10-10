@@ -408,8 +408,8 @@ export function HiddenNotice({
         <span>
           {parts.join(' and ')} {total === 1 ? 'source' : 'sources'} hidden from this model.{' '}
           {privateModel
-            ? 'A Private model can read them.'
-            : 'Only Private models can read them, and none is set up here.'}
+            ? `A Private model can read ${total === 1 ? 'it' : 'them'}.`
+            : `Only Private models can read ${total === 1 ? 'it' : 'them'}, and none is set up here.`}
         </span>
       </p>
       {privateModel && onAnswerPrivately && (
