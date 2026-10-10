@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M1 (schema, migration, key vault).
+- **Current milestone:** M2 (provider adapters and catalog).
 
 ## Requirements
 
@@ -110,8 +110,8 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
 | #   | Milestone                                                                                                                                                       | Repo           | State       |
 | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ----------- |
 | M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                              | all            | done        |
-| M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface)   | sotto-api      | in progress |
-| M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection    | sotto-api      | pending     |
+| M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface)   | sotto-api      | done        |
+| M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection    | sotto-api      | in progress |
 | M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                          | sotto-api      | pending     |
 | M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route        | sotto-api      | pending     |
 | M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                                 | sotto-api      | pending     |
@@ -133,9 +133,25 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
   billing group), and on the web the Profile rows "AI settings" and "Usage and billing" (routes
   `ai` and `usage`, both `LaterScreen`) and the Switch model action labelled for Phase 6.
 
+- **M1 (sotto-api `417c6e2`):** migration `20261010100000_ai_modes_and_billing`:
+  `AiProviderConfig` (BYOK; `encryptedKey`, `wrappedDek`, `keyWrapper`, `keyLast4`, `baseUrl`,
+  `models`, `verifiedAt`, `lastError`), `WorkspaceAiPolicy` (allowed/default modes, default
+  model, confidential modes, disabled models; no row = Private only), `UsageEvent`
+  (`UsageKind`), `Subscription` (`Plan`, `SubscriptionStatus`; no row = Free), `BillingEvent`
+  (webhook idempotency, not a tenant table). CHECKs: a key is stored whole or not at all; usage
+  never zero (only storage negative); default and confidential modes must be allowed. Four new
+  tenant models in `TENANT_MODELS`. `packages/ai/src/vault.ts`: `KeyVault` + `LocalKeyWrapper`
+  (AES-256-GCM, fresh DEK and IV per key, workspace id as AAD, `rewrap` for rotation; refuses to
+  store keys with no master key). Settings `AI_KEYS_MASTER`, `AI_KEYS_MASTER_PREVIOUS`.
+- **Deviation from PLAN (recorded):** no global `AiModel` table. The catalog is computed from
+  the installed adapters, the platform config (Private and Managed models) and the workspace's
+  BYOK keys; a workspace's on/off choices live in `WorkspaceAiPolicy.disabledModels`. A global
+  table would need a platform-operator UI that doesn't exist, and toggling it from one
+  workspace would change every tenant.
+
 ## Work in progress
 
-- M1: schema and migration, then `packages/ai` key vault.
+- M2: `packages/ai` adapters and catalog.
 
 ## Remaining work
 
@@ -143,9 +159,15 @@ M1–M10 above.
 
 ## Next steps
 
-1. M1 in sotto-api on `feat/p6-ai-modes`: restore deps (`scripts/agent-deps.sh`), add the five
-   models to `packages/db/prisma/schema.prisma` with a migration `2026101010…_ai_modes_and_billing`,
-   then the vault (`packages/ai/src/vault.ts`) with unit tests.
+1. M2 in sotto-api (`packages/ai`): `adapters/anthropic.ts` (Messages API over fetch, SSE
+   `content_block_delta` → text, `message_delta` usage, `x-api-key` + `anthropic-version`);
+   `catalog.ts` (adapter ids anthropic/openai/google/openai-compatible with base URLs, data
+   location THIRD_PARTY, suggested models; `chatProviderForKey(provider, key, baseUrl)`);
+   `testConnection()` (a 1-token request, errors mapped to codes: invalid_key, no_access,
+   unreachable, rate_limited); unit tests against a local stand-in server.
+2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
+   postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
+   `sotto_shadow` and `sotto_test`.
 
 ## Decisions
 
@@ -184,3 +206,5 @@ Identified, not invented around:
 
 | When | Check | Result |
 | ---- | ----- | ------ |
+| `417c6e2` (M1) | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5) | Pass |
+| `417c6e2` (M1) | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both | Pass |
