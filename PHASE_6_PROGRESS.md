@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M5 (metering, plans and quotas).
+- **Current milestone:** M6 (Paystack billing; embedding re-index endpoints).
 
 ## Requirements
 
@@ -114,8 +114,8 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
 | M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection | sotto-api | done        |
 | M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                        | sotto-api | done        |
 | M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | done        |
-| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | in progress |
-| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | pending     |
+| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | done        |
+| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | in progress |
 | M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | pending     |
 | M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | pending     |
 | M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | pending     |
@@ -189,9 +189,25 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
   question calls no model; a disallowed model is refused before any call; a refused key fails
   with no fallback.
 
+- **M5 (sotto-api `c79e874`):** `packages/contracts/src/plans.ts` (Free, Pro, Business,
+  Enterprise; placeholder NGN prices in kobo, `PRICES_ARE_PLACEHOLDERS`; limits for private and
+  Managed tokens, transcription minutes, storage; modes per plan: Managed from Pro).
+  `apps/api/src/billing/`: `UsageService` (effective plan with 3 days' grace after a period
+  ends; `record` (tokens per answer by route and model ref, never content); `used` per calendar
+  month (UTC); storage read live from the files, trash included; `checkAsk` (402
+  `QUOTA_EXCEEDED`, `PLAN_REQUIRED`; BYOK never limited), `checkUpload` (402 `STORAGE_FULL`,
+  transcription minutes for audio; "Documents still upload"); `daily` series), `GET /usage?range`
+  (owner), `BillingModule` (global). The plan gates Managed in the catalog (a mode counts as
+  allowed only if the plan includes it) and in `PUT /ai/policy`. The worker records
+  transcription seconds once per file (`usage_events.subject_id`, unique per kind; added to this
+  phase's unmerged migration). `usage.spec.ts` (8 tests).
+- **Decision:** Business features in the plan config (admin policies, audit export) are listed,
+  not enforced: gating the existing audit export would change approved behaviour, so that is
+  the owner's call. Only Managed (Pro+) and the quotas are enforced.
+
 ## Work in progress
 
-- M5: metering, plans and quotas.
+- M6: Paystack billing.
 
 ## Remaining work
 
@@ -199,17 +215,21 @@ M1–M10 above.
 
 ## Next steps
 
-1. M5 in sotto-api: `packages/contracts/src/plans.ts` (Free, Pro, Business, Enterprise:
-   placeholder monthly NGN amounts in kobo and USD for display, labelled placeholders; limits:
-   Private and Managed AI tokens per month, transcription minutes, storage bytes, members; which
-   modes each plan allows: Managed needs Pro+). `apps/api/src/billing/usage.service.ts`:
-   `record(kind, quantity, route, model)` (fire-and-forget, never content); `periodUsage`;
-   `checkQuota(workspaceId, kind)` → 402 `QUOTA_EXCEEDED` with a friendly message naming the
-   plan to upgrade to. Record: Ask tokens (after `done`, by route; BYOK is recorded but never
-   counted against a quota: the workspace pays its provider), transcription seconds (the worker,
-   on `transcribe.completed`), storage (+ on upload complete, − on permanent delete). Quota check
-   before Ask (Private/Managed), before upload. `GET /usage?range=7d|30d|90d` (Owner): daily
-   series per kind + the period totals against the plan's limits. Integration tests.
+1. M6 in sotto-api: `apps/api/src/billing/payments.ts` — `PaymentProvider` interface
+   (`checkout(workspace, plan, interval, email, callbackUrl)` → redirect URL; `manageUrl(sub)`;
+   `verifyWebhook(rawBody, headers)` → typed event or null; `cancel`), `PaystackProvider`
+   (fetch to `https://api.paystack.co`: `POST /transaction/initialize` with `plan` code and
+   `metadata.workspaceId`; `GET /subscription/:code/manage/link`; webhook HMAC-SHA512 of the raw
+   body with the secret key in `x-paystack-signature`, compared in constant time; events
+   `subscription.create`, `charge.success`, `invoice.payment_failed`, `subscription.disable`,
+   `subscription.not_renew`), and `TestPaymentProvider` (labelled stand-in when no
+   `PAYSTACK_SECRET_KEY`: checkout returns the app's own confirm URL and activates at once).
+   Plan codes from `PAYSTACK_PLAN_PRO_MONTHLY` etc. Routes: `GET /billing` (owner: plan,
+   subscription, plans, provider + test-mode flag), `POST /billing/checkout`, `POST
+/billing/portal`, `POST /webhooks/paystack` (no session, raw body, idempotent via
+   `BillingEvent`), audit `billing.*`. Then embedding re-index (`POST /ai/embeddings/reindex`,
+   `GET /ai/embeddings/indexes`) if time allows, else carry to M10. Check how main.ts keeps a
+   raw body for signature checks (Nest `rawBody: true`).
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
