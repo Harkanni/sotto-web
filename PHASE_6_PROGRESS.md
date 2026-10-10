@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M6 (Paystack billing; embedding re-index endpoints).
+- **Current milestone:** M7 (web: AI settings).
 
 ## Requirements
 
@@ -115,8 +115,8 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
 | M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                        | sotto-api | done        |
 | M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | done        |
 | M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | done        |
-| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | in progress |
-| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | pending     |
+| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | done        |
+| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | in progress |
 | M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | pending     |
 | M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | pending     |
 | M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | pending     |
@@ -205,9 +205,34 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
   not enforced: gating the existing audit export would change approved behaviour, so that is
   the owner's call. Only Managed (Pro+) and the quotas are enforced.
 
+- **M6 (sotto-api `ff23bdb`, `f0251a5`):** `apps/api/src/billing/payments.ts`:
+  `PaymentProvider`; `PaystackProvider` (`POST /transaction/initialize` with the plan code, a
+  `sotto_…` reference and `metadata.workspaceId/plan/interval`; `confirm` = `GET
+/transaction/verify/:ref` then `GET /subscription?customer&plan` for the subscription code;
+  `GET /subscription/:code/manage/link`; webhook HMAC-SHA512 over the raw body, constant-time;
+  delivery id = sha256 of the body); `TestPaymentProvider` (labelled stand-in: checkout
+  returns to the app with a `test.<workspace>.<plan>.<interval>.<nonce>` reference);
+  `paymentProviderFrom` (live keys refused unless `BILLING_ALLOW_LIVE`). `billing.service.ts`
+  (checkout refuses a second Paystack subscription: "cancel in Manage subscription first";
+  confirm verifies with the provider and must match the workspace; portal = Paystack's manage
+  page, or for the stand-in ends the plan at once; webhooks idempotent via `BillingEvent`,
+  forgotten again if handling fails so a retry works). Routes `GET /billing`, `POST
+/billing/checkout`, `/billing/confirm`, `/billing/portal` (owner), `POST /webhooks/paystack`
+  (public; server-to-server requests carry no browser headers, so the CSRF layer lets them
+  through). `rawBody: true` in `APP_OPTIONS`. `AuditService.recordSystem` for webhook entries;
+  `billing.plan_changed`, `billing.payment_failed`, `billing.cancelled`. Checkout returns to
+  `/profile/usage?checkout=done&reference=…` (the web confirms from there). Tests:
+  `billing.spec.ts` 13 (a Paystack stand-in), `payments.spec.ts` 3.
+- **Carried to M10:** the embedding re-index endpoints (`POST /ai/embeddings/reindex`, `GET
+/ai/embeddings/indexes`). They don't block the "done when"; switching embedding models
+  already works by config with a new index (Phase 4), and the web screens come first.
+- **To confirm with a real Paystack test key** (owner): the shape of `transaction/verify`'s
+  `plan`/`plan_object` and the subscription list's fields were taken from Paystack's docs and
+  SDK typings, not exercised against Paystack itself; the stand-in follows them.
+
 ## Work in progress
 
-- M6: Paystack billing.
+- M7: web AI settings.
 
 ## Remaining work
 
@@ -215,21 +240,16 @@ M1–M10 above.
 
 ## Next steps
 
-1. M6 in sotto-api: `apps/api/src/billing/payments.ts` — `PaymentProvider` interface
-   (`checkout(workspace, plan, interval, email, callbackUrl)` → redirect URL; `manageUrl(sub)`;
-   `verifyWebhook(rawBody, headers)` → typed event or null; `cancel`), `PaystackProvider`
-   (fetch to `https://api.paystack.co`: `POST /transaction/initialize` with `plan` code and
-   `metadata.workspaceId`; `GET /subscription/:code/manage/link`; webhook HMAC-SHA512 of the raw
-   body with the secret key in `x-paystack-signature`, compared in constant time; events
-   `subscription.create`, `charge.success`, `invoice.payment_failed`, `subscription.disable`,
-   `subscription.not_renew`), and `TestPaymentProvider` (labelled stand-in when no
-   `PAYSTACK_SECRET_KEY`: checkout returns the app's own confirm URL and activates at once).
-   Plan codes from `PAYSTACK_PLAN_PRO_MONTHLY` etc. Routes: `GET /billing` (owner: plan,
-   subscription, plans, provider + test-mode flag), `POST /billing/checkout`, `POST
-/billing/portal`, `POST /webhooks/paystack` (no session, raw body, idempotent via
-   `BillingEvent`), audit `billing.*`. Then embedding re-index (`POST /ai/embeddings/reindex`,
-   `GET /ai/embeddings/indexes`) if time allows, else carry to M10. Check how main.ts keeps a
-   raw body for signature checks (Nest `rawBody: true`).
+1. M7 in sotto-web on `feat/p6-ai-modes`: restore deps (`scripts/agent-deps.sh`), regenerate
+   the API client from `../sotto-api/openapi.json` (see `package.json` scripts), add hooks in
+   `src/lib/api` (AI settings, keys, models, catalog, usage, billing), then replace
+   `LaterScreen` for routes `ai` (and later `usage`) in `src/screens/index.tsx` with
+   `src/screens/ai-settings.tsx`: modes as a grouped list with plain-language privacy lines
+   and availability, default model (menu picker), Confidential rule (switches per outside
+   mode), keys (rows with provider, last 4, verified; Add key sheet with provider picker, key
+   field, base URL for openai-compatible, Test connection inline on Save), the model catalog
+   (switch per model). Viewers/members: the Profile row hides for non-admins or shows a
+   read-only view. Profile row detail = the effective default mode.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
