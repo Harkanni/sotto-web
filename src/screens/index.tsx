@@ -13,12 +13,12 @@ import { HomeScreen } from './home';
 import { MeetingScreen, MeetingsScreen } from './meetings';
 import { MembersScreen } from './members';
 import { TrashScreen } from './trash';
+import { UsageScreen } from './usage';
 import {
   AboutScreen,
   AppearanceScreen,
   ComponentsScreen,
   DeveloperScreen,
-  LaterScreen,
   NotFoundScreen,
   ProfileScreen,
   WidgetStatesScreen,
@@ -46,7 +46,7 @@ const SCREENS: Record<ScreenKind, React.ComponentType> = {
   workspace: WorkspaceScreen,
   members: MembersScreen,
   ai: AiSettingsScreen,
-  usage: LaterScreen,
+  usage: UsageScreen,
   audit: AuditScreen,
   'not-found': NotFoundScreen,
 };
