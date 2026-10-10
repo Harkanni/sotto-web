@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M9 (web: Usage and billing).
+- **Current milestone:** M10 (onboarding AI step, docs, ADRs, platform config, PRs ready).
 
 ## Requirements
 
@@ -118,8 +118,8 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
 | M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | done        |
 | M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | done        |
 | M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | done        |
-| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | in progress |
-| M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | pending     |
+| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | done        |
+| M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | in progress |
 
 ## Completed work
 
@@ -266,9 +266,27 @@ rabbitmq-server`, user sotto/sotto), moto S3 on :5100, an SMTP sink writing `mai
   update" with the lock badge.
 - **Moved to M10:** the onboarding "choose an AI mode" step (`components/auth/welcome.tsx`).
 
+- **M9 (sotto-web `feat(web): Usage and billing…` and the fixes after it):**
+  `src/lib/api/billing.ts` (usage by range with `keepPreviousData`, billing, checkout →
+  `window.location.assign`, confirm, portal; `formatPrice` from kobo, `formatBytes`,
+  `compactNumber`, `meterLevel`); `src/screens/usage.tsx` for route `usage` (owners; others are
+  told to ask the owner): plan card (status renews / ends / payment failed, a Test badge with
+  the provider label, Manage subscription or End the test plan), This month meters (bars by
+  `translate`, amber at 80%, red and what to do when used up, "Comes with Pro", "no limit"),
+  AI tokens per day (one accent series per the dataviz skill: rounded data-ends, 2px gaps, one
+  gridline, tap/point for the day's split in a fixed slot, a hidden table, a labelled group),
+  plans (monthly/yearly, placeholder prices said so, Current, price buttons). Returning from
+  checkout confirms once and replaces the URL. Stories `Screens/Usage and billing`,
+  `Components/Menu picker`; unit tests `test/billing.test.ts`. Ask stories serve stand-in
+  models; the hidden notice got `surface-elevated` (contrast in dark mode).
+- **Rendered and checked:** iPhone dark (Free → test checkout → "You're on Pro", renews 10
+  November, Managed 2M) and desktop light (chart tooltip). Fixed: the unit said twice, "1.0
+  GB", the gridline label over the latest bar, features cut mid-word, a full-width button on
+  desktop.
+
 ## Work in progress
 
-- M9: Usage and billing.
+- M10.
 
 ## Remaining work
 
@@ -276,15 +294,15 @@ M1–M10 above.
 
 ## Next steps
 
-1. M9 in sotto-web: `src/lib/api/billing.ts` (hooks: usage by range, billing, checkout →
-   `window.location.assign(url)`, confirm, portal), `src/screens/usage.tsx` for route `usage`
-   (owner; others see who to ask): plan card (name, status: renews / ends / payment failed,
-   provider label incl. "Test checkout · no payment provider", Manage subscription), This
-   month meters (Private AI, Managed AI, transcription, storage; bars by `translate`; warning at
-   80%, red at the limit, "Comes with Pro" when 0), daily usage chart (7/30/90 segmented; read
-   the `dataviz` skill first), plans (monthly/yearly, placeholder prices labelled, Current,
-   Upgrade). Returning from checkout (`?checkout=done&reference=`) confirms once and cleans
-   the URL. Then stories + unit tests for the new components.
+1. M10: (a) onboarding "choose an AI mode" step in `src/components/auth/welcome.tsx` (check
+   how its steps work first; Private by default, BYOK/Managed explained in plain words, links
+   to AI settings); (b) `UI_DESIGN_SYSTEM.md`: AI settings, menu picker component, keys
+   sheets, Switch model menu, Answer with Private, usage meters, usage chart, plan card;
+   (c) sotto-platform: ADRs 0023 (BYOK key vault), 0024 (AI gateway: modes, references,
+   Restricted rule, no fallback), 0025 (metering and quotas), 0026 (Paystack verify-on-return
+   - webhooks); Compose/demo env (`AI_KEYS_MASTER` from SSM, Paystack unset → test checkout);
+     STATUS; (d) embedding re-index endpoints if time allows, else listed as remaining;
+     (e) mark the three PRs ready.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
