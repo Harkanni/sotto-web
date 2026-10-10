@@ -51,15 +51,15 @@ const MODE_ICON = {
 
 /** One short line under each mode; the section footer tells the whole story. */
 const MODE_LINE: Record<AiMode, string> = {
-  PRIVATE: 'Runs in Sotto’s cluster. Nothing leaves it.',
-  BYOK: 'Your Anthropic, OpenAI or Google account',
-  MANAGED: 'Sotto’s AI account, included in your plan',
+  PRIVATE: 'Stays inside Sotto',
+  BYOK: 'Your own AI account',
+  MANAGED: 'Included in your plan',
 };
 
 const UNAVAILABLE: Record<string, string> = {
-  no_model: 'No Sotto-hosted model on this server yet',
-  no_master_key: 'This server can’t store keys yet',
-  not_configured: 'Not set up on this server yet',
+  no_model: 'No hosted model here yet',
+  no_master_key: 'Can’t store keys here yet',
+  not_configured: 'Not set up here yet',
 };
 
 const PROVIDER_SEGMENTS: { value: AiProviderId; label: string }[] = [
@@ -68,6 +68,21 @@ const PROVIDER_SEGMENTS: { value: AiProviderId; label: string }[] = [
   { value: 'google', label: 'Gemini' },
   { value: 'openai-compatible', label: 'Other' },
 ];
+
+/** Short provider names for row subtitles. */
+const PROVIDER_SHORT: Record<AiProviderId, string> = {
+  anthropic: 'Anthropic',
+  openai: 'OpenAI',
+  google: 'Google',
+  'openai-compatible': 'Own server',
+};
+
+/** Who reads Confidential files, as the subject of a sentence. */
+const MODE_NOUN: Record<AiMode, string> = {
+  PRIVATE: 'Private models',
+  BYOK: 'Models on your keys',
+  MANAGED: 'Managed models',
+};
 
 const PROVIDER_NAME: Record<AiProviderId, string> = {
   anthropic: 'Claude',
@@ -107,6 +122,13 @@ function ModesSection({ settings }: { settings: AiSettings }) {
   const { policy } = settings;
 
   const toggle = (mode: AiMode, on: boolean) => {
+    if (!on && policy.allowedModes.length === 1) {
+      // The switch stays on (it's controlled): questions need somewhere to go.
+      toast('Keep at least one way to answer questions', {
+        description: 'Turn another mode on first.',
+      });
+      return;
+    }
     const allowedModes = on
       ? MODES.filter((m) => m === mode || policy.allowedModes.includes(m))
       : policy.allowedModes.filter((m) => m !== mode);
@@ -132,7 +154,6 @@ function ModesSection({ settings }: { settings: AiSettings }) {
     >
       {settings.modes.map(({ mode, availability }) => {
         const on = policy.allowedModes.includes(mode);
-        const only = on && policy.allowedModes.length === 1;
         const reason = availability.available
           ? null
           : (UNAVAILABLE[availability.reason ?? ''] ?? 'Not available');
@@ -146,8 +167,7 @@ function ModesSection({ settings }: { settings: AiSettings }) {
               <Switch
                 aria-label={`Allow ${MODE_COPY[mode].title}`}
                 checked={on}
-                // The last mode stays on: questions need somewhere to go.
-                disabled={only || (!on && !availability.available && mode !== 'PRIVATE')}
+                disabled={!on && !availability.available && mode !== 'PRIVATE'}
                 onCheckedChange={(next) => toggle(mode, next)}
               />
             }
@@ -227,13 +247,11 @@ function SensitivitySection({ settings }: { settings: AiSettings }) {
             <ListRow
               key={mode}
               leading={<RowIcon icon={Lock} tint={on ? 'orange' : 'gray'} />}
-              title={`Let ${MODE_COPY[mode].title} read them`}
-              subtitle={
-                on ? 'Confidential passages may go out' : 'Hidden from it, and the answer says so'
-              }
+              title={`${MODE_NOUN[mode]} read them`}
+              subtitle={on ? 'Their passages may go out' : 'Hidden, and answers say so'}
               trailing={
                 <Switch
-                  aria-label={`Let ${MODE_COPY[mode].title} read Confidential files`}
+                  aria-label={`${MODE_NOUN[mode]} read Confidential files`}
                   checked={on}
                   onCheckedChange={(next) =>
                     update.mutate(
@@ -246,8 +264,8 @@ function SensitivitySection({ settings }: { settings: AiSettings }) {
                         onSuccess: () =>
                           toast(
                             next
-                              ? `${MODE_COPY[mode].title} can read Confidential files`
-                              : `Confidential files hidden from ${MODE_COPY[mode].title}`,
+                              ? `${MODE_NOUN[mode]} can read Confidential files`
+                              : `Confidential files hidden from ${MODE_NOUN[mode].toLowerCase()}`,
                           ),
                         onError: (e) => toast(messageOf(e)),
                       },
@@ -310,8 +328,8 @@ function KeySheet({
 
   const submit = () => {
     const key = apiKey.trim();
-    if (meta?.keyRequired && key.length < 8)
-      return setError({ field: 'key', text: 'Paste the API key.' });
+    if (meta?.keyRequired && !key) return setError({ field: 'key', text: 'Paste the API key.' });
+    if (key && key.length < 8) return setError({ field: 'key', text: 'That key looks too short.' });
     if (replacing) {
       update.mutate(
         { id: replacing.id, apiKey: key },
@@ -560,7 +578,11 @@ function KeysSection() {
                 chevron
                 leading={<RowIcon icon={KeyRound} tint="orange" />}
                 title={k.label}
-                subtitle={`${k.providerLabel} · ••••${k.keyLast4 ?? ''}`}
+                subtitle={
+                  k.keyLast4
+                    ? `${PROVIDER_SHORT[k.provider]} · ••••${k.keyLast4}`
+                    : PROVIDER_SHORT[k.provider]
+                }
                 detail={keyStatus(k)}
                 onClick={() => {
                   setDetail(k);
@@ -645,20 +667,22 @@ function ModelsSection({ settings }: { settings: AiSettings }) {
                 subtitle={
                   m.allowed
                     ? `${MODE_COPY[m.mode].title} · ${m.keyLabel ?? m.providerLabel}`
-                    : `${MODE_COPY[m.mode].title} is off`
+                    : `Turn on ${MODE_COPY[m.mode].title} to offer it`
                 }
+                // Nothing to switch for the default (it stays on) or a mode that's off.
                 trailing={
-                  <Switch
-                    aria-label={`Offer ${m.model}`}
-                    checked={m.enabled}
-                    disabled={isDefault || !m.allowed}
-                    onCheckedChange={(enabled) =>
-                      toggle.mutate(
-                        { ref: m.ref, enabled },
-                        { onError: (e) => toast(messageOf(e)) },
-                      )
-                    }
-                  />
+                  isDefault || !m.allowed ? undefined : (
+                    <Switch
+                      aria-label={`Offer ${m.model}`}
+                      checked={m.enabled}
+                      onCheckedChange={(enabled) =>
+                        toggle.mutate(
+                          { ref: m.ref, enabled },
+                          { onError: (e) => toast(messageOf(e)) },
+                        )
+                      }
+                    />
+                  )
                 }
               />
             );
