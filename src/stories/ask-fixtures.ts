@@ -43,7 +43,7 @@ export function standInAnswer(overrides: Partial<Message> = {}): Message {
     content:
       'The launch plan names three risks: connectivity on field visits [1], data residency questions from health partners [1], and pricing in naira. The weekly sync made offline recording a launch requirement [2].',
     status: 'done',
-    model: 'ollama:llama3.2:3b',
+    model: 'private:ollama:llama3.2:3b',
     route: { kind: 'private', label: 'Private · Ollama (in your cluster)' },
     isMock: false,
     passagesOnly: false,
@@ -100,6 +100,41 @@ function search(q: string, library: Schemas['File'][]): Schemas['SearchResults']
   return { mode: 'hybrid', files, passages: [], moments: [] };
 }
 
+/** The models a workspace offers in Switch model: one Private, one on the workspace's key. */
+export const STAND_IN_MODELS: Schemas['AiModels'] = {
+  defaultRef: 'private:ollama:llama3.2:3b',
+  models: [
+    {
+      ref: 'private:ollama:llama3.2:3b',
+      mode: 'PRIVATE',
+      model: 'llama3.2:3b',
+      providerLabel: 'Ollama (in your cluster)',
+      keyLabel: null,
+      routeLabel: 'Private · Ollama (in your cluster)',
+      dataLocation: 'IN_CLUSTER',
+      isMock: false,
+      enabled: true,
+      allowed: true,
+      readsConfidential: true,
+      readsRestricted: true,
+    },
+    {
+      ref: 'byok:key1:claude-sonnet',
+      mode: 'BYOK',
+      model: 'claude-sonnet',
+      providerLabel: 'Claude',
+      keyLabel: 'Team key',
+      routeLabel: 'Claude · your API key',
+      dataLocation: 'THIRD_PARTY',
+      isMock: false,
+      enabled: true,
+      allowed: true,
+      readsConfidential: false,
+      readsRestricted: false,
+    },
+  ],
+};
+
 /** The answer for any /api/v1 chat or search route, or undefined when it isn't one. */
 export function standInAskRoute(
   url: URL,
@@ -117,6 +152,7 @@ export function standInAskRoute(
     return { status: 200, json: { items, nextCursor: null } };
   }
   if (path === `conversations/${STAND_IN_CHAT.id}`) return { status: 200, json: STAND_IN_CHAT };
+  if (path === 'ai/models') return { status: 200, json: STAND_IN_MODELS };
   if (path.startsWith('conversations/')) {
     return {
       status: 404,

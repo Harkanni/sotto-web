@@ -402,7 +402,10 @@ export function HiddenNotice({
     usable.find((m) => m.mode === 'PRIVATE' && m.ref === models.data?.defaultRef) ??
     usable.find((m) => m.mode === 'PRIVATE');
   return (
-    <div className="flex flex-col gap-1 rounded-card bg-card-nested px-3 py-2.5 text-subhead text-muted-foreground">
+    <div
+      // surface-elevated: indigo text takes its lighter shade on this grey in dark mode (4.5:1).
+      className="surface-elevated flex flex-col gap-1 rounded-card bg-card-nested px-3 py-2.5 text-subhead text-muted-foreground [--surface:var(--card-nested)]"
+    >
       <p className="flex items-start gap-2">
         <EyeOff aria-hidden className="mt-0.5 size-4 shrink-0" />
         <span>

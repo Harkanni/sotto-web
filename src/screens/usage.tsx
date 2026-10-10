@@ -133,7 +133,7 @@ function PlanCard({ billing }: { billing: Billing }) {
 
 // ── This month ─────────────────────────────────────────────────────────────────────────
 
-function MeterRow({ meter, plan }: { meter: Meter; plan: Plan }) {
+export function MeterRow({ meter, plan }: { meter: Meter; plan: Plan }) {
   const level = meterLevel(meter.used, meter.limit);
   const ratio = meter.limit ? Math.min(1, meter.used / meter.limit) : 0;
   const notIncluded = meter.limit === 0;
@@ -197,7 +197,7 @@ function MeterRow({ meter, plan }: { meter: Meter; plan: Plan }) {
  * the tooltip repeats it per day). Bars are thin with a 2px gap and rounded data-ends; the
  * only gridline marks the busiest day. A hidden table gives screen readers the numbers.
  */
-function UsageChart({ daily }: { daily: UsageReport['daily'] }) {
+export function UsageChart({ daily }: { daily: UsageReport['daily'] }) {
   const [active, setActive] = useState<number | null>(null);
   const totals = daily.map((d) => d.privateTokens + d.managedTokens + d.byokTokens);
   const max = Math.max(...totals, 0);
@@ -225,7 +225,7 @@ function UsageChart({ daily }: { daily: UsageReport['daily'] }) {
             : 'No questions answered in this period.'}
       </p>
       <div
-        role="img"
+        role="group"
         aria-label={`AI tokens per day, ${compactNumber(sum)} in all, busiest day ${compactNumber(max)}.`}
         className="relative mt-3 h-36"
         onPointerLeave={() => setActive(null)}
