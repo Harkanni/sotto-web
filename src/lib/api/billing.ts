@@ -110,8 +110,8 @@ export function compactNumber(n: number): string {
 }
 
 export function formatBytes(bytes: number): string {
-  if (bytes >= 1024 ** 3)
-    return `${(bytes / 1024 ** 3).toFixed(bytes >= 10 * 1024 ** 3 ? 0 : 1)} GB`;
+  const trim = (n: number) => String(Number(n.toFixed(1)));
+  if (bytes >= 1024 ** 3) return `${trim(bytes / 1024 ** 3)} GB`;
   if (bytes >= 1024 ** 2) return `${Math.round(bytes / 1024 ** 2)} MB`;
   return `${Math.max(0, Math.round(bytes / 1024))} KB`;
 }

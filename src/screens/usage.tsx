@@ -41,10 +41,11 @@ const METER_LABEL: Record<Meter['id'], string> = {
   storageBytes: 'Storage',
 };
 
-function amount(id: Meter['id'], n: number): string {
+/** A meter's number; the unit only on the last one ("858 of 200K tokens"). */
+function amount(id: Meter['id'], n: number, unit = true): string {
   if (id === 'storageBytes') return formatBytes(n);
-  if (id === 'transcriptionMinutes') return `${Math.round(n)} min`;
-  return `${compactNumber(n)} tokens`;
+  if (id === 'transcriptionMinutes') return unit ? `${Math.round(n)} min` : String(Math.round(n));
+  return unit ? `${compactNumber(n)} tokens` : compactNumber(n);
 }
 
 function dayLabel(date: string, withMonth = true): string {
@@ -112,7 +113,7 @@ function PlanCard({ billing }: { billing: Billing }) {
       {paid && billing.subscription?.status !== 'CANCELLED' && (
         <Button
           variant="secondary"
-          className="w-full"
+          className="w-full md:w-auto md:self-start"
           loading={portal.isPending}
           onClick={() =>
             portal.mutate(undefined, {
@@ -140,7 +141,7 @@ function MeterRow({ meter, plan }: { meter: Meter; plan: Plan }) {
     ? 'Comes with Pro'
     : meter.limit === null
       ? `${amount(meter.id, meter.used)} · no limit`
-      : `${amount(meter.id, meter.used)} of ${amount(meter.id, meter.limit)}`;
+      : `${amount(meter.id, meter.used, false)} of ${amount(meter.id, meter.limit)}`;
   return (
     <li className="list-row flex min-h-11 flex-col justify-center gap-2 px-4 py-3">
       <div className="flex items-baseline justify-between gap-3">
@@ -231,7 +232,7 @@ function UsageChart({ daily }: { daily: UsageReport['daily'] }) {
       >
         {max > 0 && (
           <div className="pointer-events-none absolute inset-x-0 top-0 border-t border-dashed border-separator">
-            <span className="absolute -top-2 right-0 bg-card pl-1 text-caption text-muted-foreground tabular-nums">
+            <span className="absolute -top-2 left-0 bg-card pr-1 text-caption text-muted-foreground tabular-nums">
               {compactNumber(max)}
             </span>
           </div>
@@ -390,7 +391,7 @@ function Plans({ billing }: { billing: Billing }) {
                   {isCurrent && <Badge tone="accent">Current</Badge>}
                 </span>
               }
-              subtitle={plan.features.join(' · ')}
+              subtitle={plan.features.slice(0, 2).join(' · ')}
               detail={canChoose ? undefined : price}
               trailing={
                 canChoose ? (
