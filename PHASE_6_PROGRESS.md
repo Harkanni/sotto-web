@@ -3,11 +3,11 @@
 The running record for Phase 6, kept current at every checkpoint. A new session follows the
 recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** below.
 
-| Repo           | Branch              | Pull request                       |
-| -------------- | ------------------- | ---------------------------------- |
-| sotto-api      | `feat/p6-ai-modes`  | sotto-api#7 (draft; merges first)  |
-| sotto-web      | `feat/p6-ai-modes`  | sotto-web#7 (draft)                |
-| sotto-platform | `docs/p6-status`    | sotto-platform#8 (draft; companion) |
+| Repo           | Branch             | Pull request                        |
+| -------------- | ------------------ | ----------------------------------- |
+| sotto-api      | `feat/p6-ai-modes` | sotto-api#7 (draft; merges first)   |
+| sotto-web      | `feat/p6-ai-modes` | sotto-web#7 (draft)                 |
+| sotto-platform | `docs/p6-status`   | sotto-platform#8 (draft; companion) |
 
 ## Project status
 
@@ -107,26 +107,25 @@ api: canSend() re-checks every passage before the call (second line of defence)
 api: stream → UsageEvent (input/output tokens, route, model) → quota counters
 ```
 
-| #   | Milestone                                                                                                                                                       | Repo           | State       |
-| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ----------- |
-| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                              | all            | done        |
-| M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface)   | sotto-api      | done        |
-| M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection    | sotto-api      | in progress |
-| M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                          | sotto-api      | pending     |
-| M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route        | sotto-api      | pending     |
-| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                                 | sotto-api      | pending     |
-| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                                 | sotto-api      | pending     |
-| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                  | sotto-web      | pending     |
-| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                             | sotto-web      | pending     |
-| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                        | sotto-web      | pending     |
-| M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                             | all            | pending     |
+| #   | Milestone                                                                                                                                                     | Repo      | State       |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
+| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                            | all       | done        |
+| M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface) | sotto-api | done        |
+| M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection | sotto-api | in progress |
+| M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                        | sotto-api | pending     |
+| M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | pending     |
+| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | pending     |
+| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | pending     |
+| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | pending     |
+| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | pending     |
+| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | pending     |
+| M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | pending     |
 
 ## Completed work
 
 - **M0:** recovered from `docs/STATUS.md`. Phase 5's three PRs are merged (the `main` heads
   above), so Phase 6 starts from `main`. Read CLAUDE.md (all repos), `UI_DESIGN_SYSTEM.md`, the
-  Phase 5 log, PLAN (AI providers, data model, API, milestones), BRIEF §3–4, ADRs 0004 and
-  0020. Inspected what Phase 6 builds on: `packages/ai` (types, `canSend`/`partitionSources`,
+  Phase 5 log, PLAN (AI providers, data model, API, milestones), BRIEF §3–4, ADRs 0004 and 0020. Inspected what Phase 6 builds on: `packages/ai` (types, `canSend`/`partitionSources`,
   registry, `askChatFrom`, the OpenAI-compatible adapter), `apps/api/src/ask/ai.service.ts`
   (one platform chat; `allowedFor` returns Internal only for third parties; `routeOf` maps
   THIRD_PARTY to MANAGED), the schema (only `AiRoute` and `EmbeddingIndex` exist from the AI and
@@ -166,7 +165,7 @@ M1–M10 above.
    `testConnection()` (a 1-token request, errors mapped to codes: invalid_key, no_access,
    unreachable, rate_limited); unit tests against a local stand-in server.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
-   postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
+postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
 
 ## Decisions
@@ -204,7 +203,7 @@ Identified, not invented around:
 
 ## Tests and checks run
 
-| When | Check | Result |
-| ---- | ----- | ------ |
-| `417c6e2` (M1) | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5) | Pass |
-| `417c6e2` (M1) | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both | Pass |
+| When           | Check                                                                                                                     | Result |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `417c6e2` (M1) | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5) | Pass   |
+| `417c6e2` (M1) | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both                 | Pass   |
