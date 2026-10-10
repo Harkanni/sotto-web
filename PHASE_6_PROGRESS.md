@@ -284,9 +284,19 @@ rabbitmq-server`, user sotto/sotto), moto S3 on :5100, an SMTP sink writing `mai
   GB", the gridline label over the latest bar, features cut mid-word, a full-width button on
   desktop.
 
+- **M10, part 1 (sotto-web `1721f44`, design-system commit; sotto-platform `a83c310`):**
+  onboarding step "Where should questions be answered?" between inviting and starting (Private
+  recommended; also your own AI key → allows BYOK; Managed only when offered); the accounts
+  e2e walks it with axe; the start step's stale "uploads arrive in Phase 4" line replaced.
+  `UI_DESIGN_SYSTEM.md` §7 gained MenuPicker, AI settings, Ask Phase 6, Usage and billing and
+  onboarding; §9 a motion row for meters and the chart. ADRs 0023–0026. Terraform:
+  `/sotto/demo/AI_KEYS_MASTER` from `random_bytes` (owner applies).
+- A previous session was cut off by a tool outage after writing those files; this session
+  found them uncommitted and committed them as they were.
+
 ## Work in progress
 
-- M10.
+- M10, part 2.
 
 ## Remaining work
 
@@ -294,15 +304,12 @@ M1–M10 above.
 
 ## Next steps
 
-1. M10: (a) onboarding "choose an AI mode" step in `src/components/auth/welcome.tsx` (check
-   how its steps work first; Private by default, BYOK/Managed explained in plain words, links
-   to AI settings); (b) `UI_DESIGN_SYSTEM.md`: AI settings, menu picker component, keys
-   sheets, Switch model menu, Answer with Private, usage meters, usage chart, plan card;
-   (c) sotto-platform: ADRs 0023 (BYOK key vault), 0024 (AI gateway: modes, references,
-   Restricted rule, no fallback), 0025 (metering and quotas), 0026 (Paystack verify-on-return
-   - webhooks); Compose/demo env (`AI_KEYS_MASTER` from SSM, Paystack unset → test checkout);
-     STATUS; (d) embedding re-index endpoints if time allows, else listed as remaining;
-     (e) mark the three PRs ready.
+1. M10 part 2, in order: render the onboarding step in the rig (iPhone dark, desktop light);
+   demo Compose (`deploy/demo/compose.yaml` api env: `AI_KEYS_MASTER`, optional Managed and
+   Paystack settings, all `${…:-}`) and local Compose (a dev master key note, test checkout);
+   embedding re-index endpoints (`GET /ai/embeddings/indexes`, `POST /ai/embeddings/reindex`)
+   or list them as remaining; STATUS; full checks in all three repos; CI green; mark the three
+   PRs ready.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
