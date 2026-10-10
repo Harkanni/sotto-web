@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M2 (provider adapters and catalog).
+- **Current milestone:** M3 (AI settings API).
 
 ## Requirements
 
@@ -107,19 +107,19 @@ api: canSend() re-checks every passage before the call (second line of defence)
 api: stream → UsageEvent (input/output tokens, route, model) → quota counters
 ```
 
-| #   | Milestone                                                                                                                                                     | Repo      | State       |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ----------- |
-| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                            | all       | done        |
-| M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface) | sotto-api | done        |
-| M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection | sotto-api | in progress |
-| M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                        | sotto-api | pending     |
-| M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | pending     |
-| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | pending     |
-| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | pending     |
-| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | pending     |
-| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | pending     |
-| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | pending     |
-| M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | pending     |
+| #   | Milestone                                                                                                                                                     | Repo      | State   |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- | ------- |
+| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                                                            | all       | done    |
+| M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface) | sotto-api | done    |
+| M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection | sotto-api | done    |
+| M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                        | sotto-api | pending |
+| M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | pending |
+| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | pending |
+| M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | pending |
+| M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | pending |
+| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | pending |
+| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | pending |
+| M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | pending |
 
 ## Completed work
 
@@ -148,9 +148,20 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
   table would need a platform-operator UI that doesn't exist, and toggling it from one
   workspace would change every tenant.
 
+- **M2 (sotto-api `9cce338`):** `adapters/anthropic.ts` (Messages API over fetch: system field,
+  alternating turns, typed SSE, usage from `message_start` + `message_delta`, stream errors by
+  type); `catalog.ts`: `BYOK_PROVIDERS` (anthropic, openai, google via its OpenAI-compatible
+  endpoint, any openai-compatible server; all THIRD_PARTY), `byokChatProvider`, `listModels`
+  (from the provider's `GET /models`, non-chat models dropped: **no model names hard-coded**),
+  `testConnection` (codes: invalid_key, no_access, not_found, rate_limited, provider_error,
+  unreachable, timeout, no_models), `checkEndpointUrl` (HTTPS and public addresses only, so an
+  admin's base URL can't reach the cluster or cloud metadata; `AI_BYOK_ALLOW_PRIVATE_URLS` for
+  dev). Managed settings: `AI_MANAGED_CHAT` (one provider, comma-separated models),
+  `AI_MANAGED_KEY`, `AI_MANAGED_BASE_URL` → `managedChatFrom`.
+
 ## Work in progress
 
-- M2: `packages/ai` adapters and catalog.
+- M3: AI settings API.
 
 ## Remaining work
 
@@ -158,12 +169,17 @@ M1–M10 above.
 
 ## Next steps
 
-1. M2 in sotto-api (`packages/ai`): `adapters/anthropic.ts` (Messages API over fetch, SSE
-   `content_block_delta` → text, `message_delta` usage, `x-api-key` + `anthropic-version`);
-   `catalog.ts` (adapter ids anthropic/openai/google/openai-compatible with base URLs, data
-   location THIRD_PARTY, suggested models; `chatProviderForKey(provider, key, baseUrl)`);
-   `testConnection()` (a 1-token request, errors mapped to codes: invalid_key, no_access,
-   unreachable, rate_limited); unit tests against a local stand-in server.
+1. M3 in sotto-api: a new `apps/api/src/ai/` module. Model references: `private:<provider>:<model>`,
+   `managed:<provider>:<model>`, `byok:<config id>:<model>`. `AiSettingsService` (policy with
+   defaults when no row; catalog = platform Private models + Managed models + each BYOK key's
+   models, each with mode, badge, data location, enabled). Routes (Admin+ unless noted):
+   `GET/PUT /ai/policy` (default must be allowed, confidential ⊆ allowed, default model must be
+   enabled), `GET /ai/providers`, `POST /ai/providers` (URL check → Test connection → seal →
+   save; refused with the code if the test fails), `PATCH /ai/providers/:id` (label, models,
+   replace key), `POST /ai/providers/:id/test`, `DELETE /ai/providers/:id`, `GET /ai/models`
+   (Viewer+: what Switch model offers), `GET /ai/catalog`, `PUT /ai/catalog/:ref`. Audit
+   `ai.policy_changed`, `ai.key_added`, `ai.key_removed`, `ai.model_toggled`. Integration tests
+   per role; keys never in any response or log.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
@@ -203,7 +219,8 @@ Identified, not invented around:
 
 ## Tests and checks run
 
-| When           | Check                                                                                                                     | Result |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `417c6e2` (M1) | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5) | Pass   |
-| `417c6e2` (M1) | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both                 | Pass   |
+| When           | Check                                                                                                                                                               | Result |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `417c6e2` (M1) | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5)                                           | Pass   |
+| `9cce338` (M2) | `packages/ai` 29 tests (9 new: Anthropic stream/usage/errors, catalog, models, Test connection codes, SSRF guard, Managed settings); api + worker typecheck; eslint | Pass   |
+| `417c6e2` (M1) | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both                                                           | Pass   |
