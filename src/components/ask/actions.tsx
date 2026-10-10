@@ -14,7 +14,9 @@ import {
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { messageOf } from '@/components/account/workspace-actions';
-import { toastPreview } from '@/components/ui/toaster';
+import { DropdownMenu } from 'radix-ui';
+import { menuContent, menuItem } from '@/components/ui/row-actions';
+import { useAiModels } from '@/lib/api/ai';
 import { createNote, useFeedback, type ChatMessage, type Citation } from '@/lib/api/ask';
 import { fileKeys } from '@/lib/api/files';
 import { useActiveWorkspace } from '@/lib/api/hooks';
@@ -43,15 +45,17 @@ function ActionButton({
   onClick,
   pressed,
   busy,
+  ...rest
 }: {
   icon: LucideIcon;
   label: string;
-  onClick: () => void;
+  onClick?: () => void;
   pressed?: boolean;
   busy?: boolean;
-}) {
+} & Omit<React.ComponentProps<'button'>, 'onClick'>) {
   return (
     <button
+      {...rest}
       type="button"
       aria-label={label}
       title={label}
@@ -77,8 +81,79 @@ function ActionButton({
 }
 
 /**
+ * Switch model: the workspace's models in a menu, the one that answered checked; picking one
+ * answers again with it. Each says where it runs, so the choice is also a privacy choice.
+ */
+function SwitchModel({ message, onPick }: { message: ChatMessage; onPick: (ref: string) => void }) {
+  const models = useAiModels();
+  const list = models.data?.models ?? [];
+  if (list.length < 2) {
+    return (
+      <ActionButton
+        icon={Repeat2}
+        label="Switch model"
+        onClick={() =>
+          toast(list.length ? 'This workspace has one model' : 'No model to switch to', {
+            description: message.route?.label
+              ? `This answer came from ${message.route.label}. Admins add models in AI settings.`
+              : 'Admins add models in AI settings.',
+          })
+        }
+      />
+    );
+  }
+  const groups = (['PRIVATE', 'BYOK', 'MANAGED'] as const)
+    .map((mode) => ({ mode, items: list.filter((m) => m.mode === mode) }))
+    .filter((g) => g.items.length);
+  return (
+    <DropdownMenu.Root modal={false}>
+      <DropdownMenu.Trigger asChild>
+        <ActionButton icon={Repeat2} label="Switch model" />
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content
+          align="start"
+          side="top"
+          sideOffset={6}
+          collisionPadding={12}
+          className={cn(menuContent, 'max-w-[min(340px,calc(100vw-24px))]')}
+        >
+          <DropdownMenu.Label className="px-3 pt-1.5 pb-1 text-footnote text-muted-foreground">
+            Answer again with
+          </DropdownMenu.Label>
+          <DropdownMenu.RadioGroup value={message.model ?? ''} onValueChange={onPick}>
+            {groups.map((g, i) => (
+              <DropdownMenu.Group key={g.mode}>
+                {i > 0 && <DropdownMenu.Separator className="mx-1 my-1 h-px bg-separator" />}
+                {g.items.map((m) => (
+                  <DropdownMenu.RadioItem
+                    key={m.ref}
+                    value={m.ref}
+                    className={cn(menuItem, 'py-1.5')}
+                  >
+                    <span className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate">{m.model}</span>
+                      <span className="truncate text-footnote text-muted-foreground">
+                        {m.routeLabel}
+                      </span>
+                    </span>
+                    <DropdownMenu.ItemIndicator>
+                      <Check aria-hidden className="size-5 text-primary-text" strokeWidth={2.25} />
+                    </DropdownMenu.ItemIndicator>
+                  </DropdownMenu.RadioItem>
+                ))}
+              </DropdownMenu.Group>
+            ))}
+          </DropdownMenu.RadioGroup>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
+  );
+}
+
+/**
  * The actions under a finished answer (BRIEF §4): copy, answer again, save as note, thumbs up or
- * down, and switch model (which arrives with the model catalog in Phase 6, and says so).
+ * down, and switch model.
  */
 export function AnswerActions({
   message,
@@ -90,7 +165,8 @@ export function AnswerActions({
   message: ChatMessage;
   question: string;
   base: string;
-  onRegenerate: () => void;
+  /** Answers again, with another model when one is picked. */
+  onRegenerate: (model?: string) => void;
   regenerating: boolean;
 }) {
   const feedback = useFeedback();
@@ -150,7 +226,7 @@ export function AnswerActions({
       <ActionButton
         icon={RefreshCw}
         label="Answer again"
-        onClick={onRegenerate}
+        onClick={() => onRegenerate()}
         busy={regenerating}
       />
       {canSave && hasText && (
@@ -172,16 +248,7 @@ export function AnswerActions({
           />
         </>
       )}
-      <ActionButton
-        icon={Repeat2}
-        label="Switch model"
-        onClick={() =>
-          toastPreview(
-            'Choosing a model arrives in Phase 6',
-            `This answer came from ${message.route?.label ?? 'the workspace’s model'}.`,
-          )
-        }
-      />
+      <SwitchModel message={message} onPick={(ref) => onRegenerate(ref)} />
     </div>
   );
 }

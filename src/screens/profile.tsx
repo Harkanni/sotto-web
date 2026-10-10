@@ -32,6 +32,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { AsyncWidget, EmptyState } from '@/components/widgets/async-widget';
+import { MODE_COPY, useAiModels } from '@/lib/api/ai';
 import { useActiveWorkspace, useMe, useWorkspaces } from '@/lib/api/hooks';
 import { signOut } from '@/lib/auth/account';
 import { useChildKey } from '@/lib/nav/hooks';
@@ -118,6 +119,13 @@ export function ProfileScreen() {
   const [signingOut, setSigningOut] = useState(false);
   const admin = atLeast(workspace?.role, 'admin');
   const people = workspaces.data?.find((w) => w.active)?.members;
+  const ai = useAiModels();
+  const defaultModel = ai.data?.models.find((m) => m.ref === ai.data?.defaultRef);
+  const aiDetail = ai.data
+    ? defaultModel
+      ? MODE_COPY[defaultModel.mode].title
+      : 'Passages only'
+    : undefined;
   const row = (path: string) => ({
     href: `${entry.key}/${path}`,
     selected: selected === `${entry.key}/${path}`,
@@ -149,7 +157,7 @@ export function ProfileScreen() {
           <ListRow
             leading={<RowIcon icon={Bot} tint="purple" />}
             title="AI settings"
-            detail="Private"
+            detail={aiDetail}
             {...row('ai')}
           />
           <ListRow

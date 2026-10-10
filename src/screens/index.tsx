@@ -4,6 +4,7 @@ import { EmptyState } from '@/components/widgets/async-widget';
 import type { IllustrationName } from '@/components/widgets/illustrations';
 import type { ScreenKind, StackEntry, Tab } from '@/lib/nav/routes';
 import { AccountScreen } from './account';
+import { AiSettingsScreen } from './ai-settings';
 import { AskScreen, ThreadScreen } from './ask';
 import { AuditScreen } from './audit';
 import { DocScreen } from './doc';
@@ -12,12 +13,12 @@ import { HomeScreen } from './home';
 import { MeetingScreen, MeetingsScreen } from './meetings';
 import { MembersScreen } from './members';
 import { TrashScreen } from './trash';
+import { UsageScreen } from './usage';
 import {
   AboutScreen,
   AppearanceScreen,
   ComponentsScreen,
   DeveloperScreen,
-  LaterScreen,
   NotFoundScreen,
   ProfileScreen,
   WidgetStatesScreen,
@@ -44,8 +45,8 @@ const SCREENS: Record<ScreenKind, React.ComponentType> = {
   about: AboutScreen,
   workspace: WorkspaceScreen,
   members: MembersScreen,
-  ai: LaterScreen,
-  usage: LaterScreen,
+  ai: AiSettingsScreen,
+  usage: UsageScreen,
   audit: AuditScreen,
   'not-found': NotFoundScreen,
 };

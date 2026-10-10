@@ -261,7 +261,7 @@ for focus, keyboard and labelling.
   - **Hidden-sources notice** — on `card-nested` with an eye-off icon: how many Restricted or
     Confidential sources the answering model wasn't allowed to read.
   - **Answer actions** — icon buttons under a finished answer: Copy, Answer again, Save as
-    note, Helpful / Not helpful (the chosen one filled), and Switch model labelled for Phase 6. Follow-ups ("Ask next") are 44 px card pills in indigo text that ask on tap.
+    note, Helpful / Not helpful (the chosen one filled), and Switch model (a menu; see Phase 6). Follow-ups ("Ask next") are 44 px card pills in indigo text that ask on tap.
   - **Answer states** — thinking (three pulsing indigo dots and "Looking through your memos
     and meetings", a `status` for screen readers), streaming, done, stopped (what
     arrived is kept, "Stopped" under it), not found (said plainly, nothing to cite), failed
@@ -283,6 +283,57 @@ for focus, keyboard and labelling.
     moments and Chats, with matched words in semibold. The best server result is selected
     unless you moved the highlight; Ask Sotto stays one row away. On phones, a search field
     under Home's large title opens the palette.
+- **MenuPicker** (`src/components/ui/menu-picker.tsx`) — the menu-picker pattern above as a
+  component: the value in grey with ⇅, a menu of choices grouped under footnote headings, each
+  with an optional second line (where a model runs), a check on the current one. One choice
+  (or `disabled`) is plain text. The default-model setting uses it; the access sheet keeps its
+  own picker.
+- **AI settings (Phase 6)** — `src/screens/ai-settings.tsx` (admins; others see "Where your
+  questions go", read-only):
+  - **Modes** — one row per mode with a tinted icon (Private green shield, Your API key orange
+    key, Managed blue cloud), a short line that fits a phone ("Stays inside Sotto") and a
+    switch. The full privacy story lives in the section footer, not in the rows. A mode the
+    server can't offer says why in its line and its switch is off and disabled. The last mode
+    on stays on: turning it off explains in a toast instead. No disabled switch ever stands for
+    "nothing to switch": rows with nothing to toggle have no switch.
+  - **Default model** — a `MenuPicker` grouped by mode; "Passages only" when there is none.
+  - **Confidential files** — a switch per outside mode ("Models on your keys read them"); the
+    footer says Restricted is Private-only whatever is set.
+  - **Keys** — rows with the provider's short name and ••••last4, "Working" or the problem in
+    warning text. **Add a key** sheet at the `large` detent (fields come and go): provider
+    segments (Claude, OpenAI, Gemini, Other), name, server address for Other, the key as a
+    password field; "Test and save" tests before anything is stored; errors sit under the field
+    they belong to. **Key detail** sheet: facts on `card-nested`, Test connection and Replace
+    key as action rows, Remove key as `ConfirmAction`.
+  - **Models** — a switch per model with Mock and Default badges; none for the default or a
+    model whose mode is off.
+- **Ask, Phase 6** — **Switch model** is a menu above the action (side top), titled "Answer
+  again with", grouped by mode, each model with where it runs, the one that answered checked.
+  The **hidden-sources notice** offers **Answer with Private** (a 44 px indigo text button with
+  a lock) when a Private model is usable, else says none is set up; it is `surface-elevated` so
+  indigo keeps 4.5:1 on `card-nested` in dark mode. Refused questions (quota, plan, model gone)
+  toast the reason with an action to the screen that fixes it.
+- **Usage and billing (Phase 6)** — `src/screens/usage.tsx` (owners):
+  - **Plan card** — on `card` with `shadow-card`: a green card icon, "Your plan" footnote, the
+    plan in `text-title-3`, its status (renews / ends / payment failed in warning text), a
+    "Test" badge with the provider label in test mode, then Manage subscription (secondary,
+    full width on phones, natural width from 768 px).
+  - **Meters** — a list row per allowance: label left, "858 of 200K tokens" right in tabular
+    figures (the unit once), a 6 px bar on `fill` whose indigo fill moves by `translate` only;
+    amber (`warning-text`) from 80%, red (`destructive`) when used up with what to do in red
+    footnote text; "Comes with Pro" with no bar when not included; "no limit" when unlimited.
+  - **Daily chart** — AI tokens per day as one indigo series (the accent; the split by mode is
+    in the meters and the tooltip): bars with 4 px rounded tops and 2 px gaps (1 px at 90
+    days), a 2 px `fill` stub for empty days, one dashed gridline at the busiest day labelled
+    at the left, first and last dates under it. Tap or point at a day: the others fade to 40%
+    and a fixed one-line slot above the plot gives that day's numbers. Each day is a button; the
+    plot is a labelled group; a visually hidden table carries every number.
+  - **Plans** — a segmented Monthly/Yearly control above a list: name with a Current badge, two
+    features, and the price as a ghost button to choose it (a plain value when it can't be
+    chosen); the footer says when prices are placeholders.
+- **Onboarding, Phase 6** — "Where should questions be answered?" between inviting and
+  starting: the start step's choice cards (Private recommended; also your own AI key; Managed
+  when offered), each with a plain-language privacy line.
 - **Widget states** — `AsyncWidget` renders loading, empty, error and content for every data
   widget (see §8).
 - **Shell** — tab bar (phones), sidebar (768 px and up), nav bar with large title, + button,
@@ -389,6 +440,7 @@ Durations for plain fades: fast 150 ms (hover, colour), base 220 ms (bars, overl
 | Delete                  | The row slides out (full swipe) or the preview fades, then the row folds away; Undo brings it back                                                     |
 | Theme change            | A View Transition crossfade                                                                                                                            |
 | Upload progress         | Bars slide by `translate` on a 300 ms ease-out; the + ring follows the bytes directly                                                                  |
+| Usage meters, chart     | Meter fills slide by `translate` on a 300 ms ease-out; chart days fade to 40% around the one under the finger (150 ms); nothing animates on load       |
 | Playback                | The scrubber's played part and playhead move every frame by `translate` (no React renders); a seek jumps, it never animates                            |
 | Press                   | `scale(0.97)` in 70 ms, back on `snappy`                                                                                                               |
 

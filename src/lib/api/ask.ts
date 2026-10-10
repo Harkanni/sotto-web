@@ -246,7 +246,12 @@ async function readEvents(response: Response, on: (event: AnswerEvent) => void):
 export async function streamAnswer(
   client: QueryClient,
   ws: string,
-  input: { conversationId: string; question: string } | { conversationId: string; again: string },
+  input: (
+    { conversationId: string; question: string } | { conversationId: string; again: string }
+  ) & {
+    /** A model reference from `GET /ai/models` (Switch model); omitted = the default. */
+    model?: string;
+  },
 ): Promise<ChatMessage | null> {
   const path =
     'again' in input
@@ -287,7 +292,15 @@ export async function streamAnswer(
         'content-type': 'application/json',
         ...(token ? { 'x-csrf-token': token } : {}),
       },
-      body: 'question' in input ? JSON.stringify({ content: input.question }) : undefined,
+      body:
+        'question' in input
+          ? JSON.stringify({
+              content: input.question,
+              ...(input.model ? { model: input.model } : {}),
+            })
+          : input.model
+            ? JSON.stringify({ model: input.model })
+            : undefined,
     });
   } catch {
     dropPending();

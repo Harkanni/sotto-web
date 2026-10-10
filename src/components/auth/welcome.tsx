@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, ChevronRight, Sparkles, SquareDashed } from 'lucide-react';
+import { Check, ChevronRight, Cloud, KeyRound, Lock, Sparkles, SquareDashed } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { SottoMark } from '@/components/ui/brand';
@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { TextField } from '@/components/ui/text-field';
 import { Illustration } from '@/components/widgets/illustrations';
+import { type AiMode, useAiSettings, useUpdateAiPolicy } from '@/lib/api/ai';
 import { api, call, isSignedOut, type Role } from '@/lib/api/client';
 import {
   useActivateWorkspace,
@@ -23,9 +24,9 @@ import { cn } from '@/lib/utils';
 import { AuthNote, AuthNotice, AuthScreen, AuthTitle } from './auth-screen';
 import { loadPage } from '@/lib/auth/navigate';
 
-type Step = 'name' | 'workspace' | 'invite' | 'start';
+type Step = 'name' | 'workspace' | 'invite' | 'ai' | 'start';
 
-const STEPS: Step[] = ['name', 'workspace', 'invite', 'start'];
+const STEPS: Step[] = ['name', 'workspace', 'invite', 'ai', 'start'];
 
 /** Page dots: where you are in onboarding. */
 function Progress({ step }: { step: Step }) {
@@ -55,10 +56,9 @@ function safeNext(next: string | null): string | null {
 }
 
 /**
- * Onboarding (brief §4): your name → your workspace → invite the team → sample content or an
- * empty start. People arriving through an invite only give their name and go on to accept it.
- * Choosing an AI mode joins in Phase 6, uploading a file in Phase 4, the first question in
- * Phase 5.
+ * Onboarding (brief §4): your name → your workspace → invite the team → where questions are
+ * answered (AI mode, in plain language) → sample content or an empty start. People arriving
+ * through an invite only give their name and go on to accept it.
  */
 export function Welcome() {
   const params = useSearchParams();
@@ -109,7 +109,8 @@ export function Welcome() {
       <WorkspaceStep onCreated={() => go('invite')} onChosen={() => loadPage(next ?? '/home')} />
     );
   }
-  if (current === 'invite') return <InviteStep onDone={() => go('start')} />;
+  if (current === 'invite') return <InviteStep onDone={() => go('ai')} />;
+  if (current === 'ai') return <AiStep onDone={() => go('start')} />;
   return <StartStep onDone={() => loadPage(next ?? '/home')} />;
 }
 
@@ -364,6 +365,120 @@ function InviteStep({ onDone }: { onDone: () => void }) {
   );
 }
 
+/**
+ * Where questions are answered (BRIEF §4 onboarding: choose an AI mode, with a plain-language
+ * privacy explanation). Private is the default and needs nothing; a key is added later in AI
+ * settings; Managed comes with a paid plan. Everything here can be changed in Profile.
+ */
+function AiStep({ onDone }: { onDone: () => void }) {
+  const settings = useAiSettings();
+  const update = useUpdateAiPolicy();
+  const [choice, setChoice] = useState<AiMode | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const modes = settings.data?.modes ?? [];
+  const available = (mode: AiMode) =>
+    modes.find((m) => m.mode === mode)?.availability.available ?? false;
+
+  function choose(mode: AiMode) {
+    setChoice(mode);
+    if (mode === 'PRIVATE') return onDone();
+    update.mutate(
+      { allowedModes: ['PRIVATE', mode] },
+      {
+        onSuccess: onDone,
+        onError: (e) => {
+          setChoice(null);
+          setError(messageOf(e));
+        },
+      },
+    );
+  }
+
+  const card =
+    'pressable flex w-full items-start gap-3 rounded-card bg-card p-4 text-left select-none active:bg-row-pressed disabled:opacity-60';
+  const OPTIONS: { mode: AiMode; icon: typeof Lock; tint: string; title: string; line: string }[] =
+    [
+      {
+        mode: 'PRIVATE',
+        icon: Lock,
+        tint: 'bg-[#34c759]',
+        title: 'Private (recommended)',
+        line: 'Questions are answered by models running inside Sotto. Nothing goes to an outside AI company.',
+      },
+      {
+        mode: 'BYOK',
+        icon: KeyRound,
+        tint: 'bg-[#ff9500]',
+        title: 'Also use your own AI key',
+        line: 'Add an Anthropic, OpenAI or Google key later in AI settings. Only the passages a question needs go to them; Restricted files never do.',
+      },
+    ];
+  if (available('MANAGED')) {
+    OPTIONS.push({
+      mode: 'MANAGED',
+      icon: Cloud,
+      tint: 'bg-[#007aff]',
+      // Not a switch here: Managed needs the Pro plan, chosen later in Usage and billing.
+      title: 'Managed AI, with Pro',
+      line: 'Sotto’s own AI account, no keys to look after. Start with Private and choose Pro later in Usage and billing.',
+    });
+  }
+
+  return (
+    <AuthScreen
+      stage="ai"
+      hero={
+        <>
+          <Illustration name="chats" className="mb-2 text-primary-text" />
+          <Progress step="ai" />
+          <AuthTitle title="Where should questions be answered?">
+            Every answer says where it was made. You can change this any time in Profile.
+          </AuthTitle>
+        </>
+      }
+    >
+      {error && <AuthNotice>{error}</AuthNotice>}
+      {OPTIONS.map((o) => {
+        const disabled =
+          choice !== null ||
+          (o.mode === 'BYOK' && settings.data !== undefined && !available('BYOK'));
+        return (
+          <button
+            key={o.mode}
+            type="button"
+            className={card}
+            disabled={disabled}
+            onClick={() => (o.mode === 'MANAGED' ? onDone() : choose(o.mode))}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                'grid size-[29px] shrink-0 place-items-center rounded-[7px] text-white',
+                o.tint,
+              )}
+            >
+              <o.icon className="size-[18px]" strokeWidth={2} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-headline">{o.title}</span>
+              <span className="mt-0.5 block text-subhead text-muted-foreground">{o.line}</span>
+            </span>
+            {choice === o.mode && o.mode !== 'PRIVATE' ? (
+              <Spinner size={18} className="mt-1 text-muted-foreground" />
+            ) : (
+              <ChevronRight
+                aria-hidden
+                className="mt-1 size-5 shrink-0 text-faint-foreground"
+                strokeWidth={2.25}
+              />
+            )}
+          </button>
+        );
+      })}
+    </AuthScreen>
+  );
+}
+
 function StartStep({ onDone }: { onDone: () => void }) {
   const sample = useLoadSampleContent();
   const [error, setError] = useState<string | null>(null);
@@ -435,7 +550,7 @@ function StartStep({ onDone }: { onDone: () => void }) {
         <span className="min-w-0 flex-1">
           <span className="block text-headline">Start empty</span>
           <span className="mt-0.5 block text-subhead text-muted-foreground">
-            Your own files and recordings come next: uploads arrive in Phase 4.
+            Upload your own files and recordings with the + button.
           </span>
         </span>
         <ChevronRight

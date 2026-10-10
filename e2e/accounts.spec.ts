@@ -117,6 +117,13 @@ test('someone signs up and creates a workspace with sample content', async () =>
   await expect(owner.getByRole('list', { name: 'Invites sent' })).toContainText(colleagueEmail);
   await owner.getByRole('button', { name: 'Continue' }).click();
 
+  // Phase 6: where questions are answered. Private needs nothing set up.
+  await expect(
+    owner.getByRole('heading', { name: 'Where should questions be answered?' }),
+  ).toBeVisible();
+  await axe(owner, 'onboarding: AI mode');
+  await owner.getByRole('button', { name: /Private \(recommended\)/ }).click();
+
   await owner.getByRole('button', { name: /Explore with sample content/ }).click();
   await expect(owner).toHaveURL(/\/home$/);
   await expect(top(owner).getByText('You’re exploring sample content')).toBeVisible();

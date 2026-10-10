@@ -21,6 +21,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This month’s usage against the plan, and daily usage for a chart. */
+        get: operations["UsageController_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The plan, the subscription and the plans to choose from. */
+        get: operations["BillingController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Start checkout for a plan; returns the payment page to open. */
+        post: operations["BillingController_checkout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Back from checkout: the api verifies the payment with the provider, then the plan changes. */
+        post: operations["BillingController_confirm"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/billing/portal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The provider’s page to update the card or cancel (test mode: ends the plan at once). */
+        post: operations["BillingController_portal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/status": {
         parameters: {
             query?: never;
@@ -724,7 +809,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Answer the question again, replacing this answer (streamed). */
+        /** Answer the question again, replacing this answer (streamed); optionally with another model. */
         post: operations["ConversationsController_regenerate"];
         delete?: never;
         options?: never;
@@ -766,6 +851,145 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/embeddings/indexes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Embedding indexes: which one serves, and how much each covers. */
+        get: operations["AiController_indexes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Where questions may be answered, and which modes this server offers. */
+        get: operations["AiController_getPolicy"];
+        /** Change the AI policy: allowed modes, defaults, Confidential rule. */
+        put: operations["AiController_putPolicy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The models you can pick in Ask, and the default. */
+        get: operations["AiController_models"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every model this workspace could use, on or off. */
+        get: operations["AiController_catalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/catalog/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Turn a model on or off for this workspace. */
+        put: operations["AiController_toggle"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This workspace’s own API keys (never the keys themselves). */
+        get: operations["AiController_keys"];
+        put?: never;
+        /** Add an API key. It is tested first and stored encrypted only if it works. */
+        post: operations["AiController_addKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/ai/providers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a key. Its models leave the catalog at once. */
+        delete: operations["AiController_removeKey"];
+        options?: never;
+        head?: never;
+        /** Rename a key, or replace it with a new one (tested first). */
+        patch: operations["AiController_updateKey"];
+        trace?: never;
+    };
+    "/api/v1/ai/providers/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Test a saved key again and refresh its models. */
+        post: operations["AiController_testKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -782,6 +1006,82 @@ export interface components {
             passkey: boolean;
             google: boolean;
             microsoft: boolean;
+        };
+        UsageReport: {
+            /** @enum {string} */
+            range: "7d" | "30d" | "90d";
+            plan: components["schemas"]["Plan"];
+            period: {
+                start: string;
+                end: string;
+            };
+            meters: {
+                /** @enum {string} */
+                id: "privateTokens" | "managedTokens" | "transcriptionMinutes" | "storageBytes";
+                used: number;
+                limit: number | null;
+            }[];
+            byokTokens: number;
+            daily: {
+                date: string;
+                privateTokens: number;
+                managedTokens: number;
+                byokTokens: number;
+                transcriptionMinutes: number;
+            }[];
+        };
+        Plan: {
+            id: components["schemas"]["PlanId"];
+            name: string;
+            summary: string;
+            price: {
+                monthly: number;
+                yearly: number;
+            } | null;
+            currency: string;
+            placeholderPrices: boolean;
+            modes: ("PRIVATE" | "BYOK" | "MANAGED")[];
+            limits: {
+                privateTokens: number | null;
+                managedTokens: number | null;
+                transcriptionMinutes: number | null;
+                storageBytes: number | null;
+            };
+            features: string[];
+            selfServe: boolean;
+        };
+        /** @enum {string} */
+        PlanId: "FREE" | "PRO" | "BUSINESS" | "ENTERPRISE";
+        Billing: {
+            plan: components["schemas"]["Plan"];
+            subscription: {
+                /** @enum {string} */
+                status: "ACTIVE" | "PAST_DUE" | "CANCELLED";
+                provider: string;
+                currentPeriodEnd: string | null;
+            } | null;
+            plans: components["schemas"]["Plan"][];
+            provider: {
+                /** @enum {string} */
+                id: "paystack" | "test";
+                testMode: boolean;
+                label: string;
+            };
+        };
+        CheckoutBody: {
+            /** @enum {string} */
+            plan: "PRO" | "BUSINESS";
+            /**
+             * @default monthly
+             * @enum {string}
+             */
+            interval: "monthly" | "yearly";
+        };
+        BillingUrl: {
+            url: string | null;
+        };
+        ConfirmCheckoutBody: {
+            reference: string;
         };
         Me: {
             user: {
@@ -928,7 +1228,7 @@ export interface components {
             /** Format: date-time */
             at: string;
             /** @enum {string} */
-            action: "workspace.created" | "workspace.renamed" | "member.joined" | "member.role_changed" | "member.removed" | "invite.sent" | "invite.resent" | "invite.revoked" | "collection.created" | "collection.updated" | "collection.deleted" | "collection.access_changed" | "audit.exported" | "onboarding.sample_loaded" | "file.uploaded" | "file.recorded" | "file.renamed" | "file.moved" | "file.relabelled" | "file.trashed" | "file.restored" | "file.deleted" | "file.downloaded" | "note.created" | "note.edited" | "ask.asked";
+            action: "workspace.created" | "workspace.renamed" | "member.joined" | "member.role_changed" | "member.removed" | "invite.sent" | "invite.resent" | "invite.revoked" | "collection.created" | "collection.updated" | "collection.deleted" | "collection.access_changed" | "audit.exported" | "onboarding.sample_loaded" | "file.uploaded" | "file.recorded" | "file.renamed" | "file.moved" | "file.relabelled" | "file.trashed" | "file.restored" | "file.deleted" | "file.downloaded" | "note.created" | "note.edited" | "ask.asked" | "ai.policy_changed" | "ai.model_toggled" | "ai.key_added" | "ai.key_replaced" | "ai.key_renamed" | "ai.key_removed" | "billing.plan_changed" | "billing.payment_failed" | "billing.cancelled";
             summary: string;
             actor: {
                 id: string;
@@ -1246,6 +1546,7 @@ export interface components {
         };
         AskBody: {
             content: string;
+            model?: string;
         };
         AnswerEvent: {
             /** @enum {string} */
@@ -1271,8 +1572,109 @@ export interface components {
             code: string;
             message: string;
         };
+        RegenerateBody: {
+            model?: string;
+        };
         FeedbackBody: {
             value: -1 | 0 | 1;
+        };
+        EmbeddingIndexes: {
+            configured: string;
+            indexes: {
+                model: string;
+                dims: number;
+                /** @enum {string} */
+                status: "BUILDING" | "READY" | "RETIRED";
+                serving: boolean;
+                embedded: number;
+                total: number;
+            }[];
+        };
+        AiSettings: {
+            policy: components["schemas"]["AiPolicy"];
+            modes: {
+                mode: components["schemas"]["AiMode"];
+                label: string;
+                availability: {
+                    available: boolean;
+                    reason?: string;
+                };
+            }[];
+            effectiveDefault: string | null;
+        };
+        AiPolicy: {
+            allowedModes: components["schemas"]["AiMode"][];
+            defaultMode: components["schemas"]["AiMode"];
+            defaultModel: string | null;
+            confidentialModes: components["schemas"]["AiMode"][];
+            disabledModels: string[];
+        };
+        /** @enum {string} */
+        AiMode: "PRIVATE" | "BYOK" | "MANAGED";
+        UpdateAiPolicy: {
+            allowedModes?: components["schemas"]["AiMode"][];
+            defaultMode?: components["schemas"]["AiMode"];
+            defaultModel?: string | null;
+            confidentialModes?: components["schemas"]["AiMode"][];
+            disabledModels?: string[];
+        };
+        AiModels: {
+            models: components["schemas"]["AiCatalogEntry"][];
+            defaultRef: string | null;
+        };
+        AiCatalogEntry: {
+            ref: string;
+            mode: components["schemas"]["AiMode"];
+            model: string;
+            providerLabel: string;
+            keyLabel: string | null;
+            routeLabel: string;
+            /** @enum {string} */
+            dataLocation: "IN_CLUSTER" | "THIRD_PARTY";
+            isMock: boolean;
+            enabled: boolean;
+            allowed: boolean;
+            readsConfidential: boolean;
+            readsRestricted: boolean;
+        };
+        ToggleAiModel: {
+            enabled: boolean;
+        };
+        AiKeys: {
+            keys: components["schemas"]["AiKey"][];
+            providers: components["schemas"]["AiProviderInfo"][];
+            canStoreKeys: boolean;
+        };
+        AiKey: {
+            id: string;
+            provider: components["schemas"]["AiProviderId"];
+            providerLabel: string;
+            label: string;
+            keyLast4: string | null;
+            baseUrl: string | null;
+            models: string[];
+            verifiedAt: string | null;
+            lastError: string | null;
+            createdAt: string;
+        };
+        /** @enum {string} */
+        AiProviderId: "anthropic" | "openai" | "google" | "openai-compatible";
+        AiProviderInfo: {
+            id: components["schemas"]["AiProviderId"];
+            label: string;
+            keyHint: string;
+            keyRequired: boolean;
+            needsBaseUrl: boolean;
+        };
+        AddAiKey: {
+            provider: components["schemas"]["AiProviderId"];
+            label: string;
+            apiKey?: string;
+            baseUrl?: string;
+        };
+        UpdateAiKey: {
+            label?: string;
+            apiKey?: string;
         };
     };
     responses: never;
@@ -1298,6 +1700,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SignInMethods"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    UsageController_report: {
+        parameters: {
+            query?: {
+                range?: "7d" | "30d" | "90d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageReport"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    BillingController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Billing"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    BillingController_checkout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckoutBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingUrl"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    BillingController_confirm: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConfirmCheckoutBody"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Billing"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    BillingController_portal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingUrl"];
                 };
             };
             /** @description An error */
@@ -3005,7 +3557,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegenerateBody"];
+            };
+        };
         responses: {
             /** @description text/event-stream */
             200: {
@@ -3079,6 +3635,336 @@ export interface operations {
                         id: string;
                         feedback: number | null;
                     };
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_indexes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmbeddingIndexes"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_getPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSettings"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_putPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAiPolicy"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiSettings"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_models: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModels"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_catalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiModels"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_toggle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ToggleAiModel"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiCatalogEntry"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_keys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiKeys"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_addKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddAiKey"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiKey"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_removeKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_updateKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAiKey"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiKey"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_testKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiKey"];
                 };
             };
             /** @description An error */
