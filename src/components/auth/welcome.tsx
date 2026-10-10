@@ -418,8 +418,9 @@ function AiStep({ onDone }: { onDone: () => void }) {
       mode: 'MANAGED',
       icon: Cloud,
       tint: 'bg-[#007aff]',
-      title: 'Also use Managed AI',
-      line: 'Sotto’s own AI account, included in the Pro plan. Choose it later in Usage and billing.',
+      // Not a switch here: Managed needs the Pro plan, chosen later in Usage and billing.
+      title: 'Managed AI, with Pro',
+      line: 'Sotto’s own AI account, no keys to look after. Start with Private and choose Pro later in Usage and billing.',
     });
   }
 
