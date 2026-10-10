@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M4 (the AI gateway in Ask).
+- **Current milestone:** M5 (metering, plans and quotas).
 
 ## Requirements
 
@@ -113,8 +113,8 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
 | M1  | Schema + migration (AiProviderConfig, WorkspaceAiPolicy, AiModel, UsageEvent, Subscription); key vault (envelope encryption, local master key, KMS interface) | sotto-api | done        |
 | M2  | `packages/ai`: Anthropic adapter (native Messages API), OpenAI / Google / any OpenAI-compatible as BYOK; provider catalog with data location; test connection | sotto-api | done        |
 | M3  | AI settings API: policy, providers (write-only keys, test, delete), models, catalog; audit; integration tests per role                                        | sotto-api | done        |
-| M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | in progress |
-| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | pending     |
+| M4  | AI gateway in Ask: per-workspace mode and model, per-answer model (switch/regenerate), Confidential rule, route badges, Restricted proofs on every route      | sotto-api | done        |
+| M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | in progress |
 | M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | pending     |
 | M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | pending     |
 | M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | pending     |
@@ -172,9 +172,26 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
   `test/integration/stand-in-llm.ts` (an OpenAI-style provider on localhost that records every
   request) and `ai-settings.spec.ts` (13 tests).
 
+- **M4 (sotto-api `2d5d820`, `4758cfd`):** Ask asks `AskService.chooseChat(viewer, model?)`
+  before the stream opens: the picked model (Switch model) or the workspace default, resolved
+  by `AiSettingsService.resolve` (an unusable model is a 409 `MODEL_UNAVAILABLE`, never a swap),
+  or none → passages only. `sensitivitiesFor(chat, policy)` feeds the retrieval SQL: in-cluster
+  reads all; outside reads Internal, plus Confidential where `confidentialModes` has the route;
+  Restricted never. `partitionSources` re-checks every passage before the provider call (a slip
+  is dropped and logged). `AskBody.model`, `RegenerateBody.model` (optional body).
+  `Message.model` now stores the full reference (`private:…`, `byok:…`). New failure codes
+  `key_rejected` (401/403) and `provider_limited` (429). `AiService` keeps embeddings only;
+  platform chats live in `AiSettingsService.usePlatformChats` (startup and tests).
+  **Done-when proofs** (`ask-routes.spec.ts`, 8 tests): two recording stand-ins (Private
+  inside, BYOK outside); Restricted text never reaches the outside one — default model, scoped
+  to the restricted collection, @-mentioned, switched per question, answered again with
+  another model, Confidential allowed for BYOK — while Private reads it; a fully hidden
+  question calls no model; a disallowed model is refused before any call; a refused key fails
+  with no fallback.
+
 ## Work in progress
 
-- M4: the AI gateway in Ask.
+- M5: metering, plans and quotas.
 
 ## Remaining work
 
@@ -182,18 +199,17 @@ M1–M10 above.
 
 ## Next steps
 
-1. M4 in sotto-api (`apps/api/src/ask/`): `POST /conversations/:id/messages` and
-   `POST /messages/:id/regenerate` take an optional `model` (a reference from `GET /ai/models`);
-   none → the workspace default (`AiSettingsService.usableModels().defaultRef`), none at all →
-   passages only as today. Resolve with `AiSettingsService.resolve` (a model that isn't usable is
-   a 409, never a swap). Allowed sensitivities: IN_CLUSTER → all; THIRD_PARTY → Internal, plus
-   Confidential when the route is in `policy.confidentialModes`; Restricted never. Before the
-   provider call, `partitionSources` re-checks every passage (drop + log a code if one slips).
-   Answers carry `canSwitchToPrivate` when sources were hidden and Private is allowed and has a
-   model. Replace `AiService.chat`/`allowedFor`/`routeOf` (keep embeddings). Integration tests:
-   with the stand-in as a BYOK key, a Restricted file's text never appears in
-   `llm.sentText()` for any question, scope or regenerate; Confidential only when allowed;
-   Private answers read both; switching models per answer.
+1. M5 in sotto-api: `packages/contracts/src/plans.ts` (Free, Pro, Business, Enterprise:
+   placeholder monthly NGN amounts in kobo and USD for display, labelled placeholders; limits:
+   Private and Managed AI tokens per month, transcription minutes, storage bytes, members; which
+   modes each plan allows: Managed needs Pro+). `apps/api/src/billing/usage.service.ts`:
+   `record(kind, quantity, route, model)` (fire-and-forget, never content); `periodUsage`;
+   `checkQuota(workspaceId, kind)` → 402 `QUOTA_EXCEEDED` with a friendly message naming the
+   plan to upgrade to. Record: Ask tokens (after `done`, by route; BYOK is recorded but never
+   counted against a quota: the workspace pays its provider), transcription seconds (the worker,
+   on `transcribe.completed`), storage (+ on upload complete, − on permanent delete). Quota check
+   before Ask (Private/Managed), before upload. `GET /usage?range=7d|30d|90d` (Owner): daily
+   series per kind + the period totals against the plan's limits. Integration tests.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
@@ -233,9 +249,11 @@ Identified, not invented around:
 
 ## Tests and checks run
 
-| When           | Check                                                                                                                                                                                                                                                 | Result |
-| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `417c6e2` (M1) | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5)                                                                                                                             | Pass   |
-| `4557219` (M3) | `ai-settings.spec.ts` 13 tests on Postgres 16 + pgvector; full api suite 137 pass, 1 fail (`collections.spec` sample content: 503, no S3 in this sandbox; unrelated, CI has storage); eslint, prettier, typecheck; `openapi.json` has the 7 new paths | Pass   |
-| `9cce338` (M2) | `packages/ai` 29 tests (9 new: Anthropic stream/usage/errors, catalog, models, Test connection codes, SSRF guard, Managed settings); api + worker typecheck; eslint                                                                                   | Pass   |
-| `417c6e2` (M1) | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both                                                                                                                                             | Pass   |
+| When               | Check                                                                                                                                                                                                                                                 | Result |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `417c6e2` (M1)     | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5)                                                                                                                             | Pass   |
+| `4758cfd` (M4)     | `ask-routes.spec` 8 + `ask.spec` 14 (Phase 5, moved to the new seam) + `ai-settings.spec` 13; full api suite 145 pass, 1 fail (`collections.spec` sample content: no S3 here; unrelated); eslint, prettier, typecheck; openapi regenerated            | Pass   |
+| `2d5d820` (M4, CI) | `node` job failed on an unused variable in `ask.spec.ts` (fixed in `4758cfd`)                                                                                                                                                                         | Fail   |
+| `4557219` (M3)     | `ai-settings.spec.ts` 13 tests on Postgres 16 + pgvector; full api suite 137 pass, 1 fail (`collections.spec` sample content: 503, no S3 in this sandbox; unrelated, CI has storage); eslint, prettier, typecheck; `openapi.json` has the 7 new paths | Pass   |
+| `9cce338` (M2)     | `packages/ai` 29 tests (9 new: Anthropic stream/usage/errors, catalog, models, Test connection codes, SSRF guard, Managed settings); api + worker typecheck; eslint                                                                                   | Pass   |
+| `417c6e2` (M1)     | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both                                                                                                                                             | Pass   |
