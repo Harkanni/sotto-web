@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M8 (web: Switch model, Switch to Private).
+- **Current milestone:** M9 (web: Usage and billing).
 
 ## Requirements
 
@@ -117,8 +117,8 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
 | M5  | Metering and plans: shared plans config, UsageEvent (tokens, transcription, storage), quotas with friendly errors, `GET /usage`                               | sotto-api | done        |
 | M6  | Billing: `PaymentProvider`, Paystack test-mode adapter, `GET /billing`, checkout, portal, webhook; embedding re-index endpoints                               | sotto-api | done        |
 | M7  | Web: AI settings (modes, default model, keys sheet with Test connection, sensitivity rules, catalog); onboarding AI mode step                                 | sotto-web | done        |
-| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | in progress |
-| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | pending     |
+| M8  | Web: Switch model on answers, Switch to Private on the hidden notice, route badges for BYOK/Managed                                                           | sotto-web | done        |
+| M9  | Web: Usage and billing (charts, plan, upgrade, limit prompts); stories, unit tests, e2e, axe, smoothness                                                      | sotto-web | in progress |
 | M10 | Compose and demo config; ADRs; STATUS; verification in the rendered app (iPhone + desktop, light + dark); PRs ready                                           | all       | pending     |
 
 ## Completed work
@@ -254,9 +254,21 @@ rabbitmq-server`, user sotto/sotto), moto S3 on :5100, an SMTP sink writing `mai
   broken in dark mode, the server's field prefix in an error, an awkward sentence, truncated
   key subtitles, the adapter id as a model's label.
 
+- **M8 (sotto-web `feat(web): Switch model…`, `fix(web): 'can read it'…`):** `streamAnswer`
+  sends an optional `model`; the chat's `again(id, model?)`; Switch model is a real menu of
+  `useAiModels()` models grouped by mode with where each runs, the one that answered checked
+  (`message.model` is the reference), picking one answers again with it; one model or none →
+  a toast saying so. `HiddenNotice` offers **Answer with Private** (the default if it's Private,
+  else the first Private model) or says none is set up. `askFailed` adds a toast action to Usage
+  and billing (`QUOTA_EXCEEDED`, `PLAN_REQUIRED`) or AI settings (`MODEL_UNAVAILABLE`).
+  Rendered (iPhone light, rig with the sample content, BYOK default): the BYOK answer hides 1
+  restricted source and offers Answer with Private; the menu; the Private answer cites "Board
+  update" with the lock badge.
+- **Moved to M10:** the onboarding "choose an AI mode" step (`components/auth/welcome.tsx`).
+
 ## Work in progress
 
-- M8: Switch model and Switch to Private in Ask.
+- M9: Usage and billing.
 
 ## Remaining work
 
@@ -264,15 +276,15 @@ M1–M10 above.
 
 ## Next steps
 
-1. M8 in sotto-web: `src/components/ask/actions.tsx` Switch model (today labelled "arrives in
-   Phase 6") → a menu of `useAiModels()` models (the MenuPicker menu style) that regenerates the
-   answer with `{ model }`; `src/lib/api/ask.ts` send/regenerate pass `model`; the composer may
-   offer the model for the next question (check the Phase 5 composer first; keep it quiet).
-   Hidden-sources notice: "Switch to Private to include them" as a button when a Private model
-   is usable (regenerate with that model). Answer errors `key_rejected`, `provider_limited`,
-   402 `QUOTA_EXCEEDED`/`PLAN_REQUIRED` shown in plain words with what to do (link to AI
-   settings / Usage and billing). Route badge already shows BYOK/Managed labels from the API.
-   Then the onboarding AI mode step (`src/components/auth/welcome.tsx`).
+1. M9 in sotto-web: `src/lib/api/billing.ts` (hooks: usage by range, billing, checkout →
+   `window.location.assign(url)`, confirm, portal), `src/screens/usage.tsx` for route `usage`
+   (owner; others see who to ask): plan card (name, status: renews / ends / payment failed,
+   provider label incl. "Test checkout · no payment provider", Manage subscription), This
+   month meters (Private AI, Managed AI, transcription, storage; bars by `translate`; warning at
+   80%, red at the limit, "Comes with Pro" when 0), daily usage chart (7/30/90 segmented; read
+   the `dataviz` skill first), plans (monthly/yearly, placeholder prices labelled, Current,
+   Upgrade). Returning from checkout (`?checkout=done&reference=`) confirms once and cleans
+   the URL. Then stories + unit tests for the new components.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
