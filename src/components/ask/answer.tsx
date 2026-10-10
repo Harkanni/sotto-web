@@ -2,6 +2,7 @@
 
 import { AudioLines, EyeOff, FileText, Lock, NotebookPen, Sparkles } from 'lucide-react';
 import { Fragment, memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useAiModels } from '@/lib/api/ai';
 import type { ChatMessage, Citation } from '@/lib/api/ask';
 import { timestamp } from '@/lib/format';
 import { prefersReducedMotion } from '@/lib/motion/driver';
@@ -377,21 +378,54 @@ export function RouteBadge({ message }: { message: ChatMessage }) {
   );
 }
 
-/** "2 restricted sources hidden": what the answering model wasn't allowed to read. */
-export function HiddenNotice({ hidden }: { hidden: ChatMessage['hidden'] }) {
+/**
+ * "2 restricted sources hidden" (BRIEF §3): what the answering model wasn't allowed to read,
+ * and, when this workspace has a Private model, a way to answer again with it.
+ */
+export function HiddenNotice({
+  hidden,
+  onAnswerPrivately,
+}: {
+  hidden: ChatMessage['hidden'];
+  onAnswerPrivately?: (model: string) => void;
+}) {
+  const models = useAiModels();
   const parts = [
     hidden.restricted ? `${hidden.restricted} restricted` : null,
     hidden.confidential ? `${hidden.confidential} confidential` : null,
   ].filter(Boolean);
   if (!parts.length) return null;
   const total = hidden.restricted + hidden.confidential;
+  const usable = models.data?.models ?? [];
+  // Private reads everything this person can open; prefer the default if it's Private.
+  const privateModel =
+    usable.find((m) => m.mode === 'PRIVATE' && m.ref === models.data?.defaultRef) ??
+    usable.find((m) => m.mode === 'PRIVATE');
   return (
-    <p className="flex items-start gap-2 rounded-card bg-card-nested px-3 py-2.5 text-subhead text-muted-foreground">
-      <EyeOff aria-hidden className="mt-0.5 size-4 shrink-0" />
-      <span>
-        {parts.join(' and ')} {total === 1 ? 'source' : 'sources'} hidden from this model. Private
-        mode, which can read them, arrives with AI settings.
-      </span>
-    </p>
+    <div className="flex flex-col gap-1 rounded-card bg-card-nested px-3 py-2.5 text-subhead text-muted-foreground">
+      <p className="flex items-start gap-2">
+        <EyeOff aria-hidden className="mt-0.5 size-4 shrink-0" />
+        <span>
+          {parts.join(' and ')} {total === 1 ? 'source' : 'sources'} hidden from this model.{' '}
+          {privateModel
+            ? 'A Private model can read them.'
+            : 'Only Private models can read them, and none is set up here.'}
+        </span>
+      </p>
+      {privateModel && onAnswerPrivately && (
+        <button
+          type="button"
+          onClick={() => onAnswerPrivately(privateModel.ref)}
+          className={cn(
+            'pressable -mb-1 ml-4 flex h-11 items-center gap-1.5 self-start rounded-button px-2 text-subhead font-semibold text-primary-text',
+            'hovered:bg-primary-tint pressed:bg-primary-tint-strong',
+            'outline-offset-2 focus-visible:outline-2 focus-visible:outline-ring',
+          )}
+        >
+          <Lock aria-hidden className="size-4" strokeWidth={2.25} />
+          Answer with Private
+        </button>
+      )}
+    </div>
   );
 }

@@ -39,6 +39,7 @@ import { prefersReducedMotion } from '@/lib/motion/driver';
 import { useChildKey, useNav } from '@/lib/nav/hooks';
 import { pushPath } from '@/lib/nav/routes';
 import { getSnapshot, navigate } from '@/lib/nav/store';
+import { ApiError } from '@/lib/api/client';
 import { cn } from '@/lib/utils';
 import { Composer, scopeLabel, scopeOf, useScopeOptions, type Mention } from './parts/composer';
 import { RowsSkeleton, THREAD_TINT, TintIcon } from './parts/rows';
@@ -47,8 +48,19 @@ import { emitScreenEvent } from './parts/screen-events';
 // ── Asking ────────────────────────────────────────────────────────────────────────────────
 
 /** Says why a question couldn't be asked, in the API's own words. */
+/** A refused question says why, and offers the screen that fixes it. */
 function askFailed(error: unknown) {
-  toast(messageOf(error));
+  const code = error instanceof ApiError ? error.code : null;
+  const fix =
+    code === 'QUOTA_EXCEEDED' || code === 'PLAN_REQUIRED'
+      ? { label: 'Usage and billing', path: '/profile/usage' }
+      : code === 'MODEL_UNAVAILABLE'
+        ? { label: 'AI settings', path: '/profile/ai' }
+        : null;
+  toast(
+    messageOf(error),
+    fix ? { action: { label: fix.label, onClick: () => navigate(fix.path) } } : undefined,
+  );
 }
 
 /**
@@ -390,7 +402,7 @@ const AssistantMessage = memo(function AssistantMessage({
   scope: string;
   isLast: boolean;
   regenerating: boolean;
-  onAgain: (id: string) => void;
+  onAgain: (id: string, model?: string) => void;
   onAsk: (question: string) => void;
 }) {
   const live = useLiveAnswer(message.id);
@@ -449,7 +461,7 @@ const AssistantMessage = memo(function AssistantMessage({
         </div>
       )}
 
-      <HiddenNotice hidden={m.hidden} />
+      <HiddenNotice hidden={m.hidden} onAnswerPrivately={(model) => onAgain(m.id, model)} />
       {(m.passagesOnly ? !streaming : !thinking) && (
         <Sources citations={m.citations} base={base} passages={m.passagesOnly} />
       )}
@@ -459,7 +471,7 @@ const AssistantMessage = memo(function AssistantMessage({
           question={question}
           base={base}
           regenerating={regenerating}
-          onRegenerate={() => onAgain(m.id)}
+          onRegenerate={(model) => onAgain(m.id, model)}
         />
       )}
       {isLast && !streaming && !failed && <FollowUps questions={m.followUps} onAsk={onAsk} />}
@@ -478,7 +490,7 @@ export function ConversationView({
   chat: Conversation;
   base: string;
   regenerating: string | null;
-  onAgain: (id: string) => void;
+  onAgain: (id: string, model?: string) => void;
   onAsk: (question: string) => void;
 }) {
   const collections = useWorkspaceCollections().data;
@@ -523,10 +535,14 @@ function useChatActions(id: string | null, onAsked?: () => void) {
       onAsked?.();
       void streamAnswer(client, ws, { conversationId: id, question }).catch(askFailed);
     },
-    again: (messageId: string) => {
+    again: (messageId: string, model?: string) => {
       if (!id) return;
       setRegenerating(messageId);
-      void streamAnswer(client, ws, { conversationId: id, again: messageId })
+      void streamAnswer(client, ws, {
+        conversationId: id,
+        again: messageId,
+        ...(model ? { model } : {}),
+      })
         .catch(askFailed)
         .finally(() => setRegenerating(null));
     },
