@@ -294,9 +294,25 @@ rabbitmq-server`, user sotto/sotto), moto S3 on :5100, an SMTP sink writing `mai
 - A previous session was cut off by a tool outage after writing those files; this session
   found them uncommitted and committed them as they were.
 
+- **M10, part 2:**
+  - Onboarding step rendered (iPhone dark, desktop light) and exercised: choosing "your own AI
+    key" saves `PRIVATE, BYOK`. Fixed: the Managed card now reads "Managed AI, with Pro" (it
+    can't turn Managed on for a Free workspace).
+  - sotto-platform: demo Compose api env (`AI_KEYS_MASTER`, Managed, Paystack test settings,
+    all `${…:-}` so the demo keeps its labelled stand-ins); local Compose reads the same from
+    `local/.env` (`local/.env.example`); `docker compose config` passes for both.
+  - **Embedding re-index (sotto-api `67154a3`):** a later model starts BUILDING; worker
+    `reindex` / `reindex-cli` (`pnpm reindex`, `task reindex -- --swap`) fills in the
+    configured model beside the live index and swaps only when complete; `GET
+/ai/embeddings/indexes` (admins, read-only, coverage for this workspace). **Deviation:**
+    `POST /ai/embeddings/reindex` is not exposed: the index is shared by every workspace, so
+    starting a re-index is an operator command (ADR 0027).
+  - Run logs committed by mistake in `67154a3` were removed in the next commit (no secrets in
+    them; `*.out` now ignored).
+
 ## Work in progress
 
-- M10, part 2.
+- M10, part 3: STATUS, web client sync, CI, PRs ready.
 
 ## Remaining work
 
@@ -304,12 +320,8 @@ M1–M10 above.
 
 ## Next steps
 
-1. M10 part 2, in order: render the onboarding step in the rig (iPhone dark, desktop light);
-   demo Compose (`deploy/demo/compose.yaml` api env: `AI_KEYS_MASTER`, optional Managed and
-   Paystack settings, all `${…:-}`) and local Compose (a dev master key note, test checkout);
-   embedding re-index endpoints (`GET /ai/embeddings/indexes`, `POST /ai/embeddings/reindex`)
-   or list them as remaining; STATUS; full checks in all three repos; CI green; mark the three
-   PRs ready.
+1. M10 part 3: sync the web's API client (`pnpm api:sync`); STATUS in sotto-platform; check CI
+   on all three PRs and fix anything red; update PR checklists; mark the three PRs ready.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.

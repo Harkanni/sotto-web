@@ -851,6 +851,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/ai/embeddings/indexes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Embedding indexes: which one serves, and how much each covers. */
+        get: operations["AiController_indexes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/ai/policy": {
         parameters: {
             query?: never;
@@ -1560,6 +1577,18 @@ export interface components {
         };
         FeedbackBody: {
             value: -1 | 0 | 1;
+        };
+        EmbeddingIndexes: {
+            configured: string;
+            indexes: {
+                model: string;
+                dims: number;
+                /** @enum {string} */
+                status: "BUILDING" | "READY" | "RETIRED";
+                serving: boolean;
+                embedded: number;
+                total: number;
+            }[];
         };
         AiSettings: {
             policy: components["schemas"]["AiPolicy"];
@@ -3606,6 +3635,34 @@ export interface operations {
                         id: string;
                         feedback: number | null;
                     };
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    AiController_indexes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmbeddingIndexes"];
                 };
             };
             /** @description An error */
