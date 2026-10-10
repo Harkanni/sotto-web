@@ -14,7 +14,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 - **Current phase:** 6 — AI modes, providers and billing. Phases 0–5 are merged (sotto-api
   `c678d0e`, sotto-web `fa5debb`, sotto-platform `c421969`, all "Merge pull request #… p5").
 - **Overall:** in progress.
-- **Current milestone:** M3 (AI settings API).
+- **Current milestone:** M4 (the AI gateway in Ask).
 
 ## Requirements
 
@@ -159,9 +159,22 @@ api: stream → UsageEvent (input/output tokens, route, model) → quota counter
   dev). Managed settings: `AI_MANAGED_CHAT` (one provider, comma-separated models),
   `AI_MANAGED_KEY`, `AI_MANAGED_BASE_URL` → `managedChatFrom`.
 
+- **M3 (sotto-api `474f394`, `4557219`):** `apps/api/src/ai/`: `models.ts` (references
+  `private:`/`managed:`/`byok:`), `ai-settings.service.ts` (policy with defaults; availability per
+  mode: Private needs a platform model, BYOK a master key, Managed `AI_MANAGED_CHAT`; catalog;
+  usable models and the effective default; `resolve(ref)` opening the key just for the call;
+  keys: URL check → Test connection → seal → store; replace keeps the old key if the new one
+  fails; remove clears the default and disabled entries naming it), `ai.controller.ts` (the nine
+  routes; `readsConfidential`/`readsRestricted` on every model). Audit `ai.policy_changed`,
+  `ai.model_toggled`, `ai.key_added`, `ai.key_replaced`, `ai.key_renamed`, `ai.key_removed`
+  with sentences in `describe.ts`. A Phase 5 platform chat on a third party (`AI_ASK_CHAT` on a
+  hosted API) is listed as Managed, never Private. `openapi.json` regenerated.
+  `test/integration/stand-in-llm.ts` (an OpenAI-style provider on localhost that records every
+  request) and `ai-settings.spec.ts` (13 tests).
+
 ## Work in progress
 
-- M3: AI settings API.
+- M4: the AI gateway in Ask.
 
 ## Remaining work
 
@@ -169,17 +182,18 @@ M1–M10 above.
 
 ## Next steps
 
-1. M3 in sotto-api: a new `apps/api/src/ai/` module. Model references: `private:<provider>:<model>`,
-   `managed:<provider>:<model>`, `byok:<config id>:<model>`. `AiSettingsService` (policy with
-   defaults when no row; catalog = platform Private models + Managed models + each BYOK key's
-   models, each with mode, badge, data location, enabled). Routes (Admin+ unless noted):
-   `GET/PUT /ai/policy` (default must be allowed, confidential ⊆ allowed, default model must be
-   enabled), `GET /ai/providers`, `POST /ai/providers` (URL check → Test connection → seal →
-   save; refused with the code if the test fails), `PATCH /ai/providers/:id` (label, models,
-   replace key), `POST /ai/providers/:id/test`, `DELETE /ai/providers/:id`, `GET /ai/models`
-   (Viewer+: what Switch model offers), `GET /ai/catalog`, `PUT /ai/catalog/:ref`. Audit
-   `ai.policy_changed`, `ai.key_added`, `ai.key_removed`, `ai.model_toggled`. Integration tests
-   per role; keys never in any response or log.
+1. M4 in sotto-api (`apps/api/src/ask/`): `POST /conversations/:id/messages` and
+   `POST /messages/:id/regenerate` take an optional `model` (a reference from `GET /ai/models`);
+   none → the workspace default (`AiSettingsService.usableModels().defaultRef`), none at all →
+   passages only as today. Resolve with `AiSettingsService.resolve` (a model that isn't usable is
+   a 409, never a swap). Allowed sensitivities: IN_CLUSTER → all; THIRD_PARTY → Internal, plus
+   Confidential when the route is in `policy.confidentialModes`; Restricted never. Before the
+   provider call, `partitionSources` re-checks every passage (drop + log a code if one slips).
+   Answers carry `canSwitchToPrivate` when sources were hidden and Private is allowed and has a
+   model. Replace `AiService.chat`/`allowedFor`/`routeOf` (keep embeddings). Integration tests:
+   with the stand-in as a BYOK key, a Restricted file's text never appears in
+   `llm.sentText()` for any question, scope or regenerate; Confidential only when allowed;
+   Private answers read both; switching models per answer.
 2. Local rig: Postgres 16 + pgvector 0.6 installed from Ubuntu's archive (`apt-get install
 postgresql-16-pgvector`), `pg_ctlcluster 16 main start`, password `postgres`, databases
    `sotto_shadow` and `sotto_test`.
@@ -219,8 +233,9 @@ Identified, not invented around:
 
 ## Tests and checks run
 
-| When           | Check                                                                                                                                                               | Result |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| `417c6e2` (M1) | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5)                                           | Pass   |
-| `9cce338` (M2) | `packages/ai` 29 tests (9 new: Anthropic stream/usage/errors, catalog, models, Test connection codes, SSRF guard, Managed settings); api + worker typecheck; eslint | Pass   |
-| `417c6e2` (M1) | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both                                                           | Pass   |
+| When           | Check                                                                                                                                                                                                                                                 | Result |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| `417c6e2` (M1) | Fresh database from every migration diffed against the schema: no drift (only the hand-written indexes, as in Phases 4–5)                                                                                                                             | Pass   |
+| `4557219` (M3) | `ai-settings.spec.ts` 13 tests on Postgres 16 + pgvector; full api suite 137 pass, 1 fail (`collections.spec` sample content: 503, no S3 in this sandbox; unrelated, CI has storage); eslint, prettier, typecheck; `openapi.json` has the 7 new paths | Pass   |
+| `9cce338` (M2) | `packages/ai` 29 tests (9 new: Anthropic stream/usage/errors, catalog, models, Test connection codes, SSRF guard, Managed settings); api + worker typecheck; eslint                                                                                   | Pass   |
+| `417c6e2` (M1) | `packages/ai` typecheck + 20 tests (6 new vault tests); `packages/db` 17 tests; eslint + prettier on both                                                                                                                                             | Pass   |
