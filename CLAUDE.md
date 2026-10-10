@@ -129,8 +129,12 @@ Agent sandbox (no npm registry): `GH_TOKEN=$GH_TOKEN scripts/agent-deps.sh` rest
 - If the session may end (a usage warning, a long task ahead): save, write the exact next step
   into the log (task, files, approach), commit and push before anything else.
 - Before each commit, read the diff for accidental changes and secrets. Only `.env.example` is
-  committed. CI reaches AWS with access keys stored as GitHub secrets (ADR 0007); don't
-  reintroduce OIDC or rewrite the working pipeline.
+  committed.
+- **CI/CD runs on Jenkins** (ADR 0023): `Jenkinsfile` runs the checks on every branch and PR and,
+  on `main`, builds the arm64 image, pushes it to ECR and deploys the demo. GitHub Actions'
+  `ci.yml` keeps the heavy checks (Playwright, Storybook, accounts); `images.yml` stays only as a
+  fallback. Change the pipeline in `Jenkinsfile`. AWS access uses IAM access keys (ADR 0007);
+  don't reintroduce OIDC or rewrite the working pipeline.
 - A change spanning the API and the web is a pair of PRs; the API one merges first. Every PR has
   a companion `../sotto-platform/docs/STATUS.md` update.
 
