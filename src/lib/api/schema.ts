@@ -990,6 +990,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/live-sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Live meetings happening now that you can open. */
+        get: operations["LiveController_list"];
+        put?: never;
+        /** Start listening to a call: creates the meeting (shown as live in Meetings) and the session that audio is sent to. */
+        post: operations["LiveController_start"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/live-sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One live session: status, inputs, notes and the meeting it becomes. */
+        get: operations["LiveController_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/live-sessions/{id}/audio": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send the next piece of audio: up to 15 s of 16 kHz mono 16-bit PCM, numbered from 0 in `seq`. A piece that already arrived is accepted again without changes; a gap is refused (409 CHUNK_GAP). */
+        post: operations["LiveController_audio"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/live-sessions/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The live transcript and notes (Server-Sent Events): `session` first and on every change, `segment` per transcribed line (id `seq.idx`; reconnect with Last-Event-ID to resume), `notes` ({notes, notesAt, notesError}) when they change, `ping` every 25 s. */
+        get: operations["LiveController_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/live-sessions/{id}/ask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask during the call: opens a chat scoped to the transcript so far plus your library. Send questions to POST /conversations/:id/messages as usual. */
+        post: operations["LiveController_ask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/live-sessions/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Update the running notes now (they also refresh every few minutes), with the workspace’s default model under its privacy rules. */
+        post: operations["LiveController_notes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/live-sessions/{id}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop listening: the audio becomes a meeting and goes through transcription and notes like any recording. */
+        post: operations["LiveController_end"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1310,7 +1430,7 @@ export interface components {
         /** @enum {string} */
         FileKind: "document" | "audio" | "note";
         /** @enum {string} */
-        FileSource: "upload" | "recording" | "sample" | "import" | "written";
+        FileSource: "upload" | "recording" | "sample" | "import" | "written" | "live" | "bot";
         /** @enum {string} */
         FileStatus: "uploading" | "uploaded" | "transcribing" | "indexing" | "ready" | "failed";
         PartUrl: {
@@ -1472,6 +1592,7 @@ export interface components {
             fileIds?: string[];
             /** @enum {string} */
             kind?: "documents" | "meetings";
+            liveSessionId?: string;
         };
         Conversation: {
             id: string;
@@ -1675,6 +1796,78 @@ export interface components {
         UpdateAiKey: {
             label?: string;
             apiKey?: string;
+        };
+        StartLive: {
+            title?: string;
+            collectionId?: string;
+            sensitivity?: components["schemas"]["Sensitivity"];
+            inputs: ("mic" | "tab")[];
+        };
+        LiveSession: {
+            id: string;
+            /** @enum {string} */
+            source: "listen" | "bot";
+            /** @enum {string} */
+            status: "connecting" | "live" | "ended" | "failed";
+            inputs: components["schemas"]["LiveInput"][];
+            durationMs: number;
+            nextSeq: number;
+            startedAt: string;
+            endedAt: string | null;
+            startedBy: {
+                id: string;
+                name: string;
+            } | null;
+            canControl: boolean;
+            transcriber: {
+                engine: string;
+                isMock: boolean;
+            } | null;
+            notes: components["schemas"]["LiveNotes"] | null;
+            notesAt: string | null;
+            notesError: string | null;
+            error: string | null;
+            file: components["schemas"]["File"];
+        };
+        /** @enum {string} */
+        LiveInput: "mic" | "tab" | "call";
+        LiveNotes: {
+            summary: string;
+            points: string[];
+            actions: {
+                text: string;
+                owner: string | null;
+            }[];
+            routeLabel: string;
+            isMock: boolean;
+            private: boolean;
+        };
+        LiveSessionList: {
+            items: components["schemas"]["LiveSession"][];
+        };
+        LiveChunkQuery: {
+            seq: number;
+        };
+        LiveChunkResult: {
+            accepted: boolean;
+            nextSeq: number;
+            durationMs: number;
+        };
+        LiveSegment: {
+            id: string;
+            seq: number;
+            idx: number;
+            startMs: number;
+            endMs: number;
+            text: string;
+            speaker: string | null;
+        };
+        LiveAskChat: {
+            conversationId: string;
+        };
+        EndLiveResult: {
+            discarded: boolean;
+            session: components["schemas"]["LiveSession"] | null;
         };
     };
     responses: never;
@@ -3965,6 +4158,251 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AiKey"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    LiveController_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSessionList"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    LiveController_start: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StartLive"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSession"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    LiveController_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSession"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    LiveController_audio: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveChunkResult"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    LiveController_events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description text/event-stream */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSegment"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    LiveController_ask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveAskChat"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    LiveController_notes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSession"];
+                };
+            };
+            /** @description An error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    LiveController_end: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EndLiveResult"];
                 };
             };
             /** @description An error */
