@@ -164,9 +164,22 @@ minute. Latency stays a few seconds, which is what the per-window transcriber gi
   `/meetings/live/<id>`), the listening strip in the offline strip's slot
   (`components/shell/system.tsx`). Unit tests `test/live.test.ts` (11).
 
+- **M5, part 1 — rendered and checked** (rig: Postgres, Redis, RabbitMQ, moto S3, SMTP sink,
+  the real transcriber with the mock engine, a stand-in model, api + worker from `dist`, web
+  from `next build`, Chromium's fake microphone): iPhone light and dark, desktop light. Add
+  sheet → Listen sheet → Start → live screen (transcript arriving every ~4 s, Mock labelled) →
+  notes after a minute (Private route badge) → the listening strip on Home → Ask about this
+  call → an answer citing the call at 0:00 → Pause → Stop → the saved meeting, Ready with
+  player, transcript and notes within seconds. **PLAN's first "done when" (a live call is
+  transcribed as it happens) holds in the rendered app.** Fixed from the screenshots: the +
+  button covering the controls and chat composers (now hidden on chats and the live screen),
+  captions out of line, doubled gutters in two sheets, a wrapping header, a truncated tile
+  hint, the title style (now the meeting heading's), a dim live dot and low-contrast pills in
+  dark mode.
+
 ## Work in progress
 
-M5: not yet rendered. Next: the local rig, then screenshots and fixes.
+M5, part 2 (below).
 
 ## Remaining work
 
@@ -174,16 +187,16 @@ M1–M9 above.
 
 ## Next steps
 
-1. M5: bring up the rig (Postgres 16 + pgvector, Redis, RabbitMQ, moto S3 :5100, an SMTP
-   sink, the transcriber with `TRANSCRIBER_ENGINE=fake` on :5000, an OpenAI-style stand-in
-   model, api from `dist` with `TRANSCRIBER_URL`, web from `next build`); sign in through the
-   magic link; drive Listen with Chromium's fake microphone
-   (`--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`); screenshot iPhone
-   and desktop, light and dark: the Add sheet, the Listen sheet, the live screen (transcript,
-   notes, notices), the strip on another tab, Stop → meeting. Fix what the screenshots show.
-2. Then stories (`Components/Live`, `Screens/Live`), an e2e for Listen with the fake device,
-   `pnpm smoothness`, `UI_DESIGN_SYSTEM.md` (Listen section, motion row for the live dot and
-   transcript lines).
+1. M5, part 2 (sotto-web): show the call in progress at the top of Meetings (and Home) as a
+   "Live now" row from `useActiveLiveSessions()` that opens `/meetings/live/<id>`; the files
+   list hides UPLOADING files today. Then stories (`Components/Live`: listen sheet, status,
+   notes card, notices; `Screens/Live` with stand-in data), an e2e for Listen with Chromium's
+   fake microphone (`--use-fake-device-for-media-stream`) and a stubbed api, `pnpm
+smoothness`, `UI_DESIGN_SYSTEM.md` (Listen section; motion rows for the live dot and new
+   transcript lines; the + button's hiding rule), README if scripts change.
+2. M6–M8: calendar connections and the notetaker bot (see the milestone table).
+3. The rig is in the scratchpad (not committed): see Completed work → M5 for its parts;
+   `rig.mjs <scenario> [iphone|desktop] [light|dark]` drives it.
 
 ## Decisions
 
