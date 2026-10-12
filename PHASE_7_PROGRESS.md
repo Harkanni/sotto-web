@@ -16,7 +16,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
   sotto-platform#9 (Jenkins, ADR 0023) are still open, so `docs/p7-status` branches from
   `docs/p6-status`.
 - **Overall:** started 2026-10-12.
-- **Current milestone:** M4 (web: Listen capture).
+- **Current milestone:** M5 (web: verify Listen in the rendered app; stories, e2e).
 
 ## Requirements
 
@@ -92,7 +92,7 @@ minute. Latency stays a few seconds, which is what the per-window transcriber gi
 | M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | done  |
 | M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | done  |
 | M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | done  |
-| M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | todo  |
+| M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | done  |
 | M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | todo  |
 | M6  | API: `MeetingBotProvider` + calendar providers (labelled stand-ins), calendar and bot routes, signed webhook, admin bot switch | sotto-api | todo  |
 | M7  | Self-hosted Meet bot service (headless browser joins, announces, streams audio to a live session)                              | sotto-api | todo  |
@@ -151,9 +151,22 @@ minute. Latency stays a few seconds, which is what the per-window transcriber gi
 /live-sessions/:id/ask` → `{conversationId}`; questions use `POST
 /conversations/:id/messages`.
 
+- **M4 (sotto-web `eb3449c`, `5806e9f`, `41925a0`):** API client synced.
+  `src/lib/live/pcm-worklet.ts` (AudioWorklet source: mono mix, 16 kHz by window averaging,
+  ~4 s PCM16 chunks, level, pause/resume/flush), `uploader.ts` (`ChunkUploader`: order,
+  backoff, offline wait, gap re-sync and renumbering, end/fatal, ~32 min offline cap),
+  `capture.ts` (mic + desktop-Chromium tab audio through a muted gain), `store.ts` (one capture
+  per device outside any screen; permissions before the session; pause/resume clock; wake
+  lock; leave-page guard; Stop drains then ends). `src/lib/api/live.ts` (queries,
+  `useLiveStream` SSE into the cache, `sendLiveChunk`, sentences for `notesError` and session
+  errors). UI: Add to Sotto's full-width Listen tile, `components/live/listen-sheet.tsx`,
+  `live-parts.tsx` (level canvas, clock, status dot), `screens/live.tsx` (route kind `live`,
+  `/meetings/live/<id>`), the listening strip in the offline strip's slot
+  (`components/shell/system.tsx`). Unit tests `test/live.test.ts` (11).
+
 ## Work in progress
 
-None. M4 is next.
+M5: not yet rendered. Next: the local rig, then screenshots and fixes.
 
 ## Remaining work
 
@@ -161,18 +174,16 @@ M1–M9 above.
 
 ## Next steps
 
-1. M4 (sotto-web): sync the API client (`pnpm` script that copies `../sotto-api/openapi.json`
-   to `src/lib/api/openapi.json` and regenerates `schema.ts`; see how Phase 6 did it), then
-   `src/lib/live/`: capture (`getUserMedia` mic; `getDisplayMedia({audio:true})` tab audio on
-   desktop Chromium, mixed in one `AudioContext`), an `AudioWorklet` (inline Blob module) that
-   downsamples to 16 kHz mono PCM16 and posts ~4 s chunks, and an uploader that numbers
-   chunks, retries with backoff, buffers while offline and resumes from `nextSeq` (409
-   CHUNK_GAP tells it). Then the Listen entry in the + sheet (`Add to Sotto`) and Meetings,
-   with the consent reminder before anything starts (reuse the recorder sheet's pattern in
-   `src/components/uploads/recorder-sheet.tsx`).
-2. M5: the live screen (transcript following the newest line, notes card with its route badge
-   and `notesError` in words, Ask during the call, Stop → the meeting), stories, unit tests,
-   e2e, smoothness, rendered checks.
+1. M5: bring up the rig (Postgres 16 + pgvector, Redis, RabbitMQ, moto S3 :5100, an SMTP
+   sink, the transcriber with `TRANSCRIBER_ENGINE=fake` on :5000, an OpenAI-style stand-in
+   model, api from `dist` with `TRANSCRIBER_URL`, web from `next build`); sign in through the
+   magic link; drive Listen with Chromium's fake microphone
+   (`--use-fake-ui-for-media-stream --use-fake-device-for-media-stream`); screenshot iPhone
+   and desktop, light and dark: the Add sheet, the Listen sheet, the live screen (transcript,
+   notes, notices), the strip on another tab, Stop → meeting. Fix what the screenshots show.
+2. Then stories (`Components/Live`, `Screens/Live`), an e2e for Listen with the fake device,
+   `pnpm smoothness`, `UI_DESIGN_SYSTEM.md` (Listen section, motion row for the live dot and
+   transcript lines).
 
 ## Decisions
 
