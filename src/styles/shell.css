@@ -360,6 +360,19 @@
   :root[data-keyboard-open] .offline-strip {
     visibility: hidden;
   }
+  /* The same strip while Sotto listens: a button that leads back to the call. */
+  .listening-strip {
+    color: var(--foreground);
+    font-weight: 500;
+    cursor: pointer;
+    &:active {
+      background: var(--row-pressed);
+    }
+    &:focus-visible {
+      outline: 2px solid var(--ring);
+      outline-offset: -2px;
+    }
+  }
 
   /* ── + button ───────────────────────────────────────────────────────────────────────── */
   .fab {

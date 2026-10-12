@@ -3,6 +3,11 @@
 import { Cloud, CloudOff } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { memo, useEffect, useState, useSyncExternalStore } from 'react';
+import { liveHref } from '@/components/live/listen-sheet';
+import { LiveStatus, useElapsed } from '@/components/live/live-parts';
+import { useLiveCapture, type LivePhase } from '@/lib/live/store';
+import { useNav } from '@/lib/nav/hooks';
+import { navigate } from '@/lib/nav/store';
 
 /** Keeps the browser chrome colour in step with an explicit light or dark choice. */
 export function ThemeColorSync() {
@@ -107,6 +112,11 @@ export type Connection = 'offline' | 'back' | null;
 export const OfflineBanner = memo(function OfflineBanner() {
   const online = useOnline();
   const [state, setState] = useState<Connection>(null);
+  const live = useLiveCapture();
+  const nav = useNav();
+  const listening = live.session !== null && live.phase !== 'idle';
+  // On the live screen itself the strip would only repeat what's on screen.
+  const onLiveScreen = listening && nav.pathname.endsWith(`/live/${live.session!.id}`);
 
   useEffect(() => {
     // Ignore blips shorter than a second; "Back online" only follows a real outage.
@@ -123,13 +133,56 @@ export const OfflineBanner = memo(function OfflineBanner() {
     return () => clearTimeout(t);
   }, [state]);
 
-  // Lets the + button, toasts and the composer make room for the strip.
+  // Lets the + button, toasts and the composer make room for the strip (offline or listening).
+  const shown = listening ? !onLiveScreen : state !== null;
   useEffect(() => {
-    document.documentElement.toggleAttribute('data-offline', state !== null);
-  }, [state]);
+    document.documentElement.toggleAttribute('data-offline', shown);
+  }, [shown]);
 
+  // While Sotto listens, the same slot says so and leads back to the call; being offline is
+  // folded into it (the audio waits on the device).
+  if (listening) {
+    return (
+      <ListeningStrip
+        sessionId={live.session!.id}
+        phase={live.phase}
+        offline={!online}
+        shown={!onLiveScreen}
+      />
+    );
+  }
   return <OfflineStrip state={state} />;
 });
+
+/** "● Listening 12:34 · Back to the call": the offline strip's slot, as a button. */
+function ListeningStrip({
+  sessionId,
+  phase,
+  offline,
+  shown,
+}: {
+  sessionId: string;
+  phase: LivePhase;
+  offline: boolean;
+  shown: boolean;
+}) {
+  const elapsed = useElapsed();
+  return (
+    <button
+      type="button"
+      className="offline-strip listening-strip"
+      data-shown={shown ? '' : undefined}
+      aria-hidden={!shown}
+      tabIndex={shown ? 0 : -1}
+      onClick={() => navigate(liveHref(sessionId))}
+    >
+      <LiveStatus phase={phase} elapsedMs={elapsed} className="text-foreground" />
+      <span className="truncate text-muted-foreground">
+        {offline ? '· Offline, the audio waits here' : '· Back to the call'}
+      </span>
+    </button>
+  );
+}
 
 /** The strip (or pill) itself: "Offline…", "Back online.", or nothing. */
 export function OfflineStrip({ state }: { state: Connection }) {

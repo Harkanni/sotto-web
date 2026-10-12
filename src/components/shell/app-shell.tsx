@@ -8,6 +8,7 @@ import { startNavigation } from '@/lib/nav/store';
 import { useTitle } from '@/lib/nav/titles';
 import { Toaster } from '@/components/ui/toaster';
 import { NoteSheet } from '@/components/ask/note-sheet';
+import { ListenSheet } from '@/components/live/listen-sheet';
 import { RecorderSheet } from '@/components/uploads/recorder-sheet';
 import { UploadSync } from '@/components/uploads/upload-sync';
 import { renderScreen, renderPlaceholder } from '@/screens';
@@ -45,6 +46,7 @@ const Overlays = memo(function Overlays() {
     <>
       <AddSheet />
       <RecorderSheet />
+      <ListenSheet />
       <NoteSheet />
       <UploadSync />
       <MoveSheet />

@@ -16,7 +16,7 @@ export const TABS = ['home', 'docs', 'ask', 'meetings', 'profile'] as const;
 export type Tab = (typeof TABS)[number];
 
 /** Kinds of item screen that can be pushed onto any tab's stack: `/<kind>/<id>`. */
-export const ITEM_KINDS = ['doc', 'collection', 'meeting', 'thread'] as const;
+export const ITEM_KINDS = ['doc', 'collection', 'meeting', 'thread', 'live'] as const;
 export type ItemKind = (typeof ITEM_KINDS)[number];
 
 /** Named screens, and the tabs they may appear in. */
@@ -72,6 +72,7 @@ const ROLE: Record<ScreenKind, PaneRole> = {
   doc: 'detail',
   meeting: 'detail',
   thread: 'detail',
+  live: 'detail',
   account: 'detail',
   appearance: 'detail',
   workspace: 'detail',
@@ -98,6 +99,7 @@ export const DEFAULT_TITLE: Record<ScreenKind, string> = {
   doc: 'Document',
   meeting: 'Meeting',
   thread: 'Chat',
+  live: 'Listening',
   account: 'Account',
   appearance: 'Appearance',
   workspace: 'Workspace',
