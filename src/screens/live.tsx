@@ -645,7 +645,7 @@ function AskAboutCall({
               key={q}
               type="button"
               onClick={() => void ask(q)}
-              className="pressable min-h-11 max-w-full rounded-[18px] bg-card-nested px-4 py-2.5 text-left text-callout text-primary-text hovered:bg-primary-tint"
+              className="pressable surface-elevated min-h-11 max-w-full rounded-[18px] bg-card-nested px-4 py-2.5 text-left text-callout text-primary-text hovered:bg-primary-tint"
             >
               {q}
             </button>

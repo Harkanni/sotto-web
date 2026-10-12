@@ -115,7 +115,7 @@ export function LiveStatus({
         className={cn(
           'size-2.5 shrink-0 rounded-full',
           phase === 'listening' || phase === 'elsewhere'
-            ? 'live-dot bg-destructive'
+            ? 'live-dot bg-destructive-text'
             : 'bg-faint-foreground',
         )}
       />
