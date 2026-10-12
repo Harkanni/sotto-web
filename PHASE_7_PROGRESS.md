@@ -16,7 +16,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
   sotto-platform#9 (Jenkins, ADR 0023) are still open, so `docs/p7-status` branches from
   `docs/p6-status`.
 - **Overall:** started 2026-10-12.
-- **Current milestone:** M3 (live notes and ask mid-call).
+- **Current milestone:** M4 (web: Listen capture).
 
 ## Requirements
 
@@ -91,7 +91,7 @@ minute. Latency stays a few seconds, which is what the per-window transcriber gi
 | M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                             | all       | done  |
 | M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | done  |
 | M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | done  |
-| M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | todo  |
+| M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | done  |
 | M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | todo  |
 | M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | todo  |
 | M6  | API: `MeetingBotProvider` + calendar providers (labelled stand-ins), calendar and bot routes, signed webhook, admin bot switch | sotto-api | todo  |
@@ -139,9 +139,21 @@ minute. Latency stays a few seconds, which is what the per-window transcriber gi
 - **Fixed (found by the tests):** a Restricted chunk could reach a transcriber engine moved
   outside the cluster within the minute the engine info was cached.
 
+- **M3 (sotto-api `00061de`, `5008c97`, `e94d627`):** `live/notes.ts` + `LiveNotesService`:
+  running notes `{summary, points, actions}` after the first minute of transcript, then every
+  two minutes when something new was said (or `POST /live-sessions/:id/notes`, the person
+  listening), with the workspace's default model under Ask's privacy rules; a reason in
+  `notesError` (`no_model`, `model_unavailable`, `restricted_private_only`,
+  `confidential_not_allowed`, `quota`, `unreadable`, `failed`) instead of another model.
+  Notes carry `routeLabel`, `isMock`, `private`. `live_sessions.notes_error` edited into the
+  unmerged migration. Ask: scope `liveSessionId` (the transcript so far as ~45 s stretches,
+  cited by moment, chunk id null, the meeting's sensitivity applies); `POST
+/live-sessions/:id/ask` → `{conversationId}`; questions use `POST
+/conversations/:id/messages`.
+
 ## Work in progress
 
-None. M3 is next.
+None. M4 is next.
 
 ## Remaining work
 
@@ -149,15 +161,18 @@ M1–M9 above.
 
 ## Next steps
 
-1. M3 (sotto-api), live notes: after each transcribed chunk, if `notesAt` is older than ~2
-   minutes (and there's new text), write notes from the live transcript with the workspace's
-   default chat model, chosen like Ask (`AskService.chooseChat` / `AiSettingsService.resolve`),
-   with the sensitivity rule: a Restricted or disallowed-Confidential capture only goes to an
-   in-cluster model, else notes are skipped with a reason (no silent fallback). Store
-   `{summary, points, actions}` in `LiveSession.notes`, publish a `notes` event, record usage
-   like an answer. Reuse the worker's insights prompt (`apps/worker/src/insights.ts`) if it
-   fits. Then `POST /live-sessions/:id/ask`: a normal Ask conversation whose context adds the
-   live transcript so far as a source (look at `apps/api/src/ask/` to choose the seam).
+1. M4 (sotto-web): sync the API client (`pnpm` script that copies `../sotto-api/openapi.json`
+   to `src/lib/api/openapi.json` and regenerates `schema.ts`; see how Phase 6 did it), then
+   `src/lib/live/`: capture (`getUserMedia` mic; `getDisplayMedia({audio:true})` tab audio on
+   desktop Chromium, mixed in one `AudioContext`), an `AudioWorklet` (inline Blob module) that
+   downsamples to 16 kHz mono PCM16 and posts ~4 s chunks, and an uploader that numbers
+   chunks, retries with backoff, buffers while offline and resumes from `nextSeq` (409
+   CHUNK_GAP tells it). Then the Listen entry in the + sheet (`Add to Sotto`) and Meetings,
+   with the consent reminder before anything starts (reuse the recorder sheet's pattern in
+   `src/components/uploads/recorder-sheet.tsx`).
+2. M5: the live screen (transcript following the newest line, notes card with its route badge
+   and `notesError` in words, Ask during the call, Stop → the meeting), stories, unit tests,
+   e2e, smoothness, rendered checks.
 
 ## Decisions
 
