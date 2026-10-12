@@ -3,11 +3,11 @@
 The running record for Phase 7, kept current at every checkpoint. A new session follows the
 recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** below.
 
-| Repo           | Branch           | Pull request                                                 |
-| -------------- | ---------------- | ------------------------------------------------------------ |
-| sotto-api      | `feat/p7-live`   | sotto-api (draft; merges first)                              |
-| sotto-web      | `feat/p7-live`   | sotto-web (draft)                                            |
-| sotto-platform | `docs/p7-status` | sotto-platform (draft; companion, based on `docs/p6-status`) |
+| Repo           | Branch           | Pull request                                                    |
+| -------------- | ---------------- | --------------------------------------------------------------- |
+| sotto-api      | `feat/p7-live`   | sotto-api#10 (draft; merges first)                              |
+| sotto-web      | `feat/p7-live`   | sotto-web#12 (draft)                                            |
+| sotto-platform | `docs/p7-status` | sotto-platform#10 (draft; companion, based on `docs/p6-status`) |
 
 ## Project status
 
@@ -16,7 +16,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
   sotto-platform#9 (Jenkins, ADR 0023) are still open, so `docs/p7-status` branches from
   `docs/p6-status`.
 - **Overall:** started 2026-10-12.
-- **Current milestone:** M0.
+- **Current milestone:** M2 (Listen API).
 
 ## Requirements
 
@@ -86,18 +86,18 @@ path) don't proxy WebSocket upgrades; the api has no WebSocket library and none 
 CI's `sync` job is blocked; and numbered chunks make a dropped connection a retry, not a lost
 minute. Latency stays a few seconds, which is what the per-window transcriber gives anyway.
 
-| #   | Milestone                                                                                                                      | Repo      | State       |
-| --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ----------- |
-| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                             | all       | in progress |
-| M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | todo        |
-| M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | todo        |
-| M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | todo        |
-| M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | todo        |
-| M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | todo        |
-| M6  | API: `MeetingBotProvider` + calendar providers (labelled stand-ins), calendar and bot routes, signed webhook, admin bot switch | sotto-api | todo        |
-| M7  | Self-hosted Meet bot service (headless browser joins, announces, streams audio to a live session)                              | sotto-api | todo        |
-| M8  | Web: calendar screen (upcoming calls, Send notetaker, auto-join), admin bot switch                                             | sotto-web | todo        |
-| M9  | Compose and demo config; ADRs; STATUS; verification in the rendered app; PRs ready                                             | all       | todo        |
+| #   | Milestone                                                                                                                      | Repo      | State |
+| --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ----- |
+| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                             | all       | done  |
+| M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | done  |
+| M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | todo  |
+| M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | todo  |
+| M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | todo  |
+| M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | todo  |
+| M6  | API: `MeetingBotProvider` + calendar providers (labelled stand-ins), calendar and bot routes, signed webhook, admin bot switch | sotto-api | todo  |
+| M7  | Self-hosted Meet bot service (headless browser joins, announces, streams audio to a live session)                              | sotto-api | todo  |
+| M8  | Web: calendar screen (upcoming calls, Send notetaker, auto-join), admin bot switch                                             | sotto-web | todo  |
+| M9  | Compose and demo config; ADRs; STATUS; verification in the rendered app; PRs ready                                             | all       | todo  |
 
 ## Completed work
 
@@ -109,9 +109,20 @@ minute. Latency stays a few seconds, which is what the per-window transcriber gi
   (`File` created at start, `fileUploaded` queued on complete), `GET /events` (Redis fan-out,
   per-viewer filtering), the worker's insights, the web recorder sheet and meetings screens.
 
+- **M1 (sotto-api `1bf87e1`):** `LiveSession` (source, status, `inputs`, `nextSeq` for numbered
+  chunks, `durationMs`, rolling `notes` with `notesAt`/`notesModel`, `error`), `LiveSegment`
+  (live transcript per chunk: `seq`, `idx`, times, text, speaker), `CalendarConnection`
+  (provider incl. `sample` for the stand-in, refresh token envelope-encrypted like BYOK keys,
+  scopes, `autoJoin`), `BotAssignment` (`BotStatus` SCHEDULED → JOINING → IN_CALL → DONE,
+  SKIPPED, FAILED; one per event per connection; `liveSessionId`), `MeetPlatform`,
+  `FileSource` LIVE and BOT, `Workspace.meetingBots`. Migration
+  `20261012100000_live_notetaker` with CHECKs. Four new tenant models. openapi: file source
+  `live`, `bot`. Draft PRs: sotto-api#10, sotto-web#12, sotto-platform#10 (STATUS says Phase 7
+  is in progress and flags the ADR 0023 clash).
+
 ## Work in progress
 
-M0: committing this log, pushing branches, opening draft PRs.
+None. M2 is next.
 
 ## Remaining work
 
@@ -119,9 +130,17 @@ M1–M9 above.
 
 ## Next steps
 
-1. Push `feat/p7-live` (api, web) and `docs/p7-status` (platform); open draft PRs.
-2. M1: schema in `packages/db/prisma/schema.prisma` (models from PLAN → Live notetaker, plus
-   `FileSource` LIVE and BOT), migration `2026101210000_live_notetaker`, contracts.
+1. M2 (sotto-api): `apps/api/src/live/` — `LiveService` + `LiveController` + module in
+   `app.module.ts`. `POST /live-sessions` {title?, collectionId?, sensitivity?, inputs} creates
+   the meeting `File` (kind AUDIO, source LIVE, status UPLOADING, storage key
+   `files/<ws>/<file>/original.wav`) and the session; `POST /live-sessions/:id/audio?seq=n`
+   (raw 16 kHz mono PCM16 body, ≤ ~10 s) stores the chunk at `files/<ws>/<file>/live/<n>.pcm`,
+   wraps it as WAV, posts it to the transcriber's `POST /v1/transcribe` and saves
+   `LiveSegment`s offset by the session's duration; a resent `seq` is a no-op, a gap is 409;
+   `GET /live-sessions/:id/events` (SSE: segments and status, resuming from `Last-Event-ID`
+   = `seq.idx`); `POST /live-sessions/:id/end` joins the chunks into `original.wav`, marks the
+   file UPLOADED, queues `fileUploaded` like `uploads.controller.ts` complete. Only the starter
+   writes; viewers of the file read. Integration tests per role with a stand-in transcriber.
 
 ## Decisions
 
