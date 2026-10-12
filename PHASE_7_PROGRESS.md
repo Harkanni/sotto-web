@@ -16,7 +16,7 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
   sotto-platform#9 (Jenkins, ADR 0023) are still open, so `docs/p7-status` branches from
   `docs/p6-status`.
 - **Overall:** started 2026-10-12.
-- **Current milestone:** M2 (Listen API).
+- **Current milestone:** M3 (live notes and ask mid-call).
 
 ## Requirements
 
@@ -90,7 +90,7 @@ minute. Latency stays a few seconds, which is what the per-window transcriber gi
 | --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ----- |
 | M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                             | all       | done  |
 | M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | done  |
-| M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | todo  |
+| M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | done  |
 | M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | todo  |
 | M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | todo  |
 | M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | todo  |
@@ -120,9 +120,28 @@ minute. Latency stays a few seconds, which is what the per-window transcriber gi
   `live`, `bot`. Draft PRs: sotto-api#10, sotto-web#12, sotto-platform#10 (STATUS says Phase 7
   is in progress and flags the ADR 0023 clash).
 
+- **M2 (sotto-api `adfc383`, `ad3b1d8`, `d6bfbb9`):** storage `keys.liveChunk` and
+  `putFromPieces` (streamed multipart join). `apps/api/src/live/`: `audio.ts` (16 kHz mono
+  PCM16, 32 bytes/ms, WAV header, limits: 15 s chunks, 2 min ahead of real time, 10 min idle
+  end, 6 h max), `transcriber.ts` (`LiveTranscriber` → transcriber `POST /v1/transcribe`,
+  `GET /v1/engines` cached a minute except for Restricted), `live.hub.ts` (Redis
+  `sotto:live:<id>`, snapshot-then-live with no gaps or repeats), `live.service.ts`,
+  `live.controller.ts` (routes below), `schemas.ts`. `TRANSCRIBER_URL` setting. Routes:
+  `POST /live-sessions`, `GET /live-sessions`, `GET /live-sessions/:id`,
+  `POST /live-sessions/:id/audio?seq=n` (application/octet-stream),
+  `GET /live-sessions/:id/events` (SSE: `session`, `segment` id `seq.idx`, `notes`, `ping`),
+  `POST /live-sessions/:id/end` → `{discarded, session}`. End audits `file.recorded` with
+  `live: true`. Transcriber: `in_cluster_only` form field → 409 on an outside engine.
+- **Decision (from the tests): a live capture is private to the person listening until it's
+  saved.** Its file is UPLOADING, and ADR 0016 makes an arriving file its sender's alone (admins
+  included). That's the right default for a call being recorded; once saved it's an ordinary
+  meeting with the usual access. Watching from another screen (phone + laptop) works.
+- **Fixed (found by the tests):** a Restricted chunk could reach a transcriber engine moved
+  outside the cluster within the minute the engine info was cached.
+
 ## Work in progress
 
-None. M2 is next.
+None. M3 is next.
 
 ## Remaining work
 
@@ -130,17 +149,15 @@ M1–M9 above.
 
 ## Next steps
 
-1. M2 (sotto-api): `apps/api/src/live/` — `LiveService` + `LiveController` + module in
-   `app.module.ts`. `POST /live-sessions` {title?, collectionId?, sensitivity?, inputs} creates
-   the meeting `File` (kind AUDIO, source LIVE, status UPLOADING, storage key
-   `files/<ws>/<file>/original.wav`) and the session; `POST /live-sessions/:id/audio?seq=n`
-   (raw 16 kHz mono PCM16 body, ≤ ~10 s) stores the chunk at `files/<ws>/<file>/live/<n>.pcm`,
-   wraps it as WAV, posts it to the transcriber's `POST /v1/transcribe` and saves
-   `LiveSegment`s offset by the session's duration; a resent `seq` is a no-op, a gap is 409;
-   `GET /live-sessions/:id/events` (SSE: segments and status, resuming from `Last-Event-ID`
-   = `seq.idx`); `POST /live-sessions/:id/end` joins the chunks into `original.wav`, marks the
-   file UPLOADED, queues `fileUploaded` like `uploads.controller.ts` complete. Only the starter
-   writes; viewers of the file read. Integration tests per role with a stand-in transcriber.
+1. M3 (sotto-api), live notes: after each transcribed chunk, if `notesAt` is older than ~2
+   minutes (and there's new text), write notes from the live transcript with the workspace's
+   default chat model, chosen like Ask (`AskService.chooseChat` / `AiSettingsService.resolve`),
+   with the sensitivity rule: a Restricted or disallowed-Confidential capture only goes to an
+   in-cluster model, else notes are skipped with a reason (no silent fallback). Store
+   `{summary, points, actions}` in `LiveSession.notes`, publish a `notes` event, record usage
+   like an answer. Reuse the worker's insights prompt (`apps/worker/src/insights.ts`) if it
+   fits. Then `POST /live-sessions/:id/ask`: a normal Ask conversation whose context adds the
+   live transcript so far as a source (look at `apps/api/src/ask/` to choose the seam).
 
 ## Decisions
 
