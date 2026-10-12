@@ -159,7 +159,13 @@ export function AppShell() {
         </main>
         <OfflineBanner />
         <TabBar active={active} />
-        <Fab hidden={active === 'ask'} />
+        {/* Hidden where a composer or the live controls are the primary action. */}
+        <Fab
+          hidden={
+            active === 'ask' ||
+            ['thread', 'live'].includes(parseStack(nav.pathname).at(-1)?.kind ?? '')
+          }
+        />
       </div>
       <Overlays />
       <ScreenWarmup renderScreen={renderScreen} />

@@ -85,16 +85,15 @@ export function ListenSheet() {
       onOpenChange={(next) => !starting && setOpen(next)}
       title="Listen to a call"
       footer={
-        <div className="flex flex-col gap-2 px-[var(--gutter)] pt-2 pb-[max(var(--safe-bottom),16px)]">
-          <Button
-            onClick={() => void start()}
-            loading={starting}
-            icon={<AudioLines aria-hidden />}
-            disabled={!support.mic}
-          >
-            Start listening
-          </Button>
-        </div>
+        <Button
+          className="w-full"
+          onClick={() => void start()}
+          loading={starting}
+          icon={<AudioLines aria-hidden />}
+          disabled={!support.mic}
+        >
+          Start listening
+        </Button>
       }
     >
       <div className="flex flex-col px-[var(--gutter)] pb-2">

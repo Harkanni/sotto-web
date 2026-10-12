@@ -181,8 +181,11 @@ function LiveHeading({
 }) {
   const elapsed = useElapsed();
   return (
-    <div className="flex flex-col gap-3 px-[var(--gutter)] pt-1 pb-5">
-      <h1 className="truncate text-title-1">{session.file.title}</h1>
+    <header className="flex flex-col gap-3 px-[var(--gutter)] pt-1 pb-5">
+      {/* Screen's own h1 (read and focused after a push) carries this title. */}
+      <p aria-hidden className="text-title-2 text-balance">
+        {session.file.title}
+      </p>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-subhead text-muted-foreground">
         <LiveStatus
           phase={phase}
@@ -205,7 +208,7 @@ function LiveHeading({
       {phase !== 'elsewhere' && (
         <LiveLevel live={phase === 'listening'} className="rounded-card bg-card px-3" />
       )}
-    </div>
+    </header>
   );
 }
 
@@ -354,7 +357,7 @@ function LiveTranscript({ segments, session }: { segments: LiveSegment[]; sessio
   return (
     <section aria-label="Live transcript" className="px-[var(--gutter)]">
       <div className="flex items-center gap-2 px-1 pb-2 text-footnote text-muted-foreground">
-        <span>Live transcript · the saved meeting gets a fuller one</span>
+        <span>Live transcript</span>
         {session.transcriber?.isMock && (
           <span className="rounded-full bg-fill px-2 py-0.5 text-caption">Mock</span>
         )}
@@ -521,19 +524,21 @@ function LiveControls({
   return (
     <div className="flex items-start justify-center gap-8 px-[var(--gutter)] pt-3 pb-3">
       <div className="flex w-16 flex-col items-center gap-1.5">
-        <button
-          type="button"
-          disabled={busy}
-          aria-label={paused ? 'Resume listening' : 'Pause listening'}
-          onClick={paused ? resumeListening : pauseListening}
-          className={round}
-        >
-          {paused ? (
-            <Play aria-hidden className="ml-0.5 size-6 fill-current" />
-          ) : (
-            <Pause aria-hidden className="size-6 fill-current" />
-          )}
-        </button>
+        <div className="grid h-[72px] place-items-center">
+          <button
+            type="button"
+            disabled={busy}
+            aria-label={paused ? 'Resume listening' : 'Pause listening'}
+            onClick={paused ? resumeListening : pauseListening}
+            className={round}
+          >
+            {paused ? (
+              <Play aria-hidden className="ml-0.5 size-6 fill-current" />
+            ) : (
+              <Pause aria-hidden className="size-6 fill-current" />
+            )}
+          </button>
+        </div>
         <span aria-hidden className="text-caption text-muted-foreground">
           {paused ? 'Resume' : 'Pause'}
         </span>
@@ -563,9 +568,11 @@ function LiveControls({
         </span>
       </div>
       <div className="flex w-16 flex-col items-center gap-1.5">
-        <button type="button" aria-label="Ask about this call" onClick={onAsk} className={round}>
-          <MessageCircleQuestion aria-hidden className="size-6 text-primary-text" />
-        </button>
+        <div className="grid h-[72px] place-items-center">
+          <button type="button" aria-label="Ask about this call" onClick={onAsk} className={round}>
+            <MessageCircleQuestion aria-hidden className="size-6 text-primary-text" />
+          </button>
+        </div>
         <span aria-hidden className="text-caption text-muted-foreground">
           Ask
         </span>
@@ -611,8 +618,24 @@ function AskAboutCall({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} title="Ask about this call" detents={['large']}>
-      <div className="flex min-h-[320px] flex-col gap-4 px-[var(--gutter)] pb-[max(var(--safe-bottom),16px)]">
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Ask about this call"
+      detents={['large']}
+      footer={
+        open && (
+          // The composer brings its own gutter; the sheet's footer has one already.
+          <Composer
+            onSend={(text) => void ask(text)}
+            placeholder="Ask about this call"
+            autoFocus
+            className="-mx-[var(--gutter)] py-0"
+          />
+        )
+      }
+    >
+      <div className="flex flex-col gap-4 px-[var(--gutter)] pb-4">
         <p className="text-callout text-muted-foreground">
           Answers use what’s been said so far and your library, and cite the moment in the call.
         </p>
@@ -628,14 +651,6 @@ function AskAboutCall({
             </button>
           ))}
         </div>
-        {open && (
-          <Composer
-            onSend={(text) => void ask(text)}
-            placeholder="Ask about this call"
-            autoFocus
-            className="mt-auto"
-          />
-        )}
       </div>
     </Sheet>
   );

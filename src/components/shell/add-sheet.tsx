@@ -76,7 +76,7 @@ function ListenTile({ onClick }: { onClick: () => void }) {
           {listening ? 'Back to the call' : 'Listen to a call'}
         </span>
         <span className="block truncate text-subhead text-muted-foreground">
-          {listening ? 'Sotto is listening now' : 'Live transcript and notes, as people speak'}
+          {listening ? 'Sotto is listening now' : 'Live transcript and notes'}
         </span>
       </span>
     </button>
