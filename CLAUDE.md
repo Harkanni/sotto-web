@@ -131,7 +131,7 @@ an old `dev-cache` snapshot when the registry is unreachable). Playwright and `p
 - If the session may end (a usage warning, a long task ahead): save, write the exact next step
   into the log (task, files, approach), commit and push before anything else.
 - Before each commit, read the diff for accidental changes and secrets. Only `.env.example` is
-  committed. Jenkins reaches AWS with an IAM access key in Jenkins' credentials (ADR 0007); don't
+  committed. Jenkins reaches AWS with an IAM access key in the jenkins user's AWS CLI profile (ADR 0007); don't
   reintroduce OIDC or rewrite the working pipeline.
 - A change spanning the API and the web is a pair of PRs; the API one merges first. Every PR has
   a companion `../sotto-platform/docs/STATUS.md` update.

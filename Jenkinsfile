@@ -1,6 +1,9 @@
 // Sotto web: every check that used to run in GitHub Actions' ci.yml, now on Jenkins (ADR on
 // Jenkins in sotto-platform), plus the image build and demo deploy on main.
 //
+// AWS access comes from the jenkins user's AWS CLI profile (~jenkins/.aws, set with
+// `sudo -u jenkins aws configure`); the ECR registry is worked out from the account.
+//
 // The Jenkins host needs Docker (with buildx), Node 24 with corepack, Python 3 (Storybook's
 // static server), the AWS CLI, the "Lockable Resources" plugin, and once, as root, Playwright's
 // system libraries: `sudo npx -y playwright@1 install-deps chromium`. The browser itself is
@@ -107,6 +110,7 @@ pipeline {
           env.API_IMAGE = "${env.ECR_REGISTRY}/sotto/api:${env.ACCOUNTS_API_TAG ?: 'main'}"
         }
         sh '''
+          ECR_REGISTRY="${ECR_REGISTRY:-$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com}"
           aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
           docker pull --quiet "$API_IMAGE"
           docker run -d --name sotto-ci-web-pg -p 5432:5432 -e POSTGRES_USER=sotto \
@@ -167,6 +171,7 @@ pipeline {
       steps {
         script { env.TAG = "sha-${env.GIT_COMMIT.take(7)}" }
         sh '''
+          ECR_REGISTRY="${ECR_REGISTRY:-$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com}"
           aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
           docker buildx build --platform linux/arm64 --build-arg APP_VERSION=$TAG \
             -t $ECR_REGISTRY/sotto/web:$TAG -t $ECR_REGISTRY/sotto/web:main --push .
