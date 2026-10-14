@@ -152,10 +152,13 @@ pipeline {
     }
 
     // The image boots and serves /healthz and /status with no API behind it.
+    // The image is built once, with the release's version baked in; the Jenkins host is arm64
+    // like the demo, so on main this same image is tagged and pushed.
     stage('Smoke') {
       steps {
+        script { env.TAG = "sha-${env.GIT_COMMIT.take(7)}" }
         sh '''
-          docker build -t sotto-web:ci .
+          docker build --build-arg APP_VERSION=$TAG -t sotto-web:ci .
           docker run -d --name sotto-ci-web-smoke -p 3000:3000 -e API_URL=http://127.0.0.1:9 sotto-web:ci
           for i in $(seq 1 30); do
             if curl -fsS localhost:3000/healthz && curl -fsS localhost:3000/status | grep -q 'Building in the open'; then exit 0; fi
@@ -167,15 +170,19 @@ pipeline {
       post { always { sh 'docker rm -f sotto-ci-web-smoke >/dev/null 2>&1 || true' } }
     }
 
-    stage('Build and push image') {
+    stage('Push image') {
       when { branch 'main' }
       steps {
-        script { env.TAG = "sha-${env.GIT_COMMIT.take(7)}" }
         sh '''
           ECR_REGISTRY="${ECR_REGISTRY:-$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com}"
           aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
-          docker buildx build --platform linux/arm64 --build-arg APP_VERSION=$TAG \
-            -t $ECR_REGISTRY/sotto/web:$TAG -t $ECR_REGISTRY/sotto/web:main --push .
+          ARCH=$(docker image inspect -f '{{.Architecture}}' sotto-web:ci)
+          [ "$ARCH" = arm64 ] || { echo "sotto-web:ci is $ARCH; the demo needs arm64"; exit 1; }
+          # The repository lives in sotto-platform's terraform/keep stack (survives destroy).
+          for t in $TAG main; do
+            docker tag sotto-web:ci $ECR_REGISTRY/sotto/web:$t
+            docker push --quiet $ECR_REGISTRY/sotto/web:$t
+          done
         '''
       }
     }
