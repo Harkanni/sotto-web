@@ -14,7 +14,9 @@ test('an app address remembers where you were going', async ({ page }) => {
 test('the root opens the app with a session', async ({ page }) => {
   await page
     .context()
-    .addCookies([{ name: 'sotto.session_token', value: 'e2e', url: 'http://localhost:3000' }]);
+    .addCookies([
+      { name: 'sotto.session_token', value: 'e2e', url: test.info().project.use.baseURL },
+    ]);
   await page.goto('/');
   await expect(page).toHaveURL(/\/home$/);
 });

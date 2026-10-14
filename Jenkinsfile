@@ -5,23 +5,45 @@
 // AWS access comes from the jenkins user's AWS CLI profile (~jenkins/.aws, set with
 // `sudo -u jenkins aws configure`); the ECR registry is worked out from the account.
 //
-// The Jenkins host needs Docker (with buildx), Node 24 with corepack, Python 3 (Storybook's
-// static server), the AWS CLI, the "Lockable Resources" plugin, and once, as root, Playwright's
+// The Jenkins host needs Docker, Node 24 with corepack, Python 3 (Storybook's static server),
+// the AWS CLI, and once, as root, Playwright's
 // system libraries: `sudo npx -y playwright@1 install-deps chromium`. The browser itself is
 // downloaded per user and cached (~/.cache/ms-playwright).
 
-/** The api's containers for the accounts flow: removed before and after. */
+/** A host port moved into slot n. */
+def slotPort(int base, int n) {
+  return "${base + 20 * n}"
+}
+
+/**
+ * Gives this build its own slot on the host, so several builds (web and api, or two branches)
+ * run at once without colliding: Jenkins' executor number picks the slot, every host port moves
+ * by 20 per slot (slot 0 keeps the usual ones), and container and image names carry it. Keep
+ * the node at 5 executors or fewer, or ports start to overlap.
+ */
+def useSlot() {
+  def n = (env.EXECUTOR_NUMBER ?: '0') as int
+  env.CI_NAME = "sotto-ci-web-${n}"
+  env.IMG = "ci-${n}"
+  env.WEB_PORT = slotPort(3000, n); env.SMOKE_PORT = slotPort(3100, n)
+  env.STORIES_PORT = slotPort(6006, n); env.API_PORT = slotPort(4000, n)
+  env.PG_PORT = slotPort(5432, n); env.REDIS_PORT = slotPort(6379, n); env.AMQP_PORT = slotPort(5672, n)
+  env.S3_PORT = slotPort(8333, n); env.SMTP_PORT = slotPort(1025, n); env.MAILPIT_PORT = slotPort(8025, n)
+  echo "Slot ${n}: ${env.CI_NAME}, web on ${env.WEB_PORT}, api on ${env.API_PORT}"
+}
+
+/** This slot's containers for the accounts flow and smoke test: removed before and after. */
 def stopAccountsStack() {
   sh '''
-    for c in sotto-ci-web-api sotto-ci-web-pg sotto-ci-web-redis sotto-ci-web-mq sotto-ci-web-s3 \
-      sotto-ci-web-mail sotto-ci-web-smoke; do
-      docker rm -f $c >/dev/null 2>&1 || true
+    [ -n "$CI_NAME" ] || exit 0
+    for c in api pg redis mq s3 mail smoke; do
+      docker rm -f $CI_NAME-$c >/dev/null 2>&1 || true
     done
   '''
 }
 
 /**
- * The api image for the accounts flow, tagged sotto-api:accounts. From ECR when the demo's
+ * The api image for the accounts flow, tagged sotto-api:accounts-$IMG. From ECR when the demo's
  * repositories exist (sotto/api:main, or ACCOUNTS_API_TAG); otherwise built from sotto-api's
  * main, because `terraform destroy` removes ECR too and the checks must not depend on the demo.
  */
@@ -32,7 +54,7 @@ def prepareApiImage() {
     ECR_REGISTRY="${ECR_REGISTRY:-$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com}"
     aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
     docker pull --quiet "$ECR_REGISTRY/sotto/api:${ACCOUNTS_API_TAG:-main}" || exit 3
-    docker tag "$ECR_REGISTRY/sotto/api:${ACCOUNTS_API_TAG:-main}" sotto-api:accounts
+    docker tag "$ECR_REGISTRY/sotto/api:${ACCOUNTS_API_TAG:-main}" sotto-api:accounts-$IMG
   ''')
   if (rc == 0) { return }
   if (rc != 3) { error("Couldn't reach ECR (exit ${rc}); see above.") }
@@ -40,7 +62,7 @@ def prepareApiImage() {
   dir("${env.WORKSPACE}@api-src") {
     git url: 'https://github.com/Harkanni/sotto-api.git', branch: 'main',
       credentialsId: scm.userRemoteConfigs[0].credentialsId
-    sh 'docker build --build-arg APP=api -t sotto-api:accounts .'
+    sh 'docker build --build-arg APP=api -t sotto-api:accounts-$IMG .'
   }
 }
 
@@ -76,8 +98,6 @@ pipeline {
     timeout(time: 60, unit: 'MINUTES')
     // A newer push to the same branch or PR stops the older build: nobody needs its result.
     disableConcurrentBuilds(abortPrevious: true)
-    // The api and web pipelines share the host's ports (3000, 4000, 5432…): one at a time.
-    lock(resource: 'sotto-ci-host')
     buildDiscarder(logRotator(numToKeepStr: '30'))
   }
 
@@ -90,6 +110,10 @@ pipeline {
   }
 
   stages {
+    stage('Slot') {
+      steps { script { useSlot() } }
+    }
+
     // Side by side: the secrets scan, the code checks and build, and the two images (this app's,
     // and the api's for the accounts flow).
     stage('Checks and images') {
@@ -133,7 +157,8 @@ pipeline {
             }
             stage('Build') {
               steps {
-                sh 'pnpm build'
+                // The /api rewrite is fixed at build time: this slot's api (the accounts flow).
+                sh 'API_URL=http://localhost:$API_PORT pnpm build'
                 sh 'pnpm build-storybook --quiet'
               }
             }
@@ -145,7 +170,7 @@ pipeline {
         stage('Images') {
           steps {
             script { env.TAG = "sha-${env.GIT_COMMIT.take(7)}" }
-            sh 'docker build --build-arg APP_VERSION=$TAG -t sotto-web:ci .'
+            sh 'docker build --build-arg APP_VERSION=$TAG -t sotto-web:$IMG .'
             script { prepareApiImage() }
           }
         }
@@ -154,8 +179,8 @@ pipeline {
 
     // iPhone and desktop, axe and 44 px targets, against the production build with no API (the
     // app must show its "unreachable" states, not crash); and every story renders cleanly and
-    // passes axe, in light and dark; and the image's smoke test. Different ports (3000, 6006,
-    // 3100) and output folders.
+    // passes axe, in light and dark; and the image's smoke test. Each on its own port
+    // (WEB_PORT, STORIES_PORT, SMOKE_PORT) and output folder.
     stage('Browser tests') {
       parallel {
         stage('End-to-end') {
@@ -166,20 +191,20 @@ pipeline {
             }
           }
         }
-        // The image boots and serves /healthz and /status with no API behind it (port 3100, so
-        // it runs beside the end-to-end tests on 3000).
+        // The image boots and serves /healthz and /status with no API behind it (on its own
+        // port, beside the end-to-end tests).
         stage('Smoke') {
           steps {
             sh '''
-              docker run -d --name sotto-ci-web-smoke -p 3100:3000 -e API_URL=http://127.0.0.1:9 sotto-web:ci
+              docker run -d --name $CI_NAME-smoke -p $SMOKE_PORT:3000 -e API_URL=http://127.0.0.1:9 sotto-web:$IMG
               for i in $(seq 1 30); do
-                if curl -fsS localhost:3100/healthz && curl -fsS localhost:3100/status | grep -q 'Building in the open'; then exit 0; fi
+                if curl -fsS localhost:$SMOKE_PORT/healthz && curl -fsS localhost:$SMOKE_PORT/status | grep -q 'Building in the open'; then exit 0; fi
                 sleep 2
               done
-              docker logs sotto-ci-web-smoke; exit 1
+              docker logs $CI_NAME-smoke; exit 1
             '''
           }
-          post { always { sh 'docker rm -f sotto-ci-web-smoke >/dev/null 2>&1 || true' } }
+          post { always { sh 'docker rm -f $CI_NAME-smoke >/dev/null 2>&1 || true' } }
         }
 
         stage('Stories') {
@@ -198,44 +223,42 @@ pipeline {
     // is sotto-api's main (from ECR when the demo is up, else built from source; API PRs merge
     // first). Set the environment variable ACCOUNTS_API_TAG to pin another ECR tag.
     stage('Accounts flow') {
-      environment {
-        DATABASE_URL = 'postgresql://sotto:sotto@localhost:5432/sotto'
-      }
       steps {
         script { stopAccountsStack() }
         sh '''
-          API_IMAGE=sotto-api:accounts
-          docker run -d --name sotto-ci-web-pg -p 5432:5432 -e POSTGRES_USER=sotto \
+          API_IMAGE=sotto-api:accounts-$IMG
+          export DATABASE_URL=postgresql://sotto:sotto@localhost:$PG_PORT/sotto
+          docker run -d --name $CI_NAME-pg -p $PG_PORT:5432 -e POSTGRES_USER=sotto \
             -e POSTGRES_PASSWORD=sotto -e POSTGRES_DB=sotto pgvector/pgvector:pg18
-          docker run -d --name sotto-ci-web-redis -p 6379:6379 redis:8-alpine
-          docker run -d --name sotto-ci-web-mail -p 1025:1025 -p 8025:8025 axllent/mailpit:latest
-          docker run -d --name sotto-ci-web-mq -p 5672:5672 -e RABBITMQ_DEFAULT_USER=sotto \
+          docker run -d --name $CI_NAME-redis -p $REDIS_PORT:6379 redis:8-alpine
+          docker run -d --name $CI_NAME-mail -p $SMTP_PORT:1025 -p $MAILPIT_PORT:8025 axllent/mailpit:latest
+          docker run -d --name $CI_NAME-mq -p $AMQP_PORT:5672 -e RABBITMQ_DEFAULT_USER=sotto \
             -e RABBITMQ_DEFAULT_PASS=sotto rabbitmq:4-alpine
-          docker run -d --name sotto-ci-web-s3 -p 8333:8333 chrislusf/seaweedfs:latest \
+          docker run -d --name $CI_NAME-s3 -p $S3_PORT:8333 chrislusf/seaweedfs:latest \
             server -dir=/data -s3 -s3.port=8333
           for i in $(seq 1 60); do
-            docker exec sotto-ci-web-pg pg_isready -U sotto -d sotto >/dev/null 2>&1 \
-              && docker exec sotto-ci-web-mq rabbitmq-diagnostics -q ping >/dev/null 2>&1 \
-              && [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8333/)" != "000" ] && break
+            docker exec $CI_NAME-pg pg_isready -U sotto -d sotto >/dev/null 2>&1 \
+              && docker exec $CI_NAME-mq rabbitmq-diagnostics -q ping >/dev/null 2>&1 \
+              && [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$S3_PORT/)" != "000" ] && break
             sleep 2
           done
-          curl -s -X PUT -o /dev/null -w "bucket: %{http_code}\\n" http://localhost:8333/sotto-files
+          curl -s -X PUT -o /dev/null -w "bucket: %{http_code}\\n" http://localhost:$S3_PORT/sotto-files
           docker run --rm --network host -e DATABASE_URL "$API_IMAGE" sh scripts/migrate.sh
-          docker run -d --name sotto-ci-web-api --network host \
-            -e DATABASE_URL -e REDIS_URL=redis://localhost:6379 -e PORT=4000 \
-            -e APP_URL=http://localhost:3000 -e AUTH_SECRET="$(openssl rand -hex 32)" \
-            -e AUTH_RATE_LIMIT=off -e SMTP_URL=smtp://localhost:1025 \
-            -e RABBITMQ_URL=amqp://sotto:sotto@localhost:5672 \
-            -e S3_ENDPOINT=http://localhost:8333 -e S3_BUCKET=sotto-files -e S3_FORCE_PATH_STYLE=true \
+          docker run -d --name $CI_NAME-api --network host \
+            -e DATABASE_URL -e REDIS_URL=redis://localhost:$REDIS_PORT -e PORT=$API_PORT \
+            -e APP_URL=http://localhost:$WEB_PORT -e AUTH_SECRET="$(openssl rand -hex 32)" \
+            -e AUTH_RATE_LIMIT=off -e SMTP_URL=smtp://localhost:$SMTP_PORT \
+            -e RABBITMQ_URL=amqp://sotto:sotto@localhost:$AMQP_PORT \
+            -e S3_ENDPOINT=http://localhost:$S3_PORT -e S3_BUCKET=sotto-files -e S3_FORCE_PATH_STYLE=true \
             -e S3_ACCESS_KEY_ID=ci -e S3_SECRET_ACCESS_KEY=ci "$API_IMAGE"
-          for i in $(seq 1 30); do curl -fsS localhost:4000/healthz >/dev/null && break; sleep 2; done
-          curl -fsS localhost:4000/api/v1/sign-in-methods >/dev/null
-          ACCOUNTS_E2E=1 pnpm exec playwright test e2e/accounts.spec.ts
+          for i in $(seq 1 30); do curl -fsS localhost:$API_PORT/healthz >/dev/null && break; sleep 2; done
+          curl -fsS localhost:$API_PORT/api/v1/sign-in-methods >/dev/null
+          ACCOUNTS_E2E=1 MAILPIT_URL=http://127.0.0.1:$MAILPIT_PORT pnpm exec playwright test e2e/accounts.spec.ts
         '''
       }
       post {
         failure {
-          sh 'docker logs --tail 150 sotto-ci-web-api 2>&1 || true'
+          sh 'docker logs --tail 150 $CI_NAME-api 2>&1 || true'
           archiveArtifacts allowEmptyArchive: true, artifacts: 'playwright-report/**, test-results/**'
         }
         always { script { stopAccountsStack() } }
@@ -251,10 +274,10 @@ pipeline {
         sh '''
           ECR_REGISTRY="${ECR_REGISTRY:-$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_REGION.amazonaws.com}"
           aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
-          ARCH=$(docker image inspect -f '{{.Architecture}}' sotto-web:ci)
-          [ "$ARCH" = arm64 ] || { echo "sotto-web:ci is $ARCH; the demo needs arm64"; exit 1; }
+          ARCH=$(docker image inspect -f '{{.Architecture}}' sotto-web:$IMG)
+          [ "$ARCH" = arm64 ] || { echo "sotto-web:$IMG is $ARCH; the demo needs arm64"; exit 1; }
           for t in $TAG main; do
-            docker tag sotto-web:ci $ECR_REGISTRY/sotto/web:$t
+            docker tag sotto-web:$IMG $ECR_REGISTRY/sotto/web:$t
             docker push --quiet $ECR_REGISTRY/sotto/web:$t
           done
         '''
