@@ -24,7 +24,8 @@ pipeline {
 
   options {
     timeout(time: 60, unit: 'MINUTES')
-    disableConcurrentBuilds()
+    // A newer push to the same branch or PR stops the older build: nobody needs its result.
+    disableConcurrentBuilds(abortPrevious: true)
     // The api and web pipelines share the host's ports (3000, 4000, 5432…): one at a time.
     lock(resource: 'sotto-ci-host')
     buildDiscarder(logRotator(numToKeepStr: '30'))
