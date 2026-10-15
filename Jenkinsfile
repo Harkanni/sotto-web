@@ -29,16 +29,52 @@ def useSlot() {
   env.STORIES_PORT = slotPort(6006, n); env.API_PORT = slotPort(4000, n)
   env.PG_PORT = slotPort(5432, n); env.REDIS_PORT = slotPort(6379, n); env.AMQP_PORT = slotPort(5672, n)
   env.S3_PORT = slotPort(8333, n); env.SMTP_PORT = slotPort(1025, n); env.MAILPIT_PORT = slotPort(8025, n)
+  // The accounts flow's services (e2e/accounts.compose.yaml) are one Compose project per slot.
+  env.COMPOSE_PROJECT_NAME = env.CI_NAME
   echo "Slot ${n}: ${env.CI_NAME}, web on ${env.WEB_PORT}, api on ${env.API_PORT}"
 }
 
-/** This slot's containers for the accounts flow and smoke test: removed before and after. */
+/**
+ * This slot's containers for the accounts flow and smoke test: removed before and after, with
+ * their anonymous volumes (Postgres, RabbitMQ and SeaweedFS each declare one; `docker rm` alone
+ * left three behind per build and slowly filled the host's disk). The loop also clears
+ * containers from before the Compose file, so their ports are free.
+ */
 def stopAccountsStack() {
   sh '''
     [ -n "$CI_NAME" ] || exit 0
+    if [ -f e2e/accounts.compose.yaml ]; then
+      docker compose -f e2e/accounts.compose.yaml down -v --remove-orphans >/dev/null 2>&1 || true
+    fi
     for c in api pg redis mq s3 mail smoke; do
-      docker rm -f $CI_NAME-$c >/dev/null 2>&1 || true
+      docker rm -f -v $CI_NAME-$c >/dev/null 2>&1 || true
     done
+  '''
+}
+
+/**
+ * Why the accounts flow failed, in the build log: each service's state (exit code, OOM kill,
+ * health), the last lines of every service and of the api, and the host's memory and Docker
+ * disk use. Runs on failure, before cleanup removes the containers.
+ */
+def accountsDiagnostics() {
+  sh '''
+    set +e
+    echo "===== accounts stack"
+    for c in pg redis mq s3 mail api; do
+      echo "$CI_NAME-$c: $(docker inspect -f 'running={{.State.Running}} exit={{.State.ExitCode}} oom-killed={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' $CI_NAME-$c 2>&1)"
+    done
+    echo "===== service logs"
+    docker compose -f e2e/accounts.compose.yaml logs --no-color --tail 60
+    echo "===== api logs"
+    docker logs --tail 150 $CI_NAME-api 2>&1
+    echo "===== api readiness"
+    curl -sS --max-time 5 localhost:$API_PORT/readyz; echo
+    echo "===== host"
+    free -m
+    df -h /
+    docker system df
+    exit 0
   '''
 }
 
@@ -120,7 +156,9 @@ pipeline {
       parallel {
         stage('Secrets scan') {
           steps {
-            sh 'docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:latest dir /repo --redact --verbose'
+            // Pinned: with `latest`, a new release could change the rules (or break the scan)
+            // without a commit here. v8.30.1 is what `latest` was on 2026-10-15. Bump on purpose.
+            sh 'docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --redact --verbose'
           }
         }
 
@@ -226,24 +264,30 @@ pipeline {
     stage('Accounts flow') {
       steps {
         script { stopAccountsStack() }
+        // Each step either succeeds or stops the stage with the reason. (Until 2026-10-15 a wait
+        // loop gave up silently when RabbitMQ never came up; the api then failed every sample
+        // load with ECONNREFUSED and the test reported a page timeout. CI_PROGRESS.md.)
         sh '''
           API_IMAGE=sotto-api:accounts-$IMG
           export DATABASE_URL=postgresql://sotto:sotto@localhost:$PG_PORT/sotto
-          docker run -d --name $CI_NAME-pg -p $PG_PORT:5432 -e POSTGRES_USER=sotto \
-            -e POSTGRES_PASSWORD=sotto -e POSTGRES_DB=sotto pgvector/pgvector:pg18
-          docker run -d --name $CI_NAME-redis -p $REDIS_PORT:6379 redis:8-alpine
-          docker run -d --name $CI_NAME-mail -p $SMTP_PORT:1025 -p $MAILPIT_PORT:8025 axllent/mailpit:latest
-          docker run -d --name $CI_NAME-mq -p $AMQP_PORT:5672 -e RABBITMQ_DEFAULT_USER=sotto \
-            -e RABBITMQ_DEFAULT_PASS=sotto rabbitmq:4-alpine
-          docker run -d --name $CI_NAME-s3 -p $S3_PORT:8333 chrislusf/seaweedfs:latest \
-            server -dir=/data -s3 -s3.port=8333
+
+          # 1. Postgres, Redis, RabbitMQ, SeaweedFS and Mailpit, each healthy (or the stage stops
+          #    here and post → failure prints what happened to it).
+          docker compose -f e2e/accounts.compose.yaml up -d --wait --wait-timeout 240
+
+          # 2. The bucket. SeaweedFS answers on its S3 port before its filer is ready, so retry
+          #    until the bucket exists (409: it already did).
           for i in $(seq 1 60); do
-            docker exec $CI_NAME-pg pg_isready -U sotto -d sotto >/dev/null 2>&1 \
-              && docker exec $CI_NAME-mq rabbitmq-diagnostics -q ping >/dev/null 2>&1 \
-              && [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:$S3_PORT/)" != "000" ] && break
+            # `|| true`: a refused connection makes curl exit 7, which would end the script
+            # (sh -e) instead of retrying; the code is then 000.
+            code=$(curl -s -X PUT -o /dev/null -w '%{http_code}' http://localhost:$S3_PORT/sotto-files || true)
+            case "$code" in 200|409) break ;; esac
             sleep 2
           done
-          curl -s -X PUT -o /dev/null -w "bucket: %{http_code}\\n" http://localhost:$S3_PORT/sotto-files
+          echo "bucket: HTTP $code"
+          case "$code" in 200|409) ;; *) echo "Couldn't create the S3 bucket."; exit 1 ;; esac
+
+          # 3. The schema, then the api itself.
           docker run --rm --network host -e DATABASE_URL "$API_IMAGE" sh scripts/migrate.sh
           docker run -d --name $CI_NAME-api --network host \
             -e DATABASE_URL -e REDIS_URL=redis://localhost:$REDIS_PORT -e PORT=$API_PORT \
@@ -252,14 +296,26 @@ pipeline {
             -e RABBITMQ_URL=amqp://sotto:sotto@localhost:$AMQP_PORT \
             -e S3_ENDPOINT=http://localhost:$S3_PORT -e S3_BUCKET=sotto-files -e S3_FORCE_PATH_STYLE=true \
             -e S3_ACCESS_KEY_ID=ci -e S3_SECRET_ACCESS_KEY=ci "$API_IMAGE"
-          for i in $(seq 1 30); do curl -fsS localhost:$API_PORT/healthz >/dev/null && break; sleep 2; done
+
+          # 4. Ready means the api reaches all four of its dependencies (database, Redis, storage,
+          #    queue), not just that its process is up. /readyz names the one that isn't.
+          ready=""
+          for i in $(seq 1 60); do
+            if curl -fsS -o /dev/null localhost:$API_PORT/readyz 2>/dev/null; then ready=1; break; fi
+            [ "$(docker inspect -f '{{.State.Running}}' $CI_NAME-api 2>/dev/null)" = true ] || break
+            sleep 2
+          done
+          echo "api readiness: $(curl -sS --max-time 5 localhost:$API_PORT/readyz 2>&1)"
+          [ -n "$ready" ] || { echo "The api isn't ready: see the checks above and the logs below."; exit 1; }
           curl -fsS localhost:$API_PORT/api/v1/sign-in-methods >/dev/null
+
+          # 5. The flow itself, on iPhone and desktop.
           ACCOUNTS_E2E=1 MAILPIT_URL=http://127.0.0.1:$MAILPIT_PORT pnpm exec playwright test e2e/accounts.spec.ts
         '''
       }
       post {
         failure {
-          sh 'docker logs --tail 150 $CI_NAME-api 2>&1 || true'
+          script { accountsDiagnostics() }
           archiveArtifacts allowEmptyArchive: true, artifacts: 'playwright-report/**, test-results/**'
         }
         // cleanup, not always: `always` runs before `failure`, which would remove the api

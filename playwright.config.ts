@@ -23,7 +23,8 @@ export default defineConfig({
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
   ],
   webServer: {
-    command: `pnpm exec next start --port ${port}`,
+    // The standalone server, as in the image (`next start` doesn't support standalone output).
+    command: `sh scripts/serve-standalone.sh ${port}`,
     url: `http://localhost:${port}/healthz`,
     reuseExistingServer: !process.env.CI,
     env: { API_URL: 'http://127.0.0.1:9' },
