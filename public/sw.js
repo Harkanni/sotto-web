@@ -6,7 +6,8 @@
  *   connection too slow to wait for), the last copy saved on this device.
  * - Build assets (/_next/static, content-hashed): cached once, forever.
  * - Icons and the web manifest: served from the cache, refreshed in the background.
- * - /api is never cached. Nothing that isn't Sotto's own origin is touched.
+ * - /api and /mail are left to the browser: the gateway sends them to other services (the api,
+ *   and the demo's mailbox). Nothing that isn't Sotto's own origin is touched.
  *
  * /sw-manifest.js (generated per build) names this build's assets and version. A new build
  * changes it, the browser installs the new worker beside the old one, and the app offers to
@@ -22,6 +23,11 @@ const SECTIONS = ['home', 'docs', 'ask', 'meetings', 'profile'];
 const SHELL = '/home';
 // How long a page load waits for the network before showing the saved copy instead.
 const PATIENCE_MS = 3500;
+// Paths the gateway routes to other services (sotto-platform deploy/demo/Caddyfile): the api,
+// and Mailpit, the demo's mailbox, behind a password. The worker must not answer them: browsers
+// don't show the password prompt for a response that came through a service worker, so /mail/
+// loaded its 401 over and over in any browser that had opened Sotto.
+const NOT_OURS = /^\/(api|mail)(\/|$)/;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -63,7 +69,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  if (url.pathname.startsWith('/api/')) return;
+  if (NOT_OURS.test(url.pathname)) return;
 
   if (request.mode === 'navigate') {
     // The network request starts now, in parallel with looking for a saved copy.
