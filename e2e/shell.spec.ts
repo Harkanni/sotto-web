@@ -87,7 +87,7 @@ async function open(page: Page, path: string) {
   await page
     .context()
     .addCookies([
-      { name: 'sotto.session_token', value: 'e2e-shell', url: 'http://localhost:3000' },
+      { name: 'sotto.session_token', value: 'e2e-shell', url: test.info().project.use.baseURL },
     ]);
   await page.goto(path);
   // Instant sample data, so tests never wait on the simulated latency.
