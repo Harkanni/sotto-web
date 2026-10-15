@@ -63,6 +63,19 @@ on a host shared by parallel builds. Note the same host runs sotto-api's pipelin
   anonymous volumes behind on every build (3 per build): a slow disk leak on the Jenkins host.
 - `useSlot()`: `COMPOSE_PROJECT_NAME` = the slot's `CI_NAME` (`sotto-ci-web-<n>`; sotto-api uses
   `sotto-ci-<n>`, so they never collide).
+- The other log issues (second commit):
+  - Browser tests (`pnpm e2e`, the accounts flow) and `pnpm start` serve the **standalone**
+    build through `scripts/serve-standalone.sh` (copies `.next/static` and `public` beside
+    `server.js`, as the image's runtime stage does), instead of `next start`, which warned it
+    doesn't work with `output: 'standalone'`.
+  - Story tests: 60 s per test on CI (the first story per worker starts a cold browser and loads
+    ~2 MB of scripts; three of them timed out at 30 s and passed on retry), and the static
+    server's per-request log is no longer printed (`stderr: 'ignore'`).
+  - Storybook build: `.storybook/main.ts` drops Rolldown's `MODULE_LEVEL_DIRECTIVE` ("use
+    client") and `PLUGIN_TIMINGS` logs and raises the chunk-size warning to 4 MB (the preview
+    bundle is a test fixture, never shipped).
+  - Secrets scan pinned to `ghcr.io/gitleaks/gitleaks:v8.30.1` (what `latest` is today).
+  - `web.out` removed and `*.out` ignored.
 
 ## Checks run (sandbox)
 
@@ -71,6 +84,12 @@ on a host shared by parallel builds. Note the same host runs sotto-api's pipelin
 - The Accounts flow script under `dash -e` with stubbed `docker`/`curl`: the bucket retries
   through two refused connections and succeeds; the readiness loop waits, then passes; with an
   exited api container it stops after one check and fails with the message.
+- Second commit: `pnpm lint` (0 errors; the one warning, `postcss.config.mjs`, predates this
+  branch), `pnpm format:check`, `pnpm typecheck`, `pnpm test` (80/80) all pass.
+- `CI=true pnpm e2e` against the standalone server: 26 passed, 20 skipped (as on Jenkins).
+- `pnpm build-storybook`: exit 0, **205 log lines** (was 1,973; 0 `"use client"` warnings, was
+  120). `CI=true pnpm test:stories`: **170/170 passed** first time, 15 lines of output.
+- `scripts/serve-standalone.sh 3777`: `/sign-in` 200, its hashed CSS 200, `/sw.js` 200.
 - Not possible here: running the real images (the sandbox can't reach Docker Hub). **The real
   proof is the next Jenkins build of this branch.**
 
@@ -84,7 +103,7 @@ on a host shared by parallel builds. Note the same host runs sotto-api's pipelin
    node executors 3 → 2) or move Jenkins to a bigger instance; clear leaked volumes once with
    `docker volume prune -f` on the Jenkins host (safe: only unused volumes; sotto-api's Ollama
    model volume is in use only during its builds, re-downloads 275 MB if pruned).
-3. Further log issues being fixed on this branch (see below, "Other issues").
+3. The sotto-api image's OpenSSL warning: its own PR (see "Other issues").
 
 ## Other issues in the same log
 
@@ -92,10 +111,10 @@ on a host shared by parallel builds. Note the same host runs sotto-api's pipelin
 | ------------------------------------------------------------------------------------------------------------------------ | ------ |
 | Wait loop falls through silently when a service never comes up                                                           | Fixed  |
 | Anonymous volumes leak on every build (`docker rm -f` without `-v`)                                                      | Fixed  |
-| 3 flaky story tests (first stories time out waiting for `#storybook-root` while 8 workers start on a cold server)        | Next   |
-| `next start` with `output: standalone` warns (e2e and accounts web server); should run `.next/standalone/server.js`      | Next   |
-| Log noise: Python `http.server` prints every request (thousands of lines), Vite's `"use client"` warnings (hundreds)     | Next   |
-| `gitleaks:latest` is unpinned (a new release can break or change the scan without a commit)                              | Next   |
-| `web.out`, a stray `next start` log, is committed                                                                        | Next   |
+| 3 flaky story tests (first stories time out waiting for `#storybook-root` while 8 workers start on a cold server)        | Fixed  |
+| `next start` with `output: standalone` warns (e2e and accounts web server); should run `.next/standalone/server.js`      | Fixed  |
+| Log noise: Python `http.server` prints every request (thousands of lines), Vite's `"use client"` warnings (hundreds)     | Fixed  |
+| `gitleaks:latest` is unpinned (a new release can break or change the scan without a commit)                              | Fixed  |
+| `web.out`, a stray `next start` log, is committed                                                                        | Fixed  |
 | sotto-api image: Prisma warns it can't detect OpenSSL (`node:24-bookworm-slim` has none); migrations still ran           | Next   |
 | Docker stores the ECR login unencrypted in `~jenkins/.docker/config.json` (host setting: `amazon-ecr-credential-helper`) | Note   |
