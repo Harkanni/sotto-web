@@ -103,18 +103,37 @@ on a host shared by parallel builds. Note the same host runs sotto-api's pipelin
    node executors 3 → 2) or move Jenkins to a bigger instance; clear leaked volumes once with
    `docker volume prune -f` on the Jenkins host (safe: only unused volumes; sotto-api's Ollama
    model volume is in use only during its builds, re-downloads 275 MB if pruned).
-3. The sotto-api image's OpenSSL warning: its own PR (see "Other issues").
+3. Owner: review and merge, in any order (none depends on another): sotto-web#18 (this
+   branch), sotto-api#15 (gitleaks pin), sotto-platform#20 (STATUS and its own gitleaks pin).
+4. A later session, not urgent: the sotto-api image's OpenSSL warning as its own sotto-api PR
+   (approach below, "The Prisma OpenSSL warning").
 
 ## Other issues in the same log
 
-| Issue                                                                                                                    | Status |
-| ------------------------------------------------------------------------------------------------------------------------ | ------ |
-| Wait loop falls through silently when a service never comes up                                                           | Fixed  |
-| Anonymous volumes leak on every build (`docker rm -f` without `-v`)                                                      | Fixed  |
-| 3 flaky story tests (first stories time out waiting for `#storybook-root` while 8 workers start on a cold server)        | Fixed  |
-| `next start` with `output: standalone` warns (e2e and accounts web server); should run `.next/standalone/server.js`      | Fixed  |
-| Log noise: Python `http.server` prints every request (thousands of lines), Vite's `"use client"` warnings (hundreds)     | Fixed  |
-| `gitleaks:latest` is unpinned (a new release can break or change the scan without a commit)                              | Fixed  |
-| `web.out`, a stray `next start` log, is committed                                                                        | Fixed  |
-| sotto-api image: Prisma warns it can't detect OpenSSL (`node:24-bookworm-slim` has none); migrations still ran           | Next   |
-| Docker stores the ECR login unencrypted in `~jenkins/.docker/config.json` (host setting: `amazon-ecr-credential-helper`) | Note   |
+| Issue                                                                                                                             | Status           |
+| --------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| Wait loop falls through silently when a service never comes up                                                                    | Fixed            |
+| Anonymous volumes leak on every build (`docker rm -f` without `-v`)                                                               | Fixed            |
+| 3 flaky story tests (first stories time out waiting for `#storybook-root` while 8 workers start on a cold server)                 | Fixed            |
+| `next start` with `output: standalone` warns (e2e and accounts web server); should run `.next/standalone/server.js`               | Fixed            |
+| Log noise: Python `http.server` prints every request (thousands of lines), Vite's `"use client"` warnings (hundreds)              | Fixed            |
+| `gitleaks:latest` is unpinned (a new release can break or change the scan without a commit); also sotto-api#15, sotto-platform#20 | Fixed            |
+| `web.out`, a stray `next start` log, is committed                                                                                 | Fixed            |
+| sotto-api image: Prisma warns it can't detect OpenSSL (`node:24-bookworm-slim` has none); migrations still ran                    | Deferred (below) |
+| Docker stores the ECR login unencrypted in `~jenkins/.docker/config.json` (host setting: `amazon-ecr-credential-helper`)          | Note             |
+
+### The Prisma OpenSSL warning (deferred, cosmetic)
+
+`prisma migrate deploy` in the api image prints "failed to detect the libssl/openssl version …
+Defaulting to openssl-1.1.x" and then applies every migration (5/5 in the failing build's log).
+Not fixed on purpose, because the obvious fix has a trap:
+
+- Prisma names its engine binary after the OpenSSL it detects, once when `@prisma/engines`
+  installs (build stage) and again when the CLI runs (runtime stage). Adding `openssl` only to
+  the runtime stage makes the CLI look for `…-openssl-3.0.x`, which the build never downloaded.
+- So: `apt-get install -y --no-install-recommends openssl` in **both** `base` and `runtime`
+  (sotto-api `Dockerfile`), and make sure the engine isn't reused from pnpm's side-effects cache
+  in the `/pnpm/store` cache mount on the Jenkins host (its key ignores OpenSSL), e.g.
+  `pnpm install --config.side-effects-cache=false` in the image build.
+- Proof: sotto-api's own **Smoke** stage runs the image's `scripts/migrate.sh`; the warning
+  should be gone and the migrations applied. Do it as its own sotto-api PR.
