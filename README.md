@@ -8,7 +8,7 @@ The app shell (Home, Docs, Ask, Meetings, Profile) with sign-in, onboarding, inv
 
 ## Run it locally
 
-Needs Node 24 and pnpm 10.
+Needs Node 24 and pnpm 10. 
 
 ```bash
 cp .env.example .env.local     # API_URL=http://localhost:4000
