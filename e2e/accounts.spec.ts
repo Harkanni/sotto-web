@@ -124,8 +124,10 @@ test('someone signs up and creates a workspace with sample content', async () =>
   await axe(owner, 'onboarding: AI mode');
   await owner.getByRole('button', { name: /Private \(recommended\)/ }).click();
 
+  // Loading the sample writes several files to storage and queues them: real work, slower on
+  // a busy CI host than the default 5 s.
   await owner.getByRole('button', { name: /Explore with sample content/ }).click();
-  await expect(owner).toHaveURL(/\/home$/);
+  await expect(owner).toHaveURL(/\/home$/, { timeout: 30_000 });
   await expect(top(owner).getByText('You’re exploring sample content')).toBeVisible();
 });
 

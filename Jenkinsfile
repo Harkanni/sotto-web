@@ -262,7 +262,9 @@ pipeline {
           sh 'docker logs --tail 150 $CI_NAME-api 2>&1 || true'
           archiveArtifacts allowEmptyArchive: true, artifacts: 'playwright-report/**, test-results/**'
         }
-        always { script { stopAccountsStack() } }
+        // cleanup, not always: `always` runs before `failure`, which would remove the api
+        // container before its logs are printed.
+        cleanup { script { stopAccountsStack() } }
       }
     }
 
