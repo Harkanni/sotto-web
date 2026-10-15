@@ -140,7 +140,8 @@ pipeline {
               steps {
                 sh '''
                   mkdir -p .ci
-                  run() { name=$1; shift; ( "$@" > ".ci/$name.log" 2>&1; echo $? > ".ci/$name.rc" ) & }
+                  # set +e inside: Jenkins' shell stops at the first error, which would skip writing the code.
+                  run() { name=$1; shift; ( set +e; "$@" > ".ci/$name.log" 2>&1; echo $? > ".ci/$name.rc" ) & }
                   run lint pnpm lint
                   run format pnpm format:check
                   run typecheck pnpm typecheck
