@@ -32,7 +32,10 @@ const STEPS: Step[] = ['name', 'workspace', 'invite', 'ai', 'start'];
 function Progress({ step }: { step: Step }) {
   const index = STEPS.indexOf(step);
   return (
-    <p className="flex items-center gap-1.5" aria-label={`Step ${index + 1} of ${STEPS.length}`}>
+    // The step is spoken as hidden text: a paragraph can't carry an aria-label (axe:
+    // aria-prohibited-attr), and screen readers may ignore one there.
+    <p className="flex items-center gap-1.5">
+      <span className="sr-only">{`Step ${index + 1} of ${STEPS.length}`}</span>
       {STEPS.map((s, i) => (
         <span
           key={s}

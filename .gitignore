@@ -25,3 +25,6 @@ next-env.d.ts
 
 storybook-static/
 *.tsbuildinfo
+
+# Ad-hoc server output (e.g. `next start > web.out`)
+*.out

@@ -22,7 +22,7 @@ Start the API from `sotto-api` (`pnpm deps:up && pnpm dev`), then sign in at <ht
 
 | Command                                                         | Does                                                                            |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `pnpm dev` / `pnpm build` / `pnpm start`                        | Next.js                                                                         |
+| `pnpm dev` / `pnpm build` / `pnpm start`                        | Next.js (`start` serves the standalone build, as the image does)                |
 | `pnpm lint` / `pnpm format` / `pnpm typecheck`                  | ESLint / Prettier / TypeScript                                                  |
 | `pnpm test`                                                     | Vitest unit tests                                                               |
 | `pnpm e2e`                                                      | Playwright on iPhone and desktop viewports (needs `pnpm build` first)           |

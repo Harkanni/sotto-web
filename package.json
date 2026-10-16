@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "next dev --port 3000",
     "build": "next build",
-    "start": "next start --port 3000",
+    "start": "sh scripts/serve-standalone.sh 3000",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

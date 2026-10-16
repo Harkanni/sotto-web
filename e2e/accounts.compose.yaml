@@ -1,0 +1,82 @@
+# Backing services for the accounts flow (e2e/accounts.spec.ts) against the real api: Jenkins'
+# "Accounts flow" stage starts them, and so can you locally:
+#   docker compose -f e2e/accounts.compose.yaml up -d --wait
+#
+# Why Compose and not a few `docker run`s: every service has a healthcheck, and `up --wait`
+# fails straight away (with the service's state) if one exits or never turns healthy. The old
+# shell loop gave up after 2 minutes without saying so, the api started without RabbitMQ, and
+# the flow failed 30 s later as a page timeout (2026-10-15, see CI_PROGRESS.md).
+#
+# Jenkins moves every host port per build slot (PG_PORT, …) and names the containers after the
+# slot (CI_NAME); the defaults are the usual local ones. Nothing is kept: no named volumes.
+
+services:
+  postgres:
+    # pgvector's image = official Postgres + the vector extension (same as sotto-api).
+    image: pgvector/pgvector:pg18
+    container_name: ${CI_NAME:-sotto-accounts}-pg
+    environment:
+      POSTGRES_USER: sotto
+      POSTGRES_PASSWORD: sotto
+      POSTGRES_DB: sotto
+    ports: ['${PG_PORT:-5432}:5432']
+    healthcheck:
+      # Over TCP on purpose: during first-start initialisation Postgres runs a temporary server
+      # on the Unix socket only, which a socket check would wrongly call ready.
+      test: ['CMD-SHELL', 'pg_isready -h 127.0.0.1 -U sotto -d sotto']
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  redis:
+    image: redis:8-alpine
+    container_name: ${CI_NAME:-sotto-accounts}-redis
+    ports: ['${REDIS_PORT:-6379}:6379']
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 3s
+      timeout: 5s
+      retries: 40
+
+  rabbitmq:
+    # The image sotto-api's own pipeline runs green on the same Jenkins host (compose.deps.yaml),
+    # so it's already pulled there. The management plugin isn't needed; it just costs nothing.
+    image: rabbitmq:4-management-alpine
+    container_name: ${CI_NAME:-sotto-accounts}-mq
+    environment:
+      RABBITMQ_DEFAULT_USER: sotto
+      RABBITMQ_DEFAULT_PASS: sotto
+    ports: ['${AMQP_PORT:-5672}:5672']
+    # Erlang sizes its port table from the open-files limit; with a very high limit inherited
+    # from the Docker daemon it reserves a lot of memory at boot. RabbitMQ's own guidance for
+    # production is 65536, plenty for CI.
+    ulimits:
+      nofile: { soft: 65536, hard: 65536 }
+    healthcheck:
+      # Not just "the node runs" (ping) but "AMQP accepts connections", which is what the api
+      # needs before it can queue the sample files.
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'check_port_connectivity']
+      # The CLI starts its own Erlang VM, a few seconds on a busy host: generous timeout.
+      interval: 5s
+      timeout: 20s
+      retries: 30
+      start_period: 30s
+
+  s3:
+    # S3-compatible storage (SeaweedFS, as in sotto-api; MinIO stopped community images in 2025).
+    # No healthcheck: the image's tools vary between releases. The stage waits for the S3 port
+    # from the host, creates the bucket, and the api's /readyz then checks the bucket for real.
+    image: chrislusf/seaweedfs:latest
+    container_name: ${CI_NAME:-sotto-accounts}-s3
+    command: server -dir=/data -s3 -s3.port=8333
+    ports: ['${S3_PORT:-8333}:8333']
+
+  mailpit:
+    # Catches the sign-in and invite emails; the test reads them from its API.
+    image: axllent/mailpit:latest
+    container_name: ${CI_NAME:-sotto-accounts}-mail
+    ports: ['${SMTP_PORT:-1025}:1025', '${MAILPIT_PORT:-8025}:8025']
+    # Starts in well under a second. Its image ships a slow-interval healthcheck that would only
+    # make `up --wait` sit idle; the test's first email read is the real check.
+    healthcheck:
+      disable: true

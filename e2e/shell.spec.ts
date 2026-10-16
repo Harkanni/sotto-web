@@ -87,7 +87,7 @@ async function open(page: Page, path: string) {
   await page
     .context()
     .addCookies([
-      { name: 'sotto.session_token', value: 'e2e-shell', url: 'http://localhost:3000' },
+      { name: 'sotto.session_token', value: 'e2e-shell', url: test.info().project.use.baseURL },
     ]);
   await page.goto(path);
   // Instant sample data, so tests never wait on the simulated latency.
@@ -253,5 +253,30 @@ test('main screens pass axe (WCAG 2.1 AA)', async ({ page }) => {
       ),
       path,
     ).toEqual([]);
+  }
+});
+
+/**
+ * public/sw.js answers Sotto's own pages and nothing the gateway routes to other services
+ * (sotto-platform deploy/demo/Caddyfile): /api/* and the demo's mailbox at /mail/. A worker
+ * answering /mail/ hid Mailpit's password prompt (browsers don't show it for a response that
+ * came through a service worker), so the mailbox loaded its 401 forever in any browser that had
+ * opened Sotto (2026-10-15).
+ */
+test("the service worker leaves the gateway's other services alone", async ({ page }) => {
+  await open(page, '/home');
+  // The shell registers the worker once the page has gone quiet; it takes over the open page
+  // when it activates (clients.claim).
+  await page.waitForFunction(() => navigator.serviceWorker?.controller != null, null, {
+    timeout: 20_000,
+  });
+
+  // The control: the worker answers the app's own pages.
+  const app = await page.goto('/home');
+  expect(app?.fromServiceWorker(), '/home').toBe(true);
+
+  for (const path of ['/mail', '/mail/']) {
+    const response = await page.goto(path);
+    expect(response?.fromServiceWorker(), path).toBe(false);
   }
 });
