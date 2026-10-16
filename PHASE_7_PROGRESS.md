@@ -3,20 +3,20 @@
 The running record for Phase 7, kept current at every checkpoint. A new session follows the
 recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** below.
 
-| Repo           | Branch           | Pull request                                                    |
-| -------------- | ---------------- | --------------------------------------------------------------- |
-| sotto-api      | `feat/p7-live`   | sotto-api#10 (draft; merges first)                              |
-| sotto-web      | `feat/p7-live`   | sotto-web#12 (draft)                                            |
-| sotto-platform | `docs/p7-status` | sotto-platform#10 (draft; companion, based on `docs/p6-status`) |
+| Repo           | Branch           | Pull request                                          |
+| -------------- | ---------------- | ----------------------------------------------------- |
+| sotto-api      | `feat/p7-live`   | sotto-api#10 (draft; merges first)                    |
+| sotto-web      | `feat/p7-live`   | sotto-web#12 (draft)                                  |
+| sotto-platform | `docs/p7-status` | sotto-platform#10 (draft; companion; can merge ahead) |
 
 ## Project status
 
-- **Current phase:** 7 — Live notetaker. Phase 6 is merged in sotto-api (`75b1ded`, after #7)
-  and sotto-web (`9311455`, after #7). sotto-platform#8 (Phase 6 STATUS, ADRs 0023–0027) and
-  sotto-platform#9 (Jenkins, ADR 0023) are still open, so `docs/p7-status` branches from
-  `docs/p6-status`.
-- **Overall:** started 2026-10-12.
-- **Current milestone:** M5 (web: verify Listen in the rendered app; stories, e2e).
+- **Current phase:** 7 — Live notetaker. Phase 6 is merged in all three repos (sotto-api#7 and
+  sotto-web#7 on 2026-10-10, sotto-platform#8 on 2026-10-12).
+- **Overall:** started 2026-10-12. On 2026-10-16 all three branches merged `main` (Jenkins CI,
+  the single Terraform stack, the CI fixes, the service worker leaving `/mail` alone); every check
+  passes after the merges (Tests and checks run).
+- **Current milestone:** M5 part 2 (web: Live now row, stories, e2e, smoothness, design system).
 
 ## Requirements
 
@@ -80,24 +80,24 @@ api  each chunk → transcriber POST /v1/transcribe (in-cluster engine) → segm
      under the same privacy rules as Ask (a Restricted session only uses Private models)
 ```
 
-**Deviation from PLAN, to record as an ADR:** audio goes up as numbered HTTP chunks and the
+**Deviation from PLAN, recorded as ADR 0028:** audio goes up as numbered HTTP chunks and the
 transcript comes down over SSE, not a WebSocket. Next's rewrites (local and the demo's same-origin
-path) don't proxy WebSocket upgrades; the api has no WebSocket library and none can be added while
-CI's `sync` job is blocked; and numbered chunks make a dropped connection a retry, not a lost
-minute. Latency stays a few seconds, which is what the per-window transcriber gives anyway.
+path) don't proxy WebSocket upgrades; the api has no WebSocket library and none could be added at
+the time (CI's `sync` job was blocked); and numbered chunks make a dropped connection a retry, not
+a lost minute. Latency stays a few seconds, which is what the per-window transcriber gives anyway.
 
-| #   | Milestone                                                                                                                      | Repo      | State |
-| --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ----- |
-| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                             | all       | done  |
-| M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | done  |
-| M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | done  |
-| M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | done  |
-| M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | done  |
-| M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | todo  |
-| M6  | API: `MeetingBotProvider` + calendar providers (labelled stand-ins), calendar and bot routes, signed webhook, admin bot switch | sotto-api | todo  |
-| M7  | Self-hosted Meet bot service (headless browser joins, announces, streams audio to a live session)                              | sotto-api | todo  |
-| M8  | Web: calendar screen (upcoming calls, Send notetaker, auto-join), admin bot switch                                             | sotto-web | todo  |
-| M9  | Compose and demo config; ADRs; STATUS; verification in the rendered app; PRs ready                                             | all       | todo  |
+| #   | Milestone                                                                                                                      | Repo      | State       |
+| --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ----------- |
+| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                             | all       | done        |
+| M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | done        |
+| M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | done        |
+| M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | done        |
+| M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | done        |
+| M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | part 1 done |
+| M6  | API: `MeetingBotProvider` + calendar providers (labelled stand-ins), calendar and bot routes, signed webhook, admin bot switch | sotto-api | todo        |
+| M7  | Self-hosted Meet bot service (headless browser joins, announces, streams audio to a live session)                              | sotto-api | todo        |
+| M8  | Web: calendar screen (upcoming calls, Send notetaker, auto-join), admin bot switch                                             | sotto-web | todo        |
+| M9  | Compose and demo config; ADRs; STATUS; verification in the rendered app; PRs ready                                             | all       | todo        |
 
 ## Completed work
 
@@ -183,7 +183,7 @@ M5, part 2 (below).
 
 ## Remaining work
 
-M1–M9 above.
+M5 part 2, then M6–M9 (the milestone table above).
 
 ## Next steps
 
@@ -195,23 +195,25 @@ M1–M9 above.
 smoothness`, `UI_DESIGN_SYSTEM.md` (Listen section; motion rows for the live dot and new
    transcript lines; the + button's hiding rule), README if scripts change.
 2. M6–M8: calendar connections and the notetaker bot (see the milestone table).
-3. The rig is in the scratchpad (not committed): see Completed work → M5 for its parts;
-   `rig.mjs <scenario> [iphone|desktop] [light|dark]` drives it.
+3. The rendered-check rig from M5 part 1 lived in that session's scratchpad and is gone; rebuild
+   it from its parts (Completed work → M5) on top of the integration services below.
 
 ## Decisions
 
 - **One branch per repo** for the phase, as in Phases 4–6.
-- **Chunks over HTTP + SSE instead of a WebSocket** (above; ADR to write in M9).
+- **Chunks over HTTP + SSE instead of a WebSocket** (above; ADR 0028).
 - **The live transcript is a preview.** On End the joined recording goes through the normal
   pipeline, so the saved meeting gets the full-quality transcript, peaks and insights; live
   chunks can cut a word at a boundary.
-- **ADR numbers start at 0028.** sotto-platform#8 uses 0023–0027 and sotto-platform#9 also
-  uses 0023 (Jenkins): the owner renumbers one of them when merging (STATUS says so).
+- **ADRs:** 0028 (live audio over HTTP chunks + SSE) and 0029 (a live capture is private until
+  saved) are on `docs/p7-status`. The old clash is gone: Jenkins' record became 0030 on `main`,
+  which now runs to 0033, so the bot's ADR takes 0034.
 
 ## Missing specifications and outside dependencies
 
-1. **GitHub Actions is still blocked by billing** (since 2026-10-10). No dependency can be added
-   (the `sync` job publishes `node_modules` for this sandbox), so Phase 7 uses what's installed.
+1. ~~GitHub Actions blocked by billing~~ No longer applies: CI runs on Jenkins (ADR 0030), and
+   the sandbox reaches npm (2026-10-16), so a dependency can be added with `pnpm install` and its
+   lockfile change.
 2. **Google and Microsoft OAuth apps** (Phase 3 blocker) are needed to connect a real calendar.
    Until they exist, calendar runs on a labelled stand-in.
 3. **A Google account for the bot.** Meet lets a signed-out guest ask to join; hosts must admit
@@ -222,9 +224,27 @@ smoothness`, `UI_DESIGN_SYSTEM.md` (Listen section; motion rows for the live dot
 - The sotto-api `dev-cache` snapshot for the current manifests doesn't exist (the last `sync`
   ran before `reindex` was added to `apps/worker/package.json`, a script-only change). Restored
   the previous snapshot, whose dependencies are identical.
-- This sandbox has Node 22 (the repos ask for 24) and no npm registry.
+- This sandbox has Node 22 (the repos ask for 24). npm, PyPI and the Ubuntu mirror are reachable
+  (2026-10-16); Docker Hub and `binaries.prisma.sh` are not. So `pnpm install --frozen-lockfile`
+  works, but `prisma generate` can't fetch its schema engine: copy
+  `node_modules/.pnpm/@prisma+engines@7.10.0/node_modules/@prisma/engines/schema-engine-debian-openssl-3.0.x`
+  from the newest `dev-cache` snapshot (`node_modules-linux-x64-621d8c1534f2035a.tar.gz`, same
+  Prisma build `0edf323`). Run `pnpm build` before `typecheck` and `test`: the apps import the
+  packages' `dist`.
 
 ## Tests and checks run
 
-| When | Check | Result |
-| ---- | ----- | ------ |
+sotto-api's integration tests in this sandbox (no Docker images): `apt-get install
+postgresql-16-pgvector`, then a throwaway cluster (`initdb -U sotto --auth=trust`, port 5544),
+`redis-server --port 6399`, `moto_server -p 5599` (`pip install 'moto[server]'`, bucket
+`sotto-test`), and
+`REDIS_URL=redis://127.0.0.1:6399 AWS_REGION=eu-west-2 AWS_ACCESS_KEY_ID=ci AWS_SECRET_ACCESS_KEY=ci S3_FORCE_PATH_STYLE=true TEST_DATABASE_URL=postgresql://sotto@127.0.0.1:5544/postgres TEST_S3_ENDPOINT=http://127.0.0.1:5599 REQUIRE_INTEGRATION=1 pnpm test`.
+Postgres 16 and pgvector 0.6 here; CI and the demo run 18, so Jenkins stays the final word.
+
+| When       | Check                                                                                                                          | Result |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------ | ------ |
+| 2026-10-16 | sotto-api `feat/p7-live` after merging `main`: lint, format, typecheck, unit tests, build, `pnpm openapi` (no drift)           | pass   |
+| 2026-10-16 | sotto-api integration (Postgres 16 + pgvector, Redis, moto): api 223/223 (live 11, live notes 12), worker 29/29, storage 14/14 | pass   |
+| 2026-10-16 | sotto-web `feat/p7-live` after merging `main`: lint (0 errors), format, typecheck, unit 91/91, build                           | pass   |
+| 2026-10-16 | sotto-web e2e (`CI=true`): 28 passed, 20 skipped (accounts flow without an api; one-layout tests)                              | pass   |
+| 2026-10-16 | sotto-web `build-storybook` + `test:stories` (`CI=true`): 170/170                                                              | pass   |
