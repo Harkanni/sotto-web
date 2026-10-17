@@ -49,7 +49,7 @@ import { emitScreenEvent } from './parts/screen-events';
 
 /** Says why a question couldn't be asked, in the API's own words. */
 /** A refused question says why, and offers the screen that fixes it. */
-function askFailed(error: unknown) {
+export function askFailed(error: unknown) {
   const code = error instanceof ApiError ? error.code : null;
   const fix =
     code === 'QUOTA_EXCEEDED' || code === 'PLAN_REQUIRED'
@@ -67,7 +67,7 @@ function askFailed(error: unknown) {
  * Starts a chat with a scope and its first question: the chat opens at once with the question in
  * it, and the answer streams in while you watch (or later, if you go elsewhere).
  */
-function useStartChat(base: string) {
+export function useStartChat(base: string) {
   const client = useQueryClient();
   const ws = useActiveWorkspace()?.id;
   return async (question: string, scope: AskScope) => {

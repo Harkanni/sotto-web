@@ -10,6 +10,7 @@ import { AuditScreen } from './audit';
 import { DocScreen } from './doc';
 import { CollectionScreen, DocsScreen } from './docs';
 import { HomeScreen } from './home';
+import { LiveScreen } from './live';
 import { MeetingScreen, MeetingsScreen } from './meetings';
 import { MembersScreen } from './members';
 import { TrashScreen } from './trash';
@@ -37,6 +38,7 @@ const SCREENS: Record<ScreenKind, React.ComponentType> = {
   doc: DocScreen,
   meeting: MeetingScreen,
   thread: ThreadScreen,
+  live: LiveScreen,
   account: AccountScreen,
   appearance: AppearanceScreen,
   developer: DeveloperScreen,

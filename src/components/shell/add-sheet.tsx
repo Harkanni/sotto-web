@@ -1,11 +1,12 @@
 'use client';
 
-import { FileAudio, Mic, PenLine, Upload, type LucideIcon } from 'lucide-react';
+import { AudioLines, FileAudio, Mic, PenLine, Upload, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Sheet } from '@/components/ui/sheet';
 import { TransferList } from '@/components/uploads/transfers';
 import { useWorkspaceCollections } from '@/lib/api/hooks';
+import { useLiveCapture } from '@/lib/live/store';
 import { useCanAdd } from '@/lib/uploads/permissions';
 import { addUploads, useUploads, type UploadItem } from '@/lib/uploads/store';
 import { currentCollectionId } from '@/lib/uploads/target';
@@ -52,6 +53,35 @@ const ACTIONS: Action[] = [
     tint: 'text-[#1f7f93] bg-[#30b0c7]/14 dark:text-[#64d2ff] dark:bg-[#64d2ff]/20',
   },
 ];
+
+/**
+ * Listen to a call: a full-width tile above the four, since it's the one that happens live.
+ * While a call is being listened to, it says so and takes you back to it.
+ */
+function ListenTile({ onClick }: { onClick: () => void }) {
+  const live = useLiveCapture();
+  const listening = live.phase !== 'idle';
+  return (
+    <button
+      type="button"
+      data-action="listen"
+      onClick={onClick}
+      className="pressable col-span-2 flex min-h-16 items-center gap-3 rounded-card bg-card-nested p-3.5 text-left select-none active:bg-fill-strong"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-[#34c759]/14 text-success-text dark:bg-[#30d158]/20">
+        <AudioLines aria-hidden className="size-[22px]" strokeWidth={2} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-headline">
+          {listening ? 'Back to the call' : 'Listen to a call'}
+        </span>
+        <span className="block truncate text-subhead text-muted-foreground">
+          {listening ? 'Sotto is listening now' : 'Live transcript and notes'}
+        </span>
+      </span>
+    </button>
+  );
+}
 
 /** What Sotto reads (the api checks again): PDF, Word, text, Markdown; audio separately. */
 export const DOCUMENT_ACCEPT = '.pdf,.docx,.txt,.md,.markdown';
@@ -162,6 +192,12 @@ export function AddSheet() {
           </section>
         )}
         <div className="grid grid-cols-2 gap-3 px-[var(--gutter)] pt-1 pb-2">
+          <ListenTile
+            onClick={() => {
+              setOpen(false);
+              emitShellEvent('open-listen');
+            }}
+          />
           {ACTIONS.map(({ id, icon: Icon, title, hint, tint }) => (
             <button
               key={id}

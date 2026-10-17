@@ -163,6 +163,13 @@
   }
 }
 
+/* The live dot while Sotto listens: a slow breath, the one looping status in the app. */
+@keyframes live-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
 @keyframes bars {
   0%,
   100% {
@@ -498,5 +505,14 @@
     @starting-style {
       translate: none;
     }
+  }
+}
+
+.live-dot {
+  animation: live-pulse 1.8s var(--ease-in-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot {
+    animation: none;
   }
 }
