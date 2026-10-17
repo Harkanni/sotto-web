@@ -3,19 +3,24 @@
 The running record for Phase 7, kept current at every checkpoint. A new session follows the
 recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** below.
 
-| Repo           | Branch           | Pull request                                          |
-| -------------- | ---------------- | ----------------------------------------------------- |
-| sotto-api      | `feat/p7-live`   | sotto-api#10 (draft; merges first)                    |
-| sotto-web      | `feat/p7-live`   | sotto-web#12 (draft)                                  |
-| sotto-platform | `docs/p7-status` | sotto-platform#10 (draft; companion; can merge ahead) |
+The first half of the phase (M1–M5 part 1) is merged: sotto-api#10 and sotto-web#12 (branch
+`feat/p7-live`), sotto-platform#10 (`docs/p7-status`), all on 2026-10-17. The rest of the phase
+goes in one branch and PR per slice, from `main`:
+
+| Slice          | Repo           | Branch                      | Pull request      | State       |
+| -------------- | -------------- | --------------------------- | ----------------- | ----------- |
+| M5 part 2      | sotto-web      | `feat/p7-live-now`          | sotto-web (draft) | in progress |
+| M5 part 2      | sotto-platform | `docs/p7-live-now-status`   | sotto-platform    | in progress |
+| M6–M7          | sotto-api      | `feat/p7-notetaker` (later) | —                 | todo        |
+| M8             | sotto-web      | `feat/p7-calendar` (later)  | —                 | todo        |
+| M9 and the bot | sotto-platform | `feat/p7-bot` (later)       | —                 | todo        |
 
 ## Project status
 
 - **Current phase:** 7 — Live notetaker. Phase 6 is merged in all three repos (sotto-api#7 and
   sotto-web#7 on 2026-10-10, sotto-platform#8 on 2026-10-12).
-- **Overall:** started 2026-10-12. On 2026-10-16 all three branches merged `main` (Jenkins CI,
-  the single Terraform stack, the CI fixes, the service worker leaving `/mail` alone); every check
-  passes after the merges (Tests and checks run).
+- **Overall:** started 2026-10-12. M1–M5 part 1 merged on 2026-10-17; CI/CD is back on GitHub
+  Actions (ADR 0034) and all three repos are public.
 - **Current milestone:** M5 part 2 (web: Live now row, stories, e2e, smoothness, design system).
 
 ## Requirements
@@ -179,7 +184,8 @@ a lost minute. Latency stays a few seconds, which is what the per-window transcr
 
 ## Work in progress
 
-M5, part 2 (below).
+M5, part 2 on `feat/p7-live-now` (2026-10-17): the log brought up to date with `main`; the
+draft PR opened. Next: the Live now row (Next steps → 1).
 
 ## Remaining work
 
@@ -206,14 +212,16 @@ smoothness`, `UI_DESIGN_SYSTEM.md` (Listen section; motion rows for the live dot
   pipeline, so the saved meeting gets the full-quality transcript, peaks and insights; live
   chunks can cut a word at a boundary.
 - **ADRs:** 0028 (live audio over HTTP chunks + SSE) and 0029 (a live capture is private until
-  saved) are on `docs/p7-status`. The old clash is gone: Jenkins' record became 0030 on `main`,
-  which now runs to 0033, so the bot's ADR takes 0034.
+  saved) are merged. `main` now runs to 0034 (GitHub Actions CI/CD, 2026-10-17), so the bot's
+  ADR takes 0035.
+- **One branch and PR per slice for the rest of the phase** (2026-10-17): the phase branches
+  merged with M1–M5 part 1, so each remaining slice starts from `main` (table at the top).
 
 ## Missing specifications and outside dependencies
 
-1. ~~GitHub Actions blocked by billing~~ No longer applies: CI runs on Jenkins (ADR 0030), and
-   the sandbox reaches npm (2026-10-16), so a dependency can be added with `pnpm install` and its
-   lockfile change.
+1. ~~GitHub Actions blocked by billing~~ No longer applies: CI runs on GitHub Actions again,
+   free now that the repos are public (ADR 0034), and the sandbox reaches npm, so a dependency
+   can be added with `pnpm install` and its lockfile change.
 2. **Google and Microsoft OAuth apps** (Phase 3 blocker) are needed to connect a real calendar.
    Until they exist, calendar runs on a labelled stand-in.
 3. **A Google account for the bot.** Meet lets a signed-out guest ask to join; hosts must admit
