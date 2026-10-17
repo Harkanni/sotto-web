@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { LiveLevel, LiveStatus, useElapsed, type LevelSource } from '@/components/live/live-parts';
 import { Screen } from '@/components/shell/screen';
 import { useLayer } from '@/components/shell/stack-context';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SegmentedControl } from '@/components/ui/segmented-control';
 import { Sheet } from '@/components/ui/sheet';
@@ -377,9 +378,8 @@ export function LiveTranscript({
     <section aria-label="Live transcript" className="px-[var(--gutter)]">
       <div className="flex items-center gap-2 px-1 pb-2 text-footnote text-muted-foreground">
         <span>Live transcript</span>
-        {session.transcriber?.isMock && (
-          <span className="rounded-full bg-fill px-2 py-0.5 text-caption">Mock</span>
-        )}
+        {/* The page's own background: the Badge keeps AA there; a fill pill doesn't. */}
+        {session.transcriber?.isMock && <Badge>Mock</Badge>}
       </div>
       {count ? (
         <ol aria-live="polite" aria-relevant="additions" className="rounded-card bg-card px-3 py-2">

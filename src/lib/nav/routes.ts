@@ -212,6 +212,19 @@ export function pushPath(from: string, kind: ItemKind, id: string): string {
   return `${base}/${kind}/${encodeURIComponent(id)}`;
 }
 
+/**
+ * The key of the screen pushed straight on top of `key` in `href`, or null: a tab's own item is
+ * one segment (/docs/d_1), any other item two (/meetings/live/ls_1), a named screen one
+ * (/profile/members). The list pane highlights the open item with it.
+ */
+export function childKey(href: string, key: string): string | null {
+  const path = href.split('?')[0]!;
+  if (!path.startsWith(key + '/')) return null;
+  const rest = path.slice(key.length + 1).split('/');
+  const kind = rest.length > 1 && isItemKind(rest[0]!);
+  return `${key}/${rest[0]}${kind ? `/${rest[1]}` : ''}`;
+}
+
 /** How two stacks relate, which decides the transition between them. */
 export type StackChange =
   | { type: 'same' }

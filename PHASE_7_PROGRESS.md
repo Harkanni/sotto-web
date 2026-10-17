@@ -198,18 +198,30 @@ M5, part 2 on `feat/p7-live-now` (2026-10-17):
   file events that start or end an arrival (`startsOrEndsArriving`) and on reconnect. A list
   row whose link switches tab is no longer left highlighted (Home's row opens the call on
   Meetings; only a pop cleared the highlight). Unit tests: `test/live.test.ts` (+8).
-- Done (typecheck and lint pass; story build and story tests not yet run): **stories**.
-  `Components/Live` (`src/components/live/live.stories.tsx`: status in every phase, the level
-  bars, the Listen sheet, Live now rows, notes in three states, every notice, another screen)
-  and `Screens/Live` (`src/screens/live.stories.tsx`, phone: listening, first seconds, paused,
-  notes, another screen, Ask during the call), composed from the live screen's own parts
-  (now exported) inside the real `Screen`, because the story tests fail on any 4xx and the
-  screen's event stream would 404 in Storybook. Stand-in data: `src/stories/live-fixtures.ts`
-  (plain data; also answers `GET /live-sessions` with nothing live for the shell e2e and
-  Storybook) and `src/stories/live-levels.ts` (deterministic speech-like levels).
-  `LiveLevel` takes a level source and `LiveHeading` an optional clock, for those stories.
-- Next: `pnpm build-storybook && CI=true pnpm test:stories` (fix what fails), then the e2e
-  (Next steps → 1).
+- Done: **stories**. `Components/Live` (`src/components/live/live.stories.tsx`: status in every
+  phase, the level bars, the Listen sheet, Live now rows, notes in three states, every notice,
+  another screen) and `Screens/Live` (`src/screens/live.stories.tsx`, phone: listening, first
+  seconds, paused, notes, another screen, Ask during the call), composed from the live screen's
+  own parts (now exported) inside the real `Screen`, because the story tests fail on any 4xx
+  and the screen's event stream would 404 in Storybook. Stand-in data:
+  `src/stories/live-fixtures.ts` (plain data; also answers `GET /live-sessions` with nothing
+  live for the shell e2e and Storybook) and `src/stories/live-levels.ts` (deterministic
+  speech-like levels). `LiveLevel` takes a level source and `LiveHeading` an optional clock.
+  **Fixed (found by the story tests):** the transcript's Mock label failed AA in light mode (a
+  fill pill on the page background); it's the shared `Badge` now, like "Sample".
+- Done: **e2e** `e2e/listen.spec.ts` (iPhone and desktop): Chromium's fake microphone feeds the
+  real capture; Add → Listen → consent → Start → the live screen → the first line → axe → on a
+  phone Home's Live now row and the strip lead back, on a desktop the row is selected beside the
+  call → a second piece → Stop → the saved meeting; the api saw every piece once, in order, all
+  before End. The stand-in api (`e2e/live-api.ts`) is the page's **front door**: it answers the
+  Listen routes and passes everything else to the app's server, because Playwright can't
+  stream a stubbed response and `route.continue` can't send a request to another host (tried:
+  "Failed to fetch"). The shell's stand-in helpers moved to `e2e/stand-in.ts` (`open` takes
+  extra routes and a base address). **Fixed (found by the e2e):** `useChildKey` listed the item
+  kinds by hand without `live`, so the open call's row was never selected on desktop; it's
+  `childKey()` in `routes.ts` now, from `ITEM_KINDS`, with unit tests.
+- Next: `pnpm smoothness`, screenshots of the rendered app (iPhone and desktop, light and dark),
+  then `UI_DESIGN_SYSTEM.md` (Next steps → 1).
 
 ## Remaining work
 
@@ -273,11 +285,14 @@ postgresql-16-pgvector`, then a throwaway cluster (`initdb -U sotto --auth=trust
 `REDIS_URL=redis://127.0.0.1:6399 AWS_REGION=eu-west-2 AWS_ACCESS_KEY_ID=ci AWS_SECRET_ACCESS_KEY=ci S3_FORCE_PATH_STYLE=true TEST_DATABASE_URL=postgresql://sotto@127.0.0.1:5544/postgres TEST_S3_ENDPOINT=http://127.0.0.1:5599 REQUIRE_INTEGRATION=1 pnpm test`.
 Postgres 16 and pgvector 0.6 here; CI and the demo run 18, so Jenkins stays the final word.
 
-| When       | Check                                                                                                                          | Result |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| 2026-10-16 | sotto-api `feat/p7-live` after merging `main`: lint, format, typecheck, unit tests, build, `pnpm openapi` (no drift)           | pass   |
-| 2026-10-16 | sotto-api integration (Postgres 16 + pgvector, Redis, moto): api 223/223 (live 11, live notes 12), worker 29/29, storage 14/14 | pass   |
-| 2026-10-16 | sotto-web `feat/p7-live` after merging `main`: lint (0 errors), format, typecheck, unit 91/91, build                           | pass   |
-| 2026-10-16 | sotto-web e2e (`CI=true`): 28 passed, 20 skipped (accounts flow without an api; one-layout tests)                              | pass   |
-| 2026-10-16 | sotto-web `build-storybook` + `test:stories` (`CI=true`): 170/170                                                              | pass   |
-| 2026-10-17 | sotto-web `feat/p7-live-now` (Live now): lint (0 errors), format, typecheck, unit 99/99                                        | pass   |
+| When       | Check                                                                                                                                          | Result |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-10-16 | sotto-api `feat/p7-live` after merging `main`: lint, format, typecheck, unit tests, build, `pnpm openapi` (no drift)                           | pass   |
+| 2026-10-16 | sotto-api integration (Postgres 16 + pgvector, Redis, moto): api 223/223 (live 11, live notes 12), worker 29/29, storage 14/14                 | pass   |
+| 2026-10-16 | sotto-web `feat/p7-live` after merging `main`: lint (0 errors), format, typecheck, unit 91/91, build                                           | pass   |
+| 2026-10-16 | sotto-web e2e (`CI=true`): 28 passed, 20 skipped (accounts flow without an api; one-layout tests)                                              | pass   |
+| 2026-10-16 | sotto-web `build-storybook` + `test:stories` (`CI=true`): 170/170                                                                              | pass   |
+| 2026-10-17 | sotto-web `feat/p7-live-now` (Live now): lint (0 errors), format, typecheck, unit 99/99                                                        | pass   |
+| 2026-10-17 | sotto-web `feat/p7-live-now`: `build-storybook` + `test:stories` (`CI=true`): 200 passed (2 retried: trace files clashing with a parallel run) | pass   |
+| 2026-10-17 | sotto-web e2e (`CI=true`): 30 passed (Listen: iPhone and desktop), 20 skipped (as before)                                                      | pass   |
+| 2026-10-17 | sotto-web unit 102/102 (`childKey` +3), lint (0 errors), format, typecheck, build                                                              | pass   |
