@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 // Every Storybook story, in light and dark: renders without errors and passes axe.
 // Runs against the static build: `pnpm build-storybook && pnpm test:stories`.
-// STORIES_PORT moves the server off 6006 so several CI builds can share a host.
+// STORIES_PORT moves the server off 6006, so two runs can share a machine.
 const port = Number(process.env.STORIES_PORT ?? 6006);
 
 export default defineConfig({

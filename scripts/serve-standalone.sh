@@ -18,6 +18,6 @@ rm -rf "$out/.next/static" "$out/public"
 cp -R .next/static "$out/.next/static"
 cp -R public "$out/public"
 
-# HOSTNAME explicitly: the server binds to it, and shells (Jenkins too) set it to the machine's
-# name. 0.0.0.0 as in the image.
+# HOSTNAME explicitly: the server binds to it, and many shells set it to the machine's name.
+# 0.0.0.0 as in the image.
 PORT="${1:-3000}" HOSTNAME=0.0.0.0 exec node "$out/server.js"

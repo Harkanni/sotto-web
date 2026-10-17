@@ -1,5 +1,5 @@
-# Backing services for the accounts flow (e2e/accounts.spec.ts) against the real api: Jenkins'
-# "Accounts flow" stage starts them, and so can you locally:
+# Backing services for the accounts flow (e2e/accounts.spec.ts) against the real api: CI's
+# accounts job (.github/workflows/pipeline.yml) starts them, and so can you locally:
 #   docker compose -f e2e/accounts.compose.yaml up -d --wait
 #
 # Why Compose and not a few `docker run`s: every service has a healthcheck, and `up --wait`
@@ -7,8 +7,8 @@
 # shell loop gave up after 2 minutes without saying so, the api started without RabbitMQ, and
 # the flow failed 30 s later as a page timeout (2026-10-15, see CI_PROGRESS.md).
 #
-# Jenkins moves every host port per build slot (PG_PORT, …) and names the containers after the
-# slot (CI_NAME); the defaults are the usual local ones. Nothing is kept: no named volumes.
+# PG_PORT, … move the host ports and CI_NAME renames the containers, so two stacks can share
+# one machine; the defaults are the usual local ones. Nothing is kept: no named volumes.
 
 services:
   postgres:
@@ -39,8 +39,8 @@ services:
       retries: 40
 
   rabbitmq:
-    # The image sotto-api's own pipeline runs green on the same Jenkins host (compose.deps.yaml),
-    # so it's already pulled there. The management plugin isn't needed; it just costs nothing.
+    # The image sotto-api's own pipeline runs green (compose.deps.yaml). The management plugin
+    # isn't needed; it just costs nothing.
     image: rabbitmq:4-management-alpine
     container_name: ${CI_NAME:-sotto-accounts}-mq
     environment:
