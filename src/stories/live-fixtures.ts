@@ -107,10 +107,19 @@ export function standInLiveSession(patch: Partial<LiveSession> = {}): LiveSessio
 
 /**
  * The answer for the live routes the shell reads on every screen (Home and Meetings ask what's
- * live now): nothing is, unless a test says otherwise. Undefined for anything else.
+ * live now): by default nothing is; with `live`, the stand-in call is, captured on another
+ * device, and its session answers (its event stream has nothing to say). Undefined for anything
+ * else.
  */
-export function standInLiveRoute(url: URL): { status: number; json?: unknown } | undefined {
+export function standInLiveRoute(
+  url: URL,
+  { live = false }: { live?: boolean } = {},
+): { status: number; json?: unknown } | undefined {
   const path = url.pathname.replace(/^.*\/api\/v1\//, '');
-  if (path === 'live-sessions') return { status: 200, json: { items: [] } };
+  const session = standInLiveSession({ durationMs: 28_000, nextSeq: 7 });
+  if (path === 'live-sessions') return { status: 200, json: { items: live ? [session] : [] } };
+  if (!live) return undefined;
+  if (path === `live-sessions/${STAND_IN_LIVE_ID}`) return { status: 200, json: session };
+  if (path === `live-sessions/${STAND_IN_LIVE_ID}/events`) return { status: 204 };
   return undefined;
 }

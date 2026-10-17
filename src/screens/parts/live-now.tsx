@@ -3,6 +3,7 @@
 import { memo } from 'react';
 import { LiveStatus, useElapsed } from '@/components/live/live-parts';
 import { ListRow } from '@/components/ui/list';
+import { usePrefetchLiveSession } from '@/lib/api/live';
 import { timeOfDay } from '@/lib/format';
 import type { LiveNowItem } from '@/lib/live/now';
 import { FileIcon } from './file-rows';
@@ -34,6 +35,7 @@ export const LiveNowRow = memo(function LiveNowRow({
   href: string;
   selected?: boolean;
 }) {
+  const prefetch = usePrefetchLiveSession();
   return (
     <ListRow
       href={href}
@@ -47,7 +49,13 @@ export const LiveNowRow = memo(function LiveNowRow({
           <HereStatus phase={item.phase} />
         )
       }
-      rowProps={{ 'data-live': item.id }}
+      rowProps={{
+        'data-live': item.id,
+        // Intent loads the call, so the push lands on it rather than fetching it.
+        onPointerDown: () => prefetch(item.id),
+        onMouseEnter: () => prefetch(item.id),
+        onFocus: () => prefetch(item.id),
+      }}
     />
   );
 });

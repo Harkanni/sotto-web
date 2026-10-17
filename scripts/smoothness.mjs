@@ -12,6 +12,7 @@ import { chromium, devices } from '@playwright/test';
 // Node strips the types on load; the e2e and Storybook use the same stand-in library.
 import { standInAskRoute } from '../src/stories/ask-fixtures.ts';
 import { STAND_IN_FILES, standInFileRoute } from '../src/stories/file-fixtures.ts';
+import { standInLiveRoute } from '../src/stories/live-fixtures.ts';
 
 const args = process.argv.slice(2);
 const throttle = Number(args.find((a) => /^\d+$/.test(a)) ?? 4);
@@ -69,7 +70,11 @@ for (const [path, body] of Object.entries(standIn)) {
   await page.route(`**/api/v1/${path}`, (route) => route.fulfill({ json: body }));
 }
 // Files (Phase 4), chats and search (Phase 5): the stand-in library, answered without an API.
-const standInRoute = (url) => standInAskRoute(url, STAND_IN_FILES) ?? standInFileRoute(url);
+// A call is live (Phase 7), so Home and Meetings show Live now with its breathing dot.
+const standInRoute = (url) =>
+  standInAskRoute(url, STAND_IN_FILES) ??
+  standInFileRoute(url) ??
+  standInLiveRoute(url, { live: true });
 await page.route(
   (url) => standInRoute(url) !== undefined,
   (route) => {
@@ -135,7 +140,11 @@ async function measure(label, action, settle = 800) {
   const fetched = requests
     .slice(before)
     .filter((u) => !u.includes('/_next/static/') && !/icon|favicon/.test(u));
-  const isBody = (u) => /\/api\/v1\/files\/[^/?]+\/(content|transcript|insights|peaks)$/.test(u);
+  // A screen's body, loaded on intent or as it opens, never awaited by the push: a file's
+  // pages or transcript, a live call and its event stream.
+  const isBody = (u) =>
+    /\/api\/v1\/files\/[^/?]+\/(content|transcript|insights|peaks)$/.test(u) ||
+    /\/api\/v1\/live-sessions\/[^/?]+(\/events)?$/.test(u);
   results.push({
     label,
     ...r,
@@ -187,6 +196,15 @@ await measure(
   },
   1000,
 );
+// Phase 7: a call is live. Meetings shows it on top (a breathing dot: an opacity loop on the
+// compositor), its row opens the live screen, and Home shows it first.
+const meetings = '.tab-root[data-tab="meetings"] .stack-layer:last-of-type';
+await measure('switch to Meetings (a call live)', () =>
+  page.tap('.tab-bar a[data-tab="meetings"]'),
+);
+await measure('push the live call', () => page.tap(`${meetings} a[data-live]`), 1000);
+await measure('back from the live call', () => page.tap(`${meetings} [data-back]`));
+await measure('switch to Home (Live now)', () => page.tap('.tab-bar a[data-tab="home"]'));
 await browser.close();
 
 console.log(`\nCPU throttle ${throttle}x, iPhone 15 viewport\n`);

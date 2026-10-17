@@ -220,8 +220,14 @@ M5, part 2 on `feat/p7-live-now` (2026-10-17):
   extra routes and a base address). **Fixed (found by the e2e):** `useChildKey` listed the item
   kinds by hand without `live`, so the open call's row was never selected on desktop; it's
   `childKey()` in `routes.ts` now, from `ITEM_KINDS`, with unit tests.
-- Next: `pnpm smoothness`, screenshots of the rendered app (iPhone and desktop, light and dark),
-  then `UI_DESIGN_SYSTEM.md` (Next steps → 1).
+- Done: a Live now row **loads its call on intent** (pointer-down, hover, focus:
+  `usePrefetchLiveSession`, sharing `useLiveSession`'s query), so the live screen is pushed onto
+  its content. `pnpm smoothness` now has a call live (`standInLiveRoute(url, { live: true })`)
+  and measures switching to Meetings with it, pushing the live screen from its row, going back,
+  and Home with Live now; a live call and its event stream count as the screen's body.
+- In progress: smoothness numbers against `main` built on the same sandbox (`main` in a
+  worktree at `../sotto-web-main`), then screenshots of the rendered app and
+  `UI_DESIGN_SYSTEM.md` (Next steps → 1).
 
 ## Remaining work
 
