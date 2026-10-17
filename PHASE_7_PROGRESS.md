@@ -5,15 +5,17 @@ recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** b
 
 The first half of the phase (M1–M5 part 1) is merged: sotto-api#10 and sotto-web#12 (branch
 `feat/p7-live`), sotto-platform#10 (`docs/p7-status`), all on 2026-10-17. The rest of the phase
-goes in one branch and PR per slice, from `main`:
+goes in one branch and PR per slice. From M6 on, this log is kept on `feat/p7-calendar` (the
+web branch for M8, stacked on M5 part 2), so the PR in review doesn't change under the owner:
 
-| Slice          | Repo           | Branch                      | Pull request         | State       |
-| -------------- | -------------- | --------------------------- | -------------------- | ----------- |
-| M5 part 2      | sotto-web      | `feat/p7-live-now`          | sotto-web#21 (draft) | in progress |
-| M5 part 2      | sotto-platform | `docs/p7-live-now-status`   | sotto-platform#24    | in review   |
-| M6–M7          | sotto-api      | `feat/p7-notetaker` (later) | —                    | todo        |
-| M8             | sotto-web      | `feat/p7-calendar` (later)  | —                    | todo        |
-| M9 and the bot | sotto-platform | `feat/p7-bot` (later)       | —                    | todo        |
+| Slice          | Repo           | Branch                            | Pull request              | State       |
+| -------------- | -------------- | --------------------------------- | ------------------------- | ----------- |
+| M5 part 2      | sotto-web      | `feat/p7-live-now`                | sotto-web#21              | in review   |
+| M5 part 2      | sotto-platform | `docs/p7-live-now-status`         | sotto-platform#24         | in review   |
+| M6             | sotto-api      | `feat/p7-notetaker`               | sotto-api#17 (draft)      | in progress |
+| M7             | sotto-api      | `feat/p7-meet-bot` (later, on M6) | —                         | todo        |
+| M8 and the log | sotto-web      | `feat/p7-calendar` (on M5 part 2) | sotto-web (draft)         | log only    |
+| M6–M9          | sotto-platform | `feat/p7-bot` (on #24)            | sotto-platform#25 (draft) | ADR 0035    |
 
 ## Project status
 
@@ -21,8 +23,8 @@ goes in one branch and PR per slice, from `main`:
   sotto-web#7 on 2026-10-10, sotto-platform#8 on 2026-10-12).
 - **Overall:** started 2026-10-12. M1–M5 part 1 merged on 2026-10-17; CI/CD is back on GitHub
   Actions (ADR 0034) and all three repos are public.
-- **Current milestone:** M6 (api: calendar connections, `MeetingBotProvider`, bot routes). M5
-  part 2 is in review (sotto-web#21).
+- **Current milestone:** M6 (api: calendar connections, sending the bot, the signed webhook;
+  sotto-api#17). M5 part 2 is in review (sotto-web#21).
 
 ## Requirements
 
@@ -239,8 +241,18 @@ a lost minute. Latency stays a few seconds, which is what the per-window transcr
 
 ## Work in progress
 
-M5 part 2 is done and in review (sotto-web#21). Next: M6 in sotto-api on `feat/p7-notetaker`
-(Next steps → 1).
+M6 on `feat/p7-notetaker` (sotto-api#17, draft; companion sotto-platform#25 with ADR 0035):
+
+- Done: the design, as ADR 0035 (proposed; Decisions below has the short version).
+- Done: `BotJob`, the bot's job contract in `packages/ai` (`MeetingBotProvider.join(job)`:
+  assignment, meeting link, the bot's name and chat announcement, where to report and send
+  audio, the token, leave by); `apps/api/src/notetaker/signing.ts` (bot tokens
+  `<assignment>.<expires>.<sig>`; webhook signatures over `<timestamp>.<raw body>`, five minutes
+  either way; separate prefixes so neither passes for the other); unit tests
+  `apps/api/test/notetaker.spec.ts` (5).
+- Next: calendar providers (`apps/api/src/notetaker/calendars.ts`: `google`, `microsoft`,
+  `sample`, with `fetch` injected so unit tests stub Google and Microsoft), then the calendar
+  service and routes (Next steps → 1).
 
 ## Remaining work
 
@@ -282,6 +294,18 @@ M6–M9 (the milestone table above).
 - **The live screen always lives on Meetings' stack**, whichever tab opened it (the strip, Home's
   Live now row, the Listen sheet): pushing it on Home would leave Home remembering a call that
   ended, which then bounces to the meeting whenever Home is opened.
+- **The notetaker (ADR 0035, proposed; M6–M7).** Calendars are read through the sign-in apps'
+  OAuth (read-only calendar scope, offline), run by the api itself with a single-use state bound
+  to the person; refresh tokens are sealed with the BYOK vault. A `sample` calendar (labelled)
+  stands in until the owner's OAuth apps exist. The bot is sent per event or by auto-join; a
+  scheduler claims due assignments atomically and calls `MeetingBotProvider.join` a minute
+  early. **One ingest path:** once let in, the bot reports `in_call` on the signed webhook, the
+  api starts a BOT live session for the sender, and the bot sends audio to the same
+  `POST /live-sessions/:id/audio` as Listen with `Authorization: Bot <token>` (that session only,
+  acting as its sender, no CSRF). `left`/`failed` end the session and save the meeting.
+  Providers: `sample` (in the api, labelled, sends made-up audio through the real path) and
+  `meet` (M7, its own service at `MEET_BOT_URL`); `MEETING_BOT` picks, unset = unavailable.
+  Admins' `meetingBots` off stops joins and asks bots in calls to leave.
 - **The Listen e2e's stand-in api is the page's front door** (`e2e/live-api.ts`), not a
   `page.route` stub: the event stream must stream, and a route can't. Other e2e stay on
   `page.route`.
