@@ -7,13 +7,13 @@ The first half of the phase (M1–M5 part 1) is merged: sotto-api#10 and sotto-w
 `feat/p7-live`), sotto-platform#10 (`docs/p7-status`), all on 2026-10-17. The rest of the phase
 goes in one branch and PR per slice, from `main`:
 
-| Slice          | Repo           | Branch                      | Pull request      | State       |
-| -------------- | -------------- | --------------------------- | ----------------- | ----------- |
-| M5 part 2      | sotto-web      | `feat/p7-live-now`          | sotto-web (draft) | in progress |
-| M5 part 2      | sotto-platform | `docs/p7-live-now-status`   | sotto-platform    | in progress |
-| M6–M7          | sotto-api      | `feat/p7-notetaker` (later) | —                 | todo        |
-| M8             | sotto-web      | `feat/p7-calendar` (later)  | —                 | todo        |
-| M9 and the bot | sotto-platform | `feat/p7-bot` (later)       | —                 | todo        |
+| Slice          | Repo           | Branch                      | Pull request              | State       |
+| -------------- | -------------- | --------------------------- | ------------------------- | ----------- |
+| M5 part 2      | sotto-web      | `feat/p7-live-now`          | sotto-web#21 (draft)      | in progress |
+| M5 part 2      | sotto-platform | `docs/p7-live-now-status`   | sotto-platform#24 (draft) | in progress |
+| M6–M7          | sotto-api      | `feat/p7-notetaker` (later) | —                         | todo        |
+| M8             | sotto-web      | `feat/p7-calendar` (later)  | —                         | todo        |
+| M9 and the bot | sotto-platform | `feat/p7-bot` (later)       | —                         | todo        |
 
 ## Project status
 
@@ -184,8 +184,21 @@ a lost minute. Latency stays a few seconds, which is what the per-window transcr
 
 ## Work in progress
 
-M5, part 2 on `feat/p7-live-now` (2026-10-17): the log brought up to date with `main`; the
-draft PR opened. Next: the Live now row (Next steps → 1).
+M5, part 2 on `feat/p7-live-now` (2026-10-17):
+
+- Done: the log brought up to date with `main`; draft PRs sotto-web#21 and sotto-platform#24.
+- Done (code and unit tests; not yet looked at in the rendered app): **Live now**.
+  `src/lib/live/now.ts` (`liveNowItems`: the api's open calls plus the one this device is
+  capturing before the list catches up; `useLiveNow`, which refetches when this device starts or
+  stops), `src/screens/parts/live-now.tsx` (`LiveNowList`/`LiveNowRow`: the recording icon, the
+  title, and `LiveStatus`: "Listening 12:34" ticking for this device's call, "Live, started
+  08:35" for a call elsewhere, "Notetaker in the call" for a bot), on top of Meetings (footnote
+  label like the day groups; the empty state stays away while a call is live) and first on
+  Home (a `Section`, shown only while something is live). `useFileEvents` refreshes the list on
+  file events that start or end an arrival (`startsOrEndsArriving`) and on reconnect. A list
+  row whose link switches tab is no longer left highlighted (Home's row opens the call on
+  Meetings; only a pop cleared the highlight). Unit tests: `test/live.test.ts` (+8).
+- Next: stories (Next steps → 1), then the e2e, the rendered checks and the design system.
 
 ## Remaining work
 
@@ -256,3 +269,4 @@ Postgres 16 and pgvector 0.6 here; CI and the demo run 18, so Jenkins stays the 
 | 2026-10-16 | sotto-web `feat/p7-live` after merging `main`: lint (0 errors), format, typecheck, unit 91/91, build                           | pass   |
 | 2026-10-16 | sotto-web e2e (`CI=true`): 28 passed, 20 skipped (accounts flow without an api; one-layout tests)                              | pass   |
 | 2026-10-16 | sotto-web `build-storybook` + `test:stories` (`CI=true`): 170/170                                                              | pass   |
+| 2026-10-17 | sotto-web `feat/p7-live-now` (Live now): lint (0 errors), format, typecheck, unit 99/99                                        | pass   |

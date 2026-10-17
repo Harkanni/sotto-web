@@ -92,14 +92,18 @@ export function useElapsed(): number {
 export function LiveStatus({
   phase,
   elapsedMs,
+  label: override,
   className,
 }: {
   phase: LivePhase | 'elsewhere';
   elapsedMs: number | null;
+  /** Words in place of the phase's own ("Live, started 09:30" for a call on another device). */
+  label?: string;
   className?: string;
 }) {
   const label =
-    phase === 'paused'
+    override ??
+    (phase === 'paused'
       ? 'Paused'
       : phase === 'stopping'
         ? 'Saving'
@@ -107,7 +111,7 @@ export function LiveStatus({
           ? 'Starting'
           : phase === 'elsewhere'
             ? 'Listening on another screen'
-            : 'Listening';
+            : 'Listening');
   return (
     <span className={cn('flex items-center gap-2', className)}>
       <span
