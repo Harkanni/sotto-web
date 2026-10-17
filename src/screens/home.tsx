@@ -33,7 +33,10 @@ import { accessAtLeast } from '@/lib/roles';
 import { useUploads } from '@/lib/uploads/store';
 import { cn } from '@/lib/utils';
 import { emitShellEvent } from '@/components/shell/shell-events';
+import { liveHref } from '@/components/live/listen-sheet';
+import { useLiveNow } from '@/lib/live/now';
 import { FileRow } from './parts/file-rows';
+import { LiveNowList } from './parts/live-now';
 import { ChatRow, useDeleteChat } from './ask';
 import { RowsSkeleton } from './parts/rows';
 
@@ -101,6 +104,23 @@ function SampleNotice() {
         <X aria-hidden className="size-5" />
       </button>
     </div>
+  );
+}
+
+// ── Live now ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Calls live right now, first on Home while there are any (and nothing at all otherwise: it's
+ * news, not a widget with an empty state). Each opens the call on Meetings, where the live
+ * screen lives whichever tab Listen started from.
+ */
+function LiveNow() {
+  const items = useLiveNow();
+  if (!items.length) return null;
+  return (
+    <Section title="Live now">
+      <LiveNowList items={items} hrefFor={liveHref} />
+    </Section>
   );
 }
 
@@ -631,6 +651,7 @@ export function HomeScreen() {
     >
       <div className="flex flex-col gap-7 pt-2 lg:mx-auto lg:block lg:max-w-[1180px] lg:columns-2 lg:gap-x-2 lg:px-2 [&>*]:break-inside-avoid lg:[&>*]:mb-7">
         <SampleNotice />
+        <LiveNow />
         <Section title="Continue listening">
           <ContinueListening />
         </Section>

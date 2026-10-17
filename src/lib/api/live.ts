@@ -1,7 +1,7 @@
 'use client';
 
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { SendOutcome } from '@/lib/live/uploader';
 import { ApiError, api, call, csrfTokenForWrite, type Schemas } from './client';
 import { fileKeys } from './files';
@@ -47,21 +47,38 @@ export const LIVE_ERROR: Record<string, string> = {
   save_failed: 'The meeting couldn’t be saved. The audio is kept; try Stop again in a minute.',
 };
 
+/** One live call; null when it's gone or isn't yours to open (404). */
+function liveSessionQuery(ws: string, id: string) {
+  return {
+    queryKey: liveKeys.session(ws, id),
+    queryFn: () =>
+      call(api.GET('/api/v1/live-sessions/{id}', { params: { path: { id } } })).catch(
+        (error: unknown) => {
+          if (error instanceof ApiError && error.status === 404) return null;
+          throw error;
+        },
+      ),
+    retry: (count: number, error: Error) => !(error instanceof ApiError) && count < 2,
+  };
+}
+
 export function useLiveSession(id: string) {
   const ws = useActiveWorkspace()?.id;
-  return useHydrationSafe(
-    useQuery({
-      queryKey: liveKeys.session(ws ?? '-', id),
-      queryFn: () =>
-        call(api.GET('/api/v1/live-sessions/{id}', { params: { path: { id } } })).catch(
-          (error: unknown) => {
-            if (error instanceof ApiError && error.status === 404) return null;
-            throw error;
-          },
-        ),
-      enabled: Boolean(ws),
-      retry: (count, error) => !(error instanceof ApiError) && count < 2,
-    }),
+  return useHydrationSafe(useQuery({ ...liveSessionQuery(ws ?? '-', id), enabled: Boolean(ws) }));
+}
+
+/**
+ * Loads a live call as you reach for its row (pointer-down, hover, focus), so the live screen
+ * is pushed onto its content rather than a skeleton, like a meeting's row does for its body.
+ */
+export function usePrefetchLiveSession() {
+  const ws = useActiveWorkspace()?.id;
+  const client = useQueryClient();
+  return useCallback(
+    (id: string) => {
+      if (ws) void client.prefetchQuery(liveSessionQuery(ws, id));
+    },
+    [ws, client],
   );
 }
 

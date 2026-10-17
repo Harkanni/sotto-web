@@ -11,17 +11,28 @@ import {
 } from '@/lib/live/store';
 import { cn } from '@/lib/utils';
 
+/** Where levels come from: the capture's, or a stand-in in stories. Returns an unsubscribe. */
+export type LevelSource = (listener: (level: number) => void) => () => void;
+
 /**
  * The live level: bars scroll left as people speak, drawn on a canvas from the capture's level
  * (no React renders per frame). It moves only because sound does, and holds still when paused,
  * like the recorder's waveform.
  */
-export function LiveLevel({ live, className }: { live: boolean; className?: string }) {
+export function LiveLevel({
+  live,
+  source = onLiveLevel,
+  className,
+}: {
+  live: boolean;
+  source?: LevelSource;
+  className?: string;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const history = useRef<number[]>([]);
   const latest = useRef(0);
 
-  useEffect(() => onLiveLevel((level) => (latest.current = level)), []);
+  useEffect(() => source((level) => (latest.current = level)), [source]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -92,14 +103,18 @@ export function useElapsed(): number {
 export function LiveStatus({
   phase,
   elapsedMs,
+  label: override,
   className,
 }: {
   phase: LivePhase | 'elsewhere';
   elapsedMs: number | null;
+  /** Words in place of the phase's own ("Live, started 09:30" for a call on another device). */
+  label?: string;
   className?: string;
 }) {
   const label =
-    phase === 'paused'
+    override ??
+    (phase === 'paused'
       ? 'Paused'
       : phase === 'stopping'
         ? 'Saving'
@@ -107,7 +122,7 @@ export function LiveStatus({
           ? 'Starting'
           : phase === 'elsewhere'
             ? 'Listening on another screen'
-            : 'Listening';
+            : 'Listening');
   return (
     <span className={cn('flex items-center gap-2', className)}>
       <span

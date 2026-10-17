@@ -124,7 +124,9 @@ Rules:
 - **Tap targets:** at least 44 × 44 px with 8 px between neighbours. Small visuals (citation chips,
   the sheet close button) extend their hit area with a transparent `::before`.
 - **Thumb reach:** primary actions in the bottom 40% on phones: the + button, the composer and
-  Send, play and pause, sheet actions.
+  Send, play and pause, sheet actions. Where a composer or the live controls are the primary
+  action (the Ask tab, a chat, the live screen), the + button steps aside rather than cover
+  them.
 - **Safe areas:** `viewport-fit=cover` with `--safe-*` insets; bars pad into them.
 - **Fixed sizes:** tab bar 49 px (+ safe area), nav bar 44 px, + button 56 px (16 px above the
   tab bar, mirrored for left-handed use), sidebar 272 px, list pane 376 px.
@@ -334,6 +336,47 @@ for focus, keyboard and labelling.
 - **Onboarding, Phase 6** — "Where should questions be answered?" between inviting and
   starting: the start step's choice cards (Private recommended; also your own AI key; Managed
   when offered), each with a plain-language privacy line.
+- **Listen (Phase 7)** — `src/components/live`, `src/screens/live.tsx`,
+  `src/screens/parts/live-now.tsx`:
+  - **Listen tile** — the Add sheet's full-width tile above the four kinds of file, on
+    `card-nested` with a green sound icon: "Listen to a call", or "Back to the call" while
+    Sotto is listening.
+  - **Listen sheet** — the consent reminder first ("Tell everyone Sotto is listening"), then, on
+    desktop Chrome and Edge only, "Include the call's audio" as a switch; the hint under it has
+    a fixed slot so the sheet never changes height; Start listening in the footer.
+  - **Live status** (`LiveStatus`) — "● Listening 12:34": a 10 px dot in `destructive-text`
+    that breathes while live and is still and grey when paused or saving, then the listening
+    time in tabular figures. A call captured on another device says when it started ("Live,
+    started 09:30"); a notetaker says "Notetaker in the call".
+  - **Level** (`LiveLevel`) — 3 px bars with 3 px gaps scrolling left across a 56 px card, in
+    red while listening and grey when paused. It moves only because sound does.
+  - **Live screen** — the meeting heading's title, the status and what's being heard
+    (microphone, or call audio and microphone), the level; notices; Transcript and Notes as a
+    segmented control; Pause (56 px round fill), Stop (a 72 px ring around a red square,
+    spinning while it saves) and Ask (56 px) in thumb reach.
+  - **Live transcript** — one line per stretch of speech on a card, times in a right-aligned
+    48 px gutter, "Mock" as a `Badge` when the mock engine wrote it. It follows the newest line
+    while you're at the bottom; scroll up and it stays put, with a translucent "Latest" pill to
+    jump back. It's a preview: the saved meeting gets the full transcript.
+  - **Running notes** — a card: a route line like Ask's route badge (sparkle, where the notes
+    were written, Mock, a lock when they stayed in the cluster, "Updated 1 min ago"), the gist,
+    "So far" points and action items with hollow circles. Before the first minute it says when
+    notes start; a problem is one warning sentence with who can fix it; "Update notes now" for
+    the person listening.
+  - **Notices** — on `card-nested`, an icon and one sentence each, saying what happened and what
+    carries on: audio waiting offline, audio let go, the tab stopped sharing, transcription
+    paused, reconnecting, listening on another screen.
+  - **Listening strip** — the offline strip's slot as a button, on every screen but the live
+    one: "● Listening 12:34 · Back to the call". The + button, toasts and composers make room
+    for it.
+  - **Live now** — calls live right now in a grouped card: at the top of Meetings under a
+    footnote label like the day groups (its empty state stays away while a call is live), and
+    first on Home as a section shown only while something is live (it's news, not a widget, so
+    it has no empty state). A row is the recording icon, the title and the live status, and
+    opens the live screen, which always lives on Meetings' stack; it loads its call on intent,
+    like a meeting's row.
+  - **Ask during the call** — a sheet at the large detent: three suggestions as indigo pills and
+    the composer. The answer opens as a chat over the live screen; listening carries on.
 - **Widget states** — `AsyncWidget` renders loading, empty, error and content for every data
   widget (see §8).
 - **Shell** — tab bar (phones), sidebar (768 px and up), nav bar with large title, + button,
@@ -442,6 +485,9 @@ Durations for plain fades: fast 150 ms (hover, colour), base 220 ms (bars, overl
 | Upload progress         | Bars slide by `translate` on a 300 ms ease-out; the + ring follows the bytes directly                                                                  |
 | Usage meters, chart     | Meter fills slide by `translate` on a 300 ms ease-out; chart days fade to 40% around the one under the finger (150 ms); nothing animates on load       |
 | Playback                | The scrubber's played part and playhead move every frame by `translate` (no React renders); a seek jumps, it never animates                            |
+| Live dot                | A 1.8 s breath, opacity 100% → 35% on `ease-in-out`: the one looping status in the app; still when paused and under reduced motion                     |
+| Live level              | Bars drawn on a canvas, 20 a second, straight from the capture (no React renders); they hold still when paused                                         |
+| Live transcript         | Each new line fades in (300 ms, opacity); the list follows the newest line only while you're at the bottom                                             |
 | Press                   | `scale(0.97)` in 70 ms, back on `snappy`                                                                                                               |
 
 ## 10. Responsive rules
@@ -481,7 +527,8 @@ frames, with no network request.
 - AA contrast for all text (checked in tests); focus is always visible for keyboard users.
 - Every gesture has a button equivalent ("…" on rows, Back, Close).
 - Screen readers hear each navigation (a polite live region) and every status change (offline,
-  back online, toasts).
+  back online, toasts). The live transcript is a polite live region of additions only, so new
+  lines are read as they arrive and nothing else is repeated.
 - Labelled mocks: anything that is sample data or a preview says so on screen. Sample content
   shows only in workspaces that loaded it (Home says so in a dismissible notice), and only in
   the collections you can open.

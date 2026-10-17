@@ -3,20 +3,28 @@
 The running record for Phase 7, kept current at every checkpoint. A new session follows the
 recovery steps in [`CLAUDE.md`](CLAUDE.md), then continues from **Next steps** below.
 
-| Repo           | Branch           | Pull request                                          |
-| -------------- | ---------------- | ----------------------------------------------------- |
-| sotto-api      | `feat/p7-live`   | sotto-api#10 (draft; merges first)                    |
-| sotto-web      | `feat/p7-live`   | sotto-web#12 (draft)                                  |
-| sotto-platform | `docs/p7-status` | sotto-platform#10 (draft; companion; can merge ahead) |
+The first half of the phase (M1–M5 part 1) is merged: sotto-api#10 and sotto-web#12 (branch
+`feat/p7-live`), sotto-platform#10 (`docs/p7-status`), all on 2026-10-17. The rest of the phase
+goes in one branch and PR per slice. From M6 on, this log is kept on `feat/p7-calendar` (the
+web branch for M8, stacked on M5 part 2), so the PR in review doesn't change under the owner:
+
+| Slice          | Repo           | Branch                            | Pull request              | State       |
+| -------------- | -------------- | --------------------------------- | ------------------------- | ----------- |
+| M5 part 2      | sotto-web      | `feat/p7-live-now`                | sotto-web#21              | in review   |
+| M5 part 2      | sotto-platform | `docs/p7-live-now-status`         | sotto-platform#24         | in review   |
+| M6             | sotto-api      | `feat/p7-notetaker`               | sotto-api#17 (draft)      | in progress |
+| M7             | sotto-api      | `feat/p7-meet-bot` (later, on M6) | —                         | todo        |
+| M8 and the log | sotto-web      | `feat/p7-calendar` (on M5 part 2) | sotto-web (draft)         | log only    |
+| M6–M9          | sotto-platform | `feat/p7-bot` (on #24)            | sotto-platform#25 (draft) | ADR 0035    |
 
 ## Project status
 
 - **Current phase:** 7 — Live notetaker. Phase 6 is merged in all three repos (sotto-api#7 and
   sotto-web#7 on 2026-10-10, sotto-platform#8 on 2026-10-12).
-- **Overall:** started 2026-10-12. On 2026-10-16 all three branches merged `main` (Jenkins CI,
-  the single Terraform stack, the CI fixes, the service worker leaving `/mail` alone); every check
-  passes after the merges (Tests and checks run).
-- **Current milestone:** M5 part 2 (web: Live now row, stories, e2e, smoothness, design system).
+- **Overall:** started 2026-10-12. M1–M5 part 1 merged on 2026-10-17; CI/CD is back on GitHub
+  Actions (ADR 0034) and all three repos are public.
+- **Current milestone:** M6 (api: calendar connections, sending the bot, the signed webhook;
+  sotto-api#17). M5 part 2 is in review (sotto-web#21).
 
 ## Requirements
 
@@ -86,18 +94,18 @@ path) don't proxy WebSocket upgrades; the api has no WebSocket library and none 
 the time (CI's `sync` job was blocked); and numbered chunks make a dropped connection a retry, not
 a lost minute. Latency stays a few seconds, which is what the per-window transcriber gives anyway.
 
-| #   | Milestone                                                                                                                      | Repo      | State       |
-| --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ----------- |
-| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                             | all       | done        |
-| M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | done        |
-| M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | done        |
-| M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | done        |
-| M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | done        |
-| M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | part 1 done |
-| M6  | API: `MeetingBotProvider` + calendar providers (labelled stand-ins), calendar and bot routes, signed webhook, admin bot switch | sotto-api | todo        |
-| M7  | Self-hosted Meet bot service (headless browser joins, announces, streams audio to a live session)                              | sotto-api | todo        |
-| M8  | Web: calendar screen (upcoming calls, Send notetaker, auto-join), admin bot switch                                             | sotto-web | todo        |
-| M9  | Compose and demo config; ADRs; STATUS; verification in the rendered app; PRs ready                                             | all       | todo        |
+| #   | Milestone                                                                                                                      | Repo      | State                   |
+| --- | ------------------------------------------------------------------------------------------------------------------------------ | --------- | ----------------------- |
+| M0  | Recovery; requirements and plan (this log); branches and draft PRs                                                             | all       | done                    |
+| M1  | Schema + migration: LiveSession, CalendarConnection, BotAssignment, enums, `FileSource` LIVE and BOT; contracts                | sotto-api | done                    |
+| M2  | Listen API: start, numbered audio chunks, transcription per window, SSE stream, end → meeting file; tests per role             | sotto-api | done                    |
+| M3  | Live notes and action items on a timer (policy-aware); ask mid-call                                                            | sotto-api | done                    |
+| M4  | Web: Listen entry, consent, mic + tab capture, PCM worklet, resilient uploader                                                 | sotto-web | done                    |
+| M5  | Web: live screen (transcript, notes, ask), stop → meeting; stories, unit, e2e, smoothness, rendered checks                     | sotto-web | done (part 2 in review) |
+| M6  | API: `MeetingBotProvider` + calendar providers (labelled stand-ins), calendar and bot routes, signed webhook, admin bot switch | sotto-api | todo                    |
+| M7  | Self-hosted Meet bot service (headless browser joins, announces, streams audio to a live session)                              | sotto-api | todo                    |
+| M8  | Web: calendar screen (upcoming calls, Send notetaker, auto-join), admin bot switch                                             | sotto-web | todo                    |
+| M9  | Compose and demo config; ADRs; STATUS; verification in the rendered app; PRs ready                                             | all       | todo                    |
 
 ## Completed work
 
@@ -177,26 +185,95 @@ a lost minute. Latency stays a few seconds, which is what the per-window transcr
   hint, the title style (now the meeting heading's), a dim live dot and low-contrast pills in
   dark mode.
 
+- **M5, part 2 (sotto-web#21, `feat/p7-live-now`; companion sotto-platform#24):**
+
+  - Done: the log brought up to date with `main`; draft PRs sotto-web#21 and sotto-platform#24.
+  - Done (code and unit tests; not yet looked at in the rendered app): **Live now**.
+    `src/lib/live/now.ts` (`liveNowItems`: the api's open calls plus the one this device is
+    capturing before the list catches up; `useLiveNow`, which refetches when this device starts or
+    stops), `src/screens/parts/live-now.tsx` (`LiveNowList`/`LiveNowRow`: the recording icon, the
+    title, and `LiveStatus`: "Listening 12:34" ticking for this device's call, "Live, started
+    08:35" for a call elsewhere, "Notetaker in the call" for a bot), on top of Meetings (footnote
+    label like the day groups; the empty state stays away while a call is live) and first on
+    Home (a `Section`, shown only while something is live). `useFileEvents` refreshes the list on
+    file events that start or end an arrival (`startsOrEndsArriving`) and on reconnect. A list
+    row whose link switches tab is no longer left highlighted (Home's row opens the call on
+    Meetings; only a pop cleared the highlight). Unit tests: `test/live.test.ts` (+8).
+  - Done: **stories**. `Components/Live` (`src/components/live/live.stories.tsx`: status in every
+    phase, the level bars, the Listen sheet, Live now rows, notes in three states, every notice,
+    another screen) and `Screens/Live` (`src/screens/live.stories.tsx`, phone: listening, first
+    seconds, paused, notes, another screen, Ask during the call), composed from the live screen's
+    own parts (now exported) inside the real `Screen`, because the story tests fail on any 4xx
+    and the screen's event stream would 404 in Storybook. Stand-in data:
+    `src/stories/live-fixtures.ts` (plain data; also answers `GET /live-sessions` with nothing
+    live for the shell e2e and Storybook) and `src/stories/live-levels.ts` (deterministic
+    speech-like levels). `LiveLevel` takes a level source and `LiveHeading` an optional clock.
+    **Fixed (found by the story tests):** the transcript's Mock label failed AA in light mode (a
+    fill pill on the page background); it's the shared `Badge` now, like "Sample".
+  - Done: **e2e** `e2e/listen.spec.ts` (iPhone and desktop): Chromium's fake microphone feeds the
+    real capture; Add → Listen → consent → Start → the live screen → the first line → axe → on a
+    phone Home's Live now row and the strip lead back, on a desktop the row is selected beside the
+    call → a second piece → Stop → the saved meeting; the api saw every piece once, in order, all
+    before End. The stand-in api (`e2e/live-api.ts`) is the page's **front door**: it answers the
+    Listen routes and passes everything else to the app's server, because Playwright can't
+    stream a stubbed response and `route.continue` can't send a request to another host (tried:
+    "Failed to fetch"). The shell's stand-in helpers moved to `e2e/stand-in.ts` (`open` takes
+    extra routes and a base address). **Fixed (found by the e2e):** `useChildKey` listed the item
+    kinds by hand without `live`, so the open call's row was never selected on desktop; it's
+    `childKey()` in `routes.ts` now, from `ITEM_KINDS`, with unit tests.
+  - Done: a Live now row **loads its call on intent** (pointer-down, hover, focus:
+    `usePrefetchLiveSession`, sharing `useLiveSession`'s query), so the live screen is pushed onto
+    its content. `pnpm smoothness` now has a call live (`standInLiveRoute(url, { live: true })`)
+    and measures switching to Meetings with it, pushing the live screen from its row, going back,
+    and Home with Live now; a live call and its event stream count as the screen's body.
+  - Done: **rendered checks** (the built app, Chromium's fake microphone, the e2e's front door;
+    iPhone and desktop, light and dark): the Listen sheet, the live screen (Mock badge, level,
+    controls in reach, no + button), Meetings with Live now on top and the listening strip,
+    Home with Live now first, the desktop list pane's row selected beside the call.
+  - Done: **`pnpm smoothness`** (4×, iPhone): the new steps (switch to Meetings with a call live,
+    push the live call, back, Home with Live now) 33 ms worst frame each, no network; the push
+    loads the call and its stream as body. The Docs steps sit within `main`'s spread measured
+    on the same sandbox the same hour (`main`: 7 steps over two frames, worst 133 ms; this
+    branch: 5, worst 83 ms; ±2 frames between runs, as in Phase 4).
+  - Done: **`UI_DESIGN_SYSTEM.md`**: the Listen section (tile, sheet, status, level, live screen,
+    transcript, notes, notices, strip, Live now, Ask during the call), motion rows (live dot,
+    level, new lines), the + button stepping aside, the transcript as a polite live region.
+
 ## Work in progress
 
-M5, part 2 (below).
+M6 on `feat/p7-notetaker` (sotto-api#17, draft; companion sotto-platform#25 with ADR 0035):
+
+- Done: the design, as ADR 0035 (proposed; Decisions below has the short version).
+- Done: `BotJob`, the bot's job contract in `packages/ai` (`MeetingBotProvider.join(job)`:
+  assignment, meeting link, the bot's name and chat announcement, where to report and send
+  audio, the token, leave by); `apps/api/src/notetaker/signing.ts` (bot tokens
+  `<assignment>.<expires>.<sig>`; webhook signatures over `<timestamp>.<raw body>`, five minutes
+  either way; separate prefixes so neither passes for the other); unit tests
+  `apps/api/test/notetaker.spec.ts` (5).
+- Next: calendar providers (`apps/api/src/notetaker/calendars.ts`: `google`, `microsoft`,
+  `sample`, with `fetch` injected so unit tests stub Google and Microsoft), then the calendar
+  service and routes (Next steps → 1).
 
 ## Remaining work
 
-M5 part 2, then M6–M9 (the milestone table above).
+M6–M9 (the milestone table above).
 
 ## Next steps
 
-1. M5, part 2 (sotto-web): show the call in progress at the top of Meetings (and Home) as a
-   "Live now" row from `useActiveLiveSessions()` that opens `/meetings/live/<id>`; the files
-   list hides UPLOADING files today. Then stories (`Components/Live`: listen sheet, status,
-   notes card, notices; `Screens/Live` with stand-in data), an e2e for Listen with Chromium's
-   fake microphone (`--use-fake-device-for-media-stream`) and a stubbed api, `pnpm
-smoothness`, `UI_DESIGN_SYSTEM.md` (Listen section; motion rows for the live dot and new
-   transcript lines; the + button's hiding rule), README if scripts change.
-2. M6–M8: calendar connections and the notetaker bot (see the milestone table).
-3. The rendered-check rig from M5 part 1 lived in that session's scratchpad and is gone; rebuild
-   it from its parts (Completed work → M5) on top of the integration services below.
+1. M6 (sotto-api, new branch `feat/p7-notetaker` from `main`, draft PR, STATUS companion):
+   read PLAN (Swappable AI providers → Meeting bot; API → Calendar and bot; Data model) and the
+   M1 schema (`CalendarConnection`, `BotAssignment`, `Workspace.meetingBots`). Build
+   `MeetingBotProvider` and `CalendarProvider` in `packages/ai` with labelled stand-ins
+   (`sample`), the routes (`POST /calendar/connect/:provider`, `GET /calendar/events`,
+   `PUT /calendar/events/:id/bot`, `PATCH /calendar/settings`, `POST /webhooks/meeting-bot`
+   signed), the admin bot switch (audited), integration tests per role, `pnpm openapi`.
+2. M7: the self-hosted Meet bot (headless browser joins as "Sotto Notetaker", announces in the
+   chat, streams audio into a live session); ADR 0035.
+3. M8 (sotto-web): the calendar screen, Send notetaker, auto-join, the admin switch.
+4. M9: Compose and demo config, STATUS, verification in the rendered app, PRs ready.
+5. The rendered-check rig from M5 part 1 (the real api) is gone; rebuild it from its parts
+   (Completed work → M5) on top of the integration services (Tests and checks run) before M8's
+   rendered checks.
 
 ## Decisions
 
@@ -206,14 +283,38 @@ smoothness`, `UI_DESIGN_SYSTEM.md` (Listen section; motion rows for the live dot
   pipeline, so the saved meeting gets the full-quality transcript, peaks and insights; live
   chunks can cut a word at a boundary.
 - **ADRs:** 0028 (live audio over HTTP chunks + SSE) and 0029 (a live capture is private until
-  saved) are on `docs/p7-status`. The old clash is gone: Jenkins' record became 0030 on `main`,
-  which now runs to 0033, so the bot's ADR takes 0034.
+  saved) are merged. `main` now runs to 0034 (GitHub Actions CI/CD, 2026-10-17), so the bot's
+  ADR takes 0035.
+- **One branch and PR per slice for the rest of the phase** (2026-10-17): the phase branches
+  merged with M1–M5 part 1, so each remaining slice starts from `main` (table at the top).
+- **Live now has no empty state** (M5 part 2): it's news, shown only while a call is live, like
+  the sample notice; nothing live means nothing on Home, and Meetings starts with its day
+  groups. If it can't load it stays away too: the listening strip still leads back to a call
+  this device is capturing.
+- **The live screen always lives on Meetings' stack**, whichever tab opened it (the strip, Home's
+  Live now row, the Listen sheet): pushing it on Home would leave Home remembering a call that
+  ended, which then bounces to the meeting whenever Home is opened.
+- **The notetaker (ADR 0035, proposed; M6–M7).** Calendars are read through the sign-in apps'
+  OAuth (read-only calendar scope, offline), run by the api itself with a single-use state bound
+  to the person; refresh tokens are sealed with the BYOK vault. A `sample` calendar (labelled)
+  stands in until the owner's OAuth apps exist. The bot is sent per event or by auto-join; a
+  scheduler claims due assignments atomically and calls `MeetingBotProvider.join` a minute
+  early. **One ingest path:** once let in, the bot reports `in_call` on the signed webhook, the
+  api starts a BOT live session for the sender, and the bot sends audio to the same
+  `POST /live-sessions/:id/audio` as Listen with `Authorization: Bot <token>` (that session only,
+  acting as its sender, no CSRF). `left`/`failed` end the session and save the meeting.
+  Providers: `sample` (in the api, labelled, sends made-up audio through the real path) and
+  `meet` (M7, its own service at `MEET_BOT_URL`); `MEETING_BOT` picks, unset = unavailable.
+  Admins' `meetingBots` off stops joins and asks bots in calls to leave.
+- **The Listen e2e's stand-in api is the page's front door** (`e2e/live-api.ts`), not a
+  `page.route` stub: the event stream must stream, and a route can't. Other e2e stay on
+  `page.route`.
 
 ## Missing specifications and outside dependencies
 
-1. ~~GitHub Actions blocked by billing~~ No longer applies: CI runs on Jenkins (ADR 0030), and
-   the sandbox reaches npm (2026-10-16), so a dependency can be added with `pnpm install` and its
-   lockfile change.
+1. ~~GitHub Actions blocked by billing~~ No longer applies: CI runs on GitHub Actions again,
+   free now that the repos are public (ADR 0034), and the sandbox reaches npm, so a dependency
+   can be added with `pnpm install` and its lockfile change.
 2. **Google and Microsoft OAuth apps** (Phase 3 blocker) are needed to connect a real calendar.
    Until they exist, calendar runs on a labelled stand-in.
 3. **A Google account for the bot.** Meet lets a signed-out guest ask to join; hosts must admit
@@ -241,10 +342,16 @@ postgresql-16-pgvector`, then a throwaway cluster (`initdb -U sotto --auth=trust
 `REDIS_URL=redis://127.0.0.1:6399 AWS_REGION=eu-west-2 AWS_ACCESS_KEY_ID=ci AWS_SECRET_ACCESS_KEY=ci S3_FORCE_PATH_STYLE=true TEST_DATABASE_URL=postgresql://sotto@127.0.0.1:5544/postgres TEST_S3_ENDPOINT=http://127.0.0.1:5599 REQUIRE_INTEGRATION=1 pnpm test`.
 Postgres 16 and pgvector 0.6 here; CI and the demo run 18, so Jenkins stays the final word.
 
-| When       | Check                                                                                                                          | Result |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------ | ------ |
-| 2026-10-16 | sotto-api `feat/p7-live` after merging `main`: lint, format, typecheck, unit tests, build, `pnpm openapi` (no drift)           | pass   |
-| 2026-10-16 | sotto-api integration (Postgres 16 + pgvector, Redis, moto): api 223/223 (live 11, live notes 12), worker 29/29, storage 14/14 | pass   |
-| 2026-10-16 | sotto-web `feat/p7-live` after merging `main`: lint (0 errors), format, typecheck, unit 91/91, build                           | pass   |
-| 2026-10-16 | sotto-web e2e (`CI=true`): 28 passed, 20 skipped (accounts flow without an api; one-layout tests)                              | pass   |
-| 2026-10-16 | sotto-web `build-storybook` + `test:stories` (`CI=true`): 170/170                                                              | pass   |
+| When       | Check                                                                                                                                                | Result |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 2026-10-16 | sotto-api `feat/p7-live` after merging `main`: lint, format, typecheck, unit tests, build, `pnpm openapi` (no drift)                                 | pass   |
+| 2026-10-16 | sotto-api integration (Postgres 16 + pgvector, Redis, moto): api 223/223 (live 11, live notes 12), worker 29/29, storage 14/14                       | pass   |
+| 2026-10-16 | sotto-web `feat/p7-live` after merging `main`: lint (0 errors), format, typecheck, unit 91/91, build                                                 | pass   |
+| 2026-10-16 | sotto-web e2e (`CI=true`): 28 passed, 20 skipped (accounts flow without an api; one-layout tests)                                                    | pass   |
+| 2026-10-16 | sotto-web `build-storybook` + `test:stories` (`CI=true`): 170/170                                                                                    | pass   |
+| 2026-10-17 | sotto-web `feat/p7-live-now` (Live now): lint (0 errors), format, typecheck, unit 99/99                                                              | pass   |
+| 2026-10-17 | sotto-web `feat/p7-live-now`: `build-storybook` + `test:stories` (`CI=true`): 200 passed (2 retried: trace files clashing with a parallel run)       | pass   |
+| 2026-10-17 | sotto-web e2e (`CI=true`): 30 passed (Listen: iPhone and desktop), 20 skipped (as before)                                                            | pass   |
+| 2026-10-17 | sotto-web unit 102/102 (`childKey` +3), lint (0 errors), format, typecheck, build                                                                    | pass   |
+| 2026-10-17 | sotto-web `pnpm smoothness` 4× (built app): live steps ≤ 33 ms, network 0; Docs steps within `main`'s spread (main measured the same hour)           | pass   |
+| 2026-10-17 | sotto-web rendered checks (built app, fake microphone): iPhone and desktop, light and dark: Listen sheet, live screen, Live now on Meetings and Home | pass   |
