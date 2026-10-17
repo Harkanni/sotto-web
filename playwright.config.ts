@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Runs against the production build. The API isn't running in this job, so the page must show
 // a graceful "unreachable" state rather than crash.
-// WEB_PORT moves the app off 3000 so several CI builds can share a host (Jenkins slots).
+// WEB_PORT moves the app off 3000, so two runs can share a machine.
 const port = Number(process.env.WEB_PORT ?? 3000);
 
 export default defineConfig({

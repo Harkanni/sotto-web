@@ -9,7 +9,8 @@ Private AI for a team's memos and meetings. Internal teams upload documents and 
 questions, get answers with sources, and control exactly where their data goes. The owner is
 Akanni Emmanuel (GitHub `Harkanni`); he reviews and merges every pull request.
 
-Three private repos, cloned side by side:
+Three repos, cloned side by side (this one is public: every commit, not just the latest files,
+can be read by anyone):
 
 | Repo               | Holds                                                                                      |
 | ------------------ | ------------------------------------------------------------------------------------------ |
@@ -112,17 +113,20 @@ hand, and just as considered on a desktop. Functionality that feels ordinary isn
 New components get stories, new logic gets unit tests, new flows get e2e coverage. Never claim a
 check ran unless it did; record what ran (and the result) in the progress log.
 
-CI is Jenkins (the `Jenkinsfile`; GitHub Actions is no longer used): secrets scan, lint,
-typecheck, unit tests, build, e2e, story tests, the accounts flow against the api image, and an
-image smoke test; on `main`, image push and the demo deploy. Agent sandbox: install dependencies
-with `pnpm install` and commit `pnpm-lock.yaml` with the change (`scripts/agent-deps.sh` restores
-an old `dev-cache` snapshot when the registry is unreachable). Playwright and `pnpm smoothness` use the preinstalled browser:
+CI/CD is GitHub Actions, `.github/workflows/pipeline.yml` (ADR 0034; Jenkins is gone): secrets
+scan (the files and every commit), lint, typecheck, unit tests, build, e2e, story tests, the
+accounts flow against sotto-api's `main` built from source, and an arm64 image smoke test; on
+`main`, after all of them pass, the image push and the demo deploy.
+
+Agent sandbox: install dependencies with `pnpm install` and commit `pnpm-lock.yaml` with the
+change (`scripts/agent-deps.sh` restores an old `dev-cache` snapshot when the registry is
+unreachable). Playwright and `pnpm smoothness` use the preinstalled browser:
 `CHROMIUM_PATH=/opt/pw-browsers/chromium-1194/chrome-linux/chrome`.
 
 ## Git and checkpoints
 
-- `main` changes only through pull requests with a green Jenkins build. The owner merges; never merge your
-  own PR, force-push or rewrite history.
+- `main` changes only through pull requests with green CI. The owner merges; never merge your own
+  PR, force-push or rewrite history.
 - Branches `feat/p<phase>-<slice>`, `fix/…`, `chore/…`, `docs/…`. Conventional Commits.
 - Work in progress always lives on a pushed branch with a draft PR whose description is a
   checklist.
@@ -131,8 +135,9 @@ an old `dev-cache` snapshot when the registry is unreachable). Playwright and `p
 - If the session may end (a usage warning, a long task ahead): save, write the exact next step
   into the log (task, files, approach), commit and push before anything else.
 - Before each commit, read the diff for accidental changes and secrets. Only `.env.example` is
-  committed. Jenkins reaches AWS with an IAM access key in the jenkins user's AWS CLI profile (ADR 0007); don't
-  reintroduce OIDC or rewrite the working pipeline.
+  committed. The deploy job reaches AWS with an IAM access key kept as GitHub Actions secrets
+  (ADR 0007); don't reintroduce OIDC or rewrite the working pipeline. Pull requests never get
+  secrets: keep it that way (no `pull_request_target`, no secrets in PR jobs).
 - A change spanning the API and the web is a pair of PRs; the API one merges first. Every PR has
   a companion `../sotto-platform/docs/STATUS.md` update.
 

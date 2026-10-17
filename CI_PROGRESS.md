@@ -1,5 +1,11 @@
 # CI progress log: the Accounts flow stage (Jenkins)
 
+> **Closed, 2026-10-17.** These fixes merged (sotto-web#18), and CI/CD has since moved back to
+> GitHub Actions (ADR 0034): the accounts flow is the `accounts` job in
+> `.github/workflows/pipeline.yml`, with the same healthchecked Compose stack, bucket retries,
+> `/readyz` wait and diagnostics. The Jenkins parts below (slots, executors, the Jenkins host) no
+> longer apply; the deferred Prisma OpenSSL item still stands.
+
 Handoff log for fixing `sotto-web`'s Jenkins pipeline. A new session reads this, then continues
 from **Next steps**. One entry per checkpoint; newest state at the top of each section.
 

@@ -1,0 +1,413 @@
+# Sotto web: CI/CD on GitHub Actions (ADR 0034 in sotto-platform; it replaced Jenkins).
+#
+# Every pull request and every push to main runs the checks. On main, once every check has
+# passed, the tested image goes to ECR and the demo deploys it.
+#
+#   secrets   gitleaks over the files and every commit
+#   check     lint, format, typecheck, unit tests, the production build, end-to-end (iPhone and
+#             desktop, axe, 44 px targets) against that build with no API behind it
+#   stories   every Storybook story renders and passes axe, in light and dark
+#   image     the image, built for arm64 like the demo, boots and serves /healthz and /status
+#   accounts  Phase 3's done-when flow against the real api (sotto-api's main, built from source)
+#   deploy    main only: push the image to ECR, deploy the demo through SSM
+#
+# The repo is public, and pull requests (forks included) never see a secret: only `deploy`
+# reads the AWS key, and it runs only on main. Third-party actions are pinned to a commit (the
+# comment says which release); Dependabot proposes updates.
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  # Actions → CI/CD → Run workflow. On main it deploys too: run it after `terraform apply`
+  # brings the demo back. api_ref tests the accounts flow against another sotto-api branch,
+  # tag or commit.
+  workflow_dispatch:
+    inputs:
+      api_ref:
+        description: sotto-api branch, tag or commit for the accounts flow
+        default: main
+
+permissions:
+  contents: read
+
+concurrency:
+  # One run per pull request or branch. A newer push to a PR stops the older run (nobody needs
+  # its result); on main, runs queue instead, so a deploy is never cut off halfway.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  secrets:
+    name: Secrets scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Every commit, not just the last: in a public repo a key that was committed and then
+          # deleted can still be read in the history.
+          fetch-depth: 0
+      # Pinned: with `latest`, a new release could change the rules (or break the scan) without a
+      # commit here. Bump on purpose.
+      - name: gitleaks (the files)
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 dir /repo --redact --verbose
+      - name: gitleaks (every commit)
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact --verbose
+
+  check:
+    name: Lint, typecheck, tests, build, end-to-end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # pnpm's version comes from package.json (packageManager).
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install
+        id: install
+        run: pnpm install --frozen-lockfile
+      # Each check runs even when one before it failed, so a single run reports all of them.
+      - name: Lint
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm lint
+      - name: Format
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm format:check
+      - name: Typecheck
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm typecheck
+      - name: Unit tests
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm test
+      # After typecheck: its `next typegen` and the build both write .next.
+      - name: Build
+        id: build
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
+        run: pnpm build
+      - name: Playwright's Chromium
+        id: browser
+        if: ${{ !cancelled() && steps.build.outcome == 'success' }}
+        run: pnpm exec playwright install --with-deps chromium
+      # Against the standalone production build with no API (the app must show its
+      # "unreachable" states, not crash).
+      - name: End-to-end (iPhone and desktop)
+        if: ${{ !cancelled() && steps.browser.outcome == 'success' }}
+        run: pnpm e2e
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: e2e-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  stories:
+    name: Stories (axe, light and dark)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build-storybook --quiet
+      - name: Playwright's Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Story tests
+        run: pnpm test:stories --output=stories-results
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: stories-report
+          path: stories-results
+          retention-days: 7
+
+  # Built for arm64 on GitHub's arm64 runner, like the demo server (Graviton). The layer cache
+  # it writes is what the deploy job rebuilds from, so main ships the image this job tested.
+  image:
+    name: Image (arm64) and smoke test
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Version
+        id: version
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - name: Build sotto-web:ci
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          build-args: APP_VERSION=${{ steps.version.outputs.tag }}
+          tags: sotto-web:ci
+          load: true
+          cache-from: type=gha,scope=web-${{ runner.arch }}
+          cache-to: type=gha,mode=max,scope=web-${{ runner.arch }}
+      # The image boots and serves /healthz and /status with no API behind it.
+      - name: Boot the image and probe it
+        run: |
+          docker run -d --name web -p 3000:3000 -e API_URL=http://127.0.0.1:9 sotto-web:ci
+          for _ in $(seq 1 30); do
+            if curl -fsS localhost:3000/healthz && curl -fsS localhost:3000/status | grep -q 'Building in the open'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs web
+          echo "::error title=smoke::The image never served /healthz and /status."
+          exit 1
+
+  # Phase 3's done-when flow against the real api: sign up, create a workspace with sample
+  # content, invite, accept by email, role-restricted access, on iPhone and desktop. The api is
+  # sotto-api's main (API PRs merge first), built from its public GitHub repo, so this check
+  # needs neither AWS nor the demo; Run workflow → api_ref picks another branch, tag or commit.
+  accounts:
+    name: Accounts flow (real api)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      API_REF: ${{ inputs.api_ref || 'main' }}
+      DATABASE_URL: postgresql://sotto:sotto@localhost:5432/sotto
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Which api
+        run: |
+          sha=$(git ls-remote https://github.com/Harkanni/sotto-api.git "$API_REF" | head -1 | cut -c1-7)
+          echo "Accounts flow against sotto-api $API_REF${sha:+ ($sha)}." | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # Straight from GitHub (a Git build context): no checkout of sotto-api inside this repo,
+      # where the web's own build and type checks would pick its files up.
+      - name: Build the api image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: https://github.com/Harkanni/sotto-api.git#${{ env.API_REF }}
+          build-args: APP=api
+          tags: sotto-api:accounts
+          load: true
+          cache-from: type=gha,scope=sotto-api-${{ runner.arch }}
+          cache-to: type=gha,mode=max,scope=sotto-api-${{ runner.arch }}
+      # Postgres, Redis, RabbitMQ, SeaweedFS and Mailpit, each with a healthcheck: a service that
+      # exits or never turns healthy stops the job here, with its state. Compose's last lines are
+      # also annotations, so the reason reads on the pull request without opening the log.
+      - name: Start the backing services
+        run: |
+          status=0
+          docker compose -f e2e/accounts.compose.yaml up -d --wait --wait-timeout 240 > "$RUNNER_TEMP/up.log" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/up.log"
+          if [ "$status" != 0 ]; then
+            tail -5 "$RUNNER_TEMP/up.log" | sed 's/^/::error title=compose up::/'
+            exit 1
+          fi
+      # SeaweedFS answers on its S3 port before its filer is ready, so retry until the bucket
+      # exists (409: it already did). `|| true`: a refused connection makes curl exit 7, which
+      # would end the script instead of retrying; the code is then 000.
+      - name: Create the bucket
+        run: |
+          for _ in $(seq 1 60); do
+            code=$(curl -s -X PUT -o /dev/null -w '%{http_code}' http://localhost:8333/sotto-files || true)
+            case "$code" in 200|409) break ;; esac
+            sleep 2
+          done
+          echo "bucket: HTTP $code"
+          case "$code" in 200|409) ;; *) echo "::error title=S3::Couldn't create the S3 bucket."; exit 1 ;; esac
+      - name: Migrate and start the api
+        run: |
+          docker run --rm --network host -e DATABASE_URL sotto-api:accounts sh scripts/migrate.sh
+          # Production mode, as deployed: a throwaway secret, and no rate limits for one test run.
+          docker run -d --name sotto-accounts-api --network host \
+            -e DATABASE_URL -e REDIS_URL=redis://localhost:6379 -e PORT=4000 \
+            -e APP_URL=http://localhost:3000 -e AUTH_SECRET="$(openssl rand -hex 32)" \
+            -e AUTH_RATE_LIMIT=off -e SMTP_URL=smtp://localhost:1025 \
+            -e RABBITMQ_URL=amqp://sotto:sotto@localhost:5672 \
+            -e S3_ENDPOINT=http://localhost:8333 -e S3_BUCKET=sotto-files -e S3_FORCE_PATH_STYLE=true \
+            -e S3_ACCESS_KEY_ID=ci -e S3_SECRET_ACCESS_KEY=ci sotto-api:accounts
+          # Ready means the api reaches all four of its dependencies (database, Redis, storage,
+          # queue), not just that its process is up; /readyz names the one that isn't.
+          ready=""
+          for _ in $(seq 1 60); do
+            if curl -fsS -o /dev/null localhost:4000/readyz 2>/dev/null; then ready=1; break; fi
+            [ "$(docker inspect -f '{{.State.Running}}' sotto-accounts-api 2>/dev/null)" = true ] || break
+            sleep 2
+          done
+          echo "api readiness: $(curl -sS --max-time 5 localhost:4000/readyz 2>&1)"
+          [ -n "$ready" ] || { echo "::error title=accounts::The api isn't ready: see its readiness above and the diagnostics below."; exit 1; }
+          curl -fsS localhost:4000/api/v1/sign-in-methods > /dev/null
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The build bakes the /api rewrite to localhost:4000 (next.config.ts's default), where the
+      # api runs.
+      - run: pnpm build
+      - name: Playwright's Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Accounts flow (iPhone and desktop)
+        env:
+          ACCOUNTS_E2E: '1'
+          MAILPIT_URL: http://127.0.0.1:8025
+        run: pnpm exec playwright test e2e/accounts.spec.ts
+      # Why it failed: each service's state (exit code, OOM kill, health), the last lines of every
+      # service and of the api, and the runner's memory and disk. A service that isn't running and
+      # healthy, and the api's errors, are also annotations, readable on the pull request.
+      - name: Diagnostics
+        if: failure()
+        run: |
+          echo "::group::accounts stack"
+          for c in pg redis mq s3 mail api; do
+            state=$(docker inspect -f 'running={{.State.Running}} exit={{.State.ExitCode}} oom-killed={{.State.OOMKilled}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "sotto-accounts-$c" 2>&1) || true
+            echo "sotto-accounts-$c: $state"
+            case "$state" in
+              running=true*health=healthy | running=true*health=none) ;;
+              *"No such object"*) [ "$c" = api ] || echo "::error title=sotto-accounts-$c::never created" ;;
+              *)
+                echo "::error title=sotto-accounts-$c::$state"
+                docker logs --tail 6 "sotto-accounts-$c" 2>&1 | cut -c1-300 | sed "s/^/::error title=sotto-accounts-$c log::/" || true ;;
+            esac
+          done
+          echo "::endgroup::"
+          echo "::group::service logs"
+          docker compose -f e2e/accounts.compose.yaml logs --no-color --tail 60 || true
+          echo "::endgroup::"
+          if docker inspect sotto-accounts-api > /dev/null 2>&1; then
+            echo "::group::api logs"
+            docker logs --tail 150 sotto-accounts-api 2>&1 || true
+            echo "::endgroup::"
+            docker logs sotto-accounts-api 2>&1 | grep -iE '"level":"?(error|50)|error' | tail -5 | cut -c1-400 |
+              while IFS= read -r line; do echo "::error title=api::$line"; done || true
+            echo "api readiness: $(curl -sS --max-time 5 localhost:4000/readyz 2>&1)"
+          fi
+          free -m
+          df -h /
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: failure()
+        with:
+          name: accounts-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  # main only, after every check: the image goes to ECR (sha-<7> and main tags) and the demo
+  # server pulls and restarts it through the sotto-deploy SSM document.
+  deploy:
+    name: Push the image and deploy the demo
+    needs: [secrets, check, stories, image, accounts]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    # Lists each deploy on the repo's page (Deployments), and is where protection rules go if
+    # they're ever wanted: Settings → Environments → demo.
+    environment: demo
+    concurrency:
+      group: deploy-demo-web
+      cancel-in-progress: false
+    env:
+      # One IAM access key, kept as repository secrets (ADR 0007). In sotto-platform,
+      # `terraform output -raw github_secrets` prints the commands that set them all.
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_REGION || vars.AWS_REGION || 'eu-west-2' }}
+      # Optional: worked out from the account when it isn't set.
+      ECR_REGISTRY: ${{ secrets.ECR_REGISTRY || vars.ECR_REGISTRY }}
+    steps:
+      # `terraform destroy` removes everything, the image repositories included. While the demo
+      # is down, main skips the push and the deploy (they don't fail); after `terraform apply`,
+      # run this workflow on main. Any other AWS error fails the job rather than quietly
+      # skipping the deploy.
+      - name: Is the demo up?
+        id: demo
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+            echo "::error title=AWS key::Add the AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY repository secrets (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          # 0: up. 3: down (no image repository, or no running demo server). Anything else: an error.
+          check() {
+            out=$(aws ecr describe-repositories --repository-names sotto/web 2>&1) || {
+              echo "$out" | grep -q RepositoryNotFoundException && return 3
+              echo "$out"; return 1
+            }
+            n=$(aws ec2 describe-instances --filters Name=tag:sotto-role,Values=demo \
+              Name=instance-state-name,Values=running --query 'length(Reservations)' --output text) || return 1
+            [ "$n" != 0 ] || return 3
+          }
+          rc=0
+          check || rc=$?
+          case "$rc" in
+            0) echo "up=true" >> "$GITHUB_OUTPUT" ;;
+            3) echo "up=false" >> "$GITHUB_OUTPUT"
+               echo "::notice title=The demo is down::No sotto/web image repository or no running demo server, so nothing was pushed or deployed. After terraform apply, run this workflow on main." ;;
+            *) echo "::error title=AWS::Couldn't check the demo with AWS (exit $rc); see above."; exit 1 ;;
+          esac
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: steps.demo.outputs.up == 'true'
+      - name: Version
+        id: version
+        if: steps.demo.outputs.up == 'true'
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.demo.outputs.up == 'true'
+      # The image job's build, from its cached layers.
+      - name: Build sotto-web:ci
+        if: steps.demo.outputs.up == 'true'
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          build-args: APP_VERSION=${{ steps.version.outputs.tag }}
+          tags: sotto-web:ci
+          load: true
+          cache-from: type=gha,scope=web-${{ runner.arch }}
+      - name: Push the image to ECR
+        if: steps.demo.outputs.up == 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          ECR_REGISTRY="${ECR_REGISTRY:-$(aws sts get-caller-identity --query Account --output text).dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com}"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+          arch=$(docker image inspect -f '{{.Architecture}}' sotto-web:ci)
+          [ "$arch" = arm64 ] || { echo "::error title=web::sotto-web:ci is $arch; the demo needs arm64."; exit 1; }
+          for t in "$TAG" main; do
+            docker tag sotto-web:ci "$ECR_REGISTRY/sotto/web:$t"
+            docker push --quiet "$ECR_REGISTRY/sotto/web:$t"
+          done
+      - name: Deploy to the demo through SSM
+        if: steps.demo.outputs.up == 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          ID=$(aws ssm send-command --document-name sotto-deploy \
+            --targets "Key=tag:sotto-role,Values=demo" \
+            --parameters "services=web,tag=$TAG" \
+            --comment "sotto-web $TAG" \
+            --query Command.CommandId --output text)
+          echo "SSM command: $ID"
+          for _ in $(seq 1 60); do
+            STATUS=$(aws ssm list-commands --command-id "$ID" --query 'Commands[0].Status' --output text)
+            echo "status: $STATUS"
+            case "$STATUS" in
+              Success)
+                echo "Deployed \`$TAG\` (web) to the demo." >> "$GITHUB_STEP_SUMMARY"
+                exit 0 ;;
+              Failed|Cancelled|TimedOut)
+                aws ssm list-command-invocations --command-id "$ID" --details \
+                  --query 'CommandInvocations[0].CommandPlugins[0].Output' --output text || true
+                exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error title=deploy::The deploy didn't finish within 10 minutes (SSM command $ID)."
+          exit 1
