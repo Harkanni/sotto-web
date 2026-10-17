@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { standInAskRoute } from '../src/stories/ask-fixtures';
 import { STAND_IN_FILES, standInFileRoute } from '../src/stories/file-fixtures';
+import { standInLiveRoute } from '../src/stories/live-fixtures';
 
 /**
  * The app shell against brief §9: tabs keep their stacks, screens push and pop, the + sheet
@@ -71,8 +72,10 @@ async function standInApi(page: Page) {
   for (const [path, body] of Object.entries(STAND_IN)) {
     await page.route(`**/api/v1/${path}`, (route) => route.fulfill({ json: body }));
   }
-  // Files, meetings, chats and search: the shared stand-in library (src/stories/*-fixtures).
-  const standInRoute = (url: URL) => standInAskRoute(url, STAND_IN_FILES) ?? standInFileRoute(url);
+  // Files, meetings, chats, search and live calls (none): the shared stand-in library
+  // (src/stories/*-fixtures).
+  const standInRoute = (url: URL) =>
+    standInAskRoute(url, STAND_IN_FILES) ?? standInFileRoute(url) ?? standInLiveRoute(url);
   await page.route(
     (url) => standInRoute(url) !== undefined,
     (route) => {

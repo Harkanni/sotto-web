@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { memo, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { LiveLevel, LiveStatus, useElapsed } from '@/components/live/live-parts';
+import { LiveLevel, LiveStatus, useElapsed, type LevelSource } from '@/components/live/live-parts';
 import { Screen } from '@/components/shell/screen';
 import { useLayer } from '@/components/shell/stack-context';
 import { Button } from '@/components/ui/button';
@@ -51,7 +51,9 @@ import { Composer } from './parts/composer';
 type Section = 'transcript' | 'notes';
 
 /** What this device is doing with the session on screen. */
-function localPhase(capture: LiveCaptureState, id: string) {
+export type LivePhaseHere = LiveCaptureState['phase'] | 'elsewhere';
+
+function localPhase(capture: LiveCaptureState, id: string): LivePhaseHere {
   return capture.session?.id === id ? capture.phase : 'elsewhere';
 }
 
@@ -172,14 +174,21 @@ export function LiveScreen() {
 
 // ── Heading ────────────────────────────────────────────────────────────────────────────────
 
-function LiveHeading({
+export function LiveHeading({
   session,
   phase,
+  elapsedMs,
+  levels,
 }: {
   session: LiveSession;
-  phase: ReturnType<typeof localPhase>;
+  phase: LivePhaseHere;
+  /** Listening time in place of the capture's clock (stories). */
+  elapsedMs?: number;
+  /** Levels in place of the capture's (stories). */
+  levels?: LevelSource;
 }) {
-  const elapsed = useElapsed();
+  const ticking = useElapsed();
+  const elapsed = elapsedMs ?? ticking;
   return (
     <header className="flex flex-col gap-3 px-[var(--gutter)] pt-1 pb-5">
       {/* Screen's own h1 (read and focused after a push) carries this title. */}
@@ -206,7 +215,11 @@ function LiveHeading({
         </span>
       </div>
       {phase !== 'elsewhere' && (
-        <LiveLevel live={phase === 'listening'} className="rounded-card bg-card px-3" />
+        <LiveLevel
+          live={phase === 'listening'}
+          source={levels}
+          className="rounded-card bg-card px-3"
+        />
       )}
     </header>
   );
@@ -238,7 +251,7 @@ function Notice({
 }
 
 /** Problems worth knowing about while listening: each says what happened and what carries on. */
-function Notices({
+export function Notices({
   session,
   capture,
   phase,
@@ -246,7 +259,7 @@ function Notices({
 }: {
   session: LiveSession;
   capture: LiveCaptureState;
-  phase: ReturnType<typeof localPhase>;
+  phase: LivePhaseHere;
   connected: boolean;
 }) {
   const mine = phase !== 'elsewhere';
@@ -326,7 +339,13 @@ const Line = memo(function Line({ line }: { line: LiveSegment }) {
  * The transcript as it's heard. It follows the newest line while you're at the bottom; scroll up
  * to read and it stays put, with a Latest button to jump back.
  */
-function LiveTranscript({ segments, session }: { segments: LiveSegment[]; session: LiveSession }) {
+export function LiveTranscript({
+  segments,
+  session,
+}: {
+  segments: LiveSegment[];
+  session: LiveSession;
+}) {
   const endRef = useRef<HTMLDivElement>(null);
   const count = segments.length;
   const countRef = useRef(count);
@@ -391,7 +410,7 @@ function LiveTranscript({ segments, session }: { segments: LiveSegment[]; sessio
 
 // ── Notes ──────────────────────────────────────────────────────────────────────────────────
 
-function LiveNotesView({ session }: { session: LiveSession }) {
+export function LiveNotesView({ session }: { session: LiveSession }) {
   const [updating, setUpdating] = useState(false);
   const notes = session.notes;
   const problem = session.notesError ? NOTES_ERROR[session.notesError] : null;
@@ -482,13 +501,13 @@ function LiveNotesView({ session }: { session: LiveSession }) {
 // ── Controls ───────────────────────────────────────────────────────────────────────────────
 
 /** Pause, Stop and Ask, in thumb reach, like the recorder's controls. */
-function LiveControls({
+export function LiveControls({
   phase,
   canControl,
   onStop,
   onAsk,
 }: {
-  phase: ReturnType<typeof localPhase>;
+  phase: LivePhaseHere;
   canControl: boolean;
   onStop: () => void;
   onAsk: () => void;
@@ -593,7 +612,7 @@ const SUGGESTIONS = [
  * Ask during the call: a chat scoped to the transcript so far plus the library. The answer
  * opens as a chat over this screen; listening carries on underneath.
  */
-function AskAboutCall({
+export function AskAboutCall({
   open,
   onOpenChange,
   sessionId,

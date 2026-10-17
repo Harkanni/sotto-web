@@ -198,7 +198,18 @@ M5, part 2 on `feat/p7-live-now` (2026-10-17):
   file events that start or end an arrival (`startsOrEndsArriving`) and on reconnect. A list
   row whose link switches tab is no longer left highlighted (Home's row opens the call on
   Meetings; only a pop cleared the highlight). Unit tests: `test/live.test.ts` (+8).
-- Next: stories (Next steps → 1), then the e2e, the rendered checks and the design system.
+- Done (typecheck and lint pass; story build and story tests not yet run): **stories**.
+  `Components/Live` (`src/components/live/live.stories.tsx`: status in every phase, the level
+  bars, the Listen sheet, Live now rows, notes in three states, every notice, another screen)
+  and `Screens/Live` (`src/screens/live.stories.tsx`, phone: listening, first seconds, paused,
+  notes, another screen, Ask during the call), composed from the live screen's own parts
+  (now exported) inside the real `Screen`, because the story tests fail on any 4xx and the
+  screen's event stream would 404 in Storybook. Stand-in data: `src/stories/live-fixtures.ts`
+  (plain data; also answers `GET /live-sessions` with nothing live for the shell e2e and
+  Storybook) and `src/stories/live-levels.ts` (deterministic speech-like levels).
+  `LiveLevel` takes a level source and `LiveHeading` an optional clock, for those stories.
+- Next: `pnpm build-storybook && CI=true pnpm test:stories` (fix what fails), then the e2e
+  (Next steps → 1).
 
 ## Remaining work
 
