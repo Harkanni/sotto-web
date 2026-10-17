@@ -2,6 +2,7 @@
 
 import { ChevronRight, type LucideIcon } from 'lucide-react';
 import { NavLink } from '@/lib/nav/link';
+import { tabOf } from '@/lib/nav/routes';
 import { cn } from '@/lib/utils';
 
 /**
@@ -171,7 +172,12 @@ export function ListRowContent({
         onClick={(event) => {
           onClick?.(event);
           // Phones: keep this row highlighted under the pushed screen; it fades on the way back.
-          if (!event.defaultPrevented && !window.matchMedia('(min-width: 1024px)').matches) {
+          // A link to another tab pushes nothing over this row, so nothing would ever clear it.
+          if (
+            !event.defaultPrevented &&
+            !window.matchMedia('(min-width: 1024px)').matches &&
+            tabOf(new URL(href, window.location.href).pathname) === tabOf(window.location.pathname)
+          ) {
             event.currentTarget.setAttribute('data-just-opened', '');
           }
         }}

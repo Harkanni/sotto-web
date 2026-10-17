@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compareStacks, parentOf, parseStack, pushPath, tabOf } from '@/lib/nav/routes';
+import { childKey, compareStacks, parentOf, parseStack, pushPath, tabOf } from '@/lib/nav/routes';
 
 const keys = (path: string) => parseStack(path).map((e) => e.key);
 const kinds = (path: string) => parseStack(path).map((e) => e.kind);
@@ -93,5 +93,27 @@ describe('compareStacks', () => {
     expect(compareStacks(s('/docs/d_1'), s('/docs'))).toEqual({ type: 'pop', common: 1 });
     expect(compareStacks(s('/docs/d_1'), s('/docs/d_2'))).toEqual({ type: 'replace', common: 1 });
     expect(compareStacks(s('/docs/d_1'), s('/docs/d_1'))).toEqual({ type: 'same' });
+  });
+});
+
+describe('childKey', () => {
+  it('is the screen pushed straight on top of a list', () => {
+    expect(childKey('/docs/d_1', '/docs')).toBe('/docs/d_1');
+    expect(childKey('/docs/collection/c_1/doc/d_42', '/docs')).toBe('/docs/collection/c_1');
+    expect(childKey('/docs/collection/c_1/doc/d_42', '/docs/collection/c_1')).toBe(
+      '/docs/collection/c_1/doc/d_42',
+    );
+    expect(childKey('/profile/members?x=1', '/profile')).toBe('/profile/members');
+  });
+
+  it('covers every item kind, the live screen included', () => {
+    expect(childKey('/meetings/live/ls_1', '/meetings')).toBe('/meetings/live/ls_1');
+    expect(childKey('/home/meeting/m_7?t=58', '/home')).toBe('/home/meeting/m_7');
+    expect(childKey('/ask/thread/c_1', '/ask')).toBe('/ask/thread/c_1');
+  });
+
+  it('is null when nothing is pushed on top', () => {
+    expect(childKey('/meetings', '/meetings')).toBeNull();
+    expect(childKey('/docs/d_1', '/meetings')).toBeNull();
   });
 });

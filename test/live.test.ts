@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { PCM_WORKLET_SOURCE } from '@/lib/live/pcm-worklet';
 import { ChunkUploader, MAX_QUEUED_BYTES, type SendOutcome } from '@/lib/live/uploader';
+import { startsOrEndsArriving } from '@/lib/api/events';
+import type { LiveSession } from '@/lib/api/live';
+import { liveNowItems } from '@/lib/live/now';
+import type { LivePhase } from '@/lib/live/store';
+import { elsewhereLabel } from '@/screens/parts/live-now';
 
 // ── The worklet, run as written against a fake audio-thread scope ──────────────────────────
 
@@ -231,5 +236,104 @@ describe('ChunkUploader', () => {
     expect(api.got[0]).toBe(0);
     expect(api.got.length).toBe(count - 3);
     expect(api.got).toEqual(Array.from({ length: count - 3 }, (_, i) => i));
+  });
+});
+
+// ── Live now (Home and Meetings) ───────────────────────────────────────────────────────────
+
+function liveSession(id: string, patch: Partial<LiveSession> = {}): LiveSession {
+  return {
+    id,
+    source: 'listen',
+    status: 'live',
+    inputs: ['mic'],
+    durationMs: 60_000,
+    nextSeq: 15,
+    startedAt: '2026-10-17T08:30:00.000Z',
+    endedAt: null,
+    startedBy: { id: 'u_1', name: 'Ada' },
+    canControl: true,
+    transcriber: { engine: 'mock', isMock: true },
+    notes: null,
+    notesAt: null,
+    notesError: null,
+    error: null,
+    // Only the title is read from the meeting it becomes.
+    file: { id: `f_${id}`, title: `Call ${id}` } as LiveSession['file'],
+    ...patch,
+  };
+}
+
+const idle = { phase: 'idle', session: null } as const;
+const capturing = (id: string, phase: LivePhase = 'listening') => ({
+  phase,
+  session: { id, inputs: ['mic' as const], fileId: `f_${id}`, title: `Call ${id}` },
+});
+
+describe('liveNowItems', () => {
+  it('lists the open calls the api knows, newest first, as captured elsewhere', () => {
+    const items = liveNowItems(
+      [liveSession('b'), liveSession('a', { status: 'connecting', source: 'bot' })],
+      idle,
+    );
+    expect(items.map((i) => [i.id, i.phase, i.source])).toEqual([
+      ['b', 'elsewhere', 'listen'],
+      ['a', 'elsewhere', 'bot'],
+    ]);
+    expect(items[0]!.title).toBe('Call b');
+  });
+
+  it('never lists a call that ended or failed', () => {
+    const items = liveNowItems(
+      [liveSession('a', { status: 'ended' }), liveSession('b', { status: 'failed' })],
+      idle,
+    );
+    expect(items).toEqual([]);
+  });
+
+  it('marks the call this device is capturing with what it is doing', () => {
+    const items = liveNowItems([liveSession('a'), liveSession('b')], capturing('b', 'paused'));
+    expect(items.map((i) => i.phase)).toEqual(['elsewhere', 'paused']);
+  });
+
+  it('shows this device’s call before the list has caught up with it', () => {
+    const items = liveNowItems([liveSession('a')], capturing('new'));
+    expect(items.map((i) => [i.id, i.phase, i.startedAt])).toEqual([
+      ['new', 'listening', null],
+      ['a', 'elsewhere', '2026-10-17T08:30:00.000Z'],
+    ]);
+    expect(liveNowItems(undefined, capturing('new')).map((i) => i.id)).toEqual(['new']);
+  });
+
+  it('ignores a capture that is only starting (no call exists yet)', () => {
+    expect(liveNowItems(undefined, { phase: 'starting', session: null })).toEqual([]);
+  });
+});
+
+describe('elsewhereLabel', () => {
+  it('says when a call elsewhere started, or that the notetaker is in it', () => {
+    expect(elsewhereLabel({ source: 'listen', startedAt: null })).toBe('Live');
+    expect(elsewhereLabel({ source: 'listen', startedAt: '2026-10-17T08:30:00.000Z' })).toMatch(
+      /^Live, started \d/,
+    );
+    expect(elsewhereLabel({ source: 'bot', startedAt: '2026-10-17T08:30:00.000Z' })).toBe(
+      'Notetaker in the call',
+    );
+  });
+});
+
+describe('startsOrEndsArriving', () => {
+  it('is true for the file events a live call starting or ending sends', () => {
+    expect(startsOrEndsArriving('status', 'uploading')).toBe(true);
+    expect(startsOrEndsArriving('status', 'uploaded')).toBe(true);
+    expect(startsOrEndsArriving('status', 'failed')).toBe(true);
+    expect(startsOrEndsArriving('removed', 'uploading')).toBe(true);
+  });
+
+  it('is false for a file moving through the pipeline', () => {
+    expect(startsOrEndsArriving('status', 'transcribing')).toBe(false);
+    expect(startsOrEndsArriving('status', 'indexing')).toBe(false);
+    expect(startsOrEndsArriving('status', 'ready')).toBe(false);
+    expect(startsOrEndsArriving('updated', 'ready')).toBe(false);
   });
 });

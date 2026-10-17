@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation';
 import { createContext, use, useState, useSyncExternalStore } from 'react';
-import { TABS, tabOf, type Tab } from './routes';
+import { TABS, childKey, tabOf, type Tab } from './routes';
 import { getSnapshot, subscribe, type NavSnapshot } from './store';
 
 const ServerSnapshot = createContext<NavSnapshot | null>(null);
@@ -96,13 +96,6 @@ export function useActiveTab(): Tab {
  * item in a list pane. Re-renders only when that changes, not on every navigation.
  */
 export function useChildKey(tab: Tab, key: string): string | null {
-  const select = () => {
-    const href = getSnapshot().tabs[tab];
-    const path = href.split('?')[0]!;
-    if (!path.startsWith(key + '/')) return null;
-    const rest = path.slice(key.length + 1).split('/');
-    // A tab's own items are one segment (/docs/d_1); others are /kind/id.
-    return `${key}/${rest[0]}${rest.length > 1 && ['doc', 'collection', 'meeting', 'thread'].includes(rest[0]!) ? `/${rest[1]}` : ''}`;
-  };
+  const select = () => childKey(getSnapshot().tabs[tab], key);
   return useSyncExternalStore(subscribe, select, () => null);
 }

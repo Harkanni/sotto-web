@@ -28,6 +28,7 @@ import {
 } from '@/lib/api/files';
 import { prefersReducedMotion } from '@/lib/motion/driver';
 import { dayAndTime, dayGroup, duration, timestamp } from '@/lib/format';
+import { useLiveNow } from '@/lib/live/now';
 import { useChildKey, useNav } from '@/lib/nav/hooks';
 import { pushPath } from '@/lib/nav/routes';
 import { useCanAdd } from '@/lib/uploads/permissions';
@@ -36,22 +37,39 @@ import { NotReady } from './doc';
 import { AskButton, DetailWithAsk } from './parts/detail';
 import { useFileActions } from './parts/file-actions';
 import { RecordingRow } from './parts/file-rows';
+import { LiveNowList } from './parts/live-now';
 import { MoreMenu } from './parts/more-menu';
 import { RowsSkeleton } from './parts/rows';
 
-/** Meetings (brief §9): recordings by day, each opening to its player, transcript and notes. */
+/**
+ * Meetings (brief §9): calls live now on top, then recordings by day, each opening to its
+ * player, transcript and notes.
+ */
 export function MeetingsScreen() {
   const { entry, tab } = useLayer();
   const query = useFiles({ kind: 'audio', sort: 'recent' });
   const selected = useChildKey(tab, entry.key);
   const canAdd = useCanAdd();
+  const live = useLiveNow();
 
   return (
     <Screen title="Meetings">
+      {live.length > 0 && (
+        <section aria-label="Live now" className="px-[var(--gutter)] pt-1 pb-6">
+          <h2 className="px-4 pb-1.5 text-footnote text-muted-foreground">Live now</h2>
+          <LiveNowList
+            items={live}
+            hrefFor={(id) => pushPath(entry.key, 'live', id)}
+            selected={selected}
+          />
+        </section>
+      )}
       <AsyncWidget
         query={query}
         label="Meetings"
         errorTitle="Couldn’t load your meetings"
+        // A call being captured is the first recording on its way: no "No recordings yet" under it.
+        isEmpty={(meetings) => meetings.length === 0 && live.length === 0}
         empty={{
           illustration: 'recordings',
           title: 'No recordings yet',

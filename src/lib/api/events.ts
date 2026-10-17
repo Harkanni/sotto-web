@@ -5,12 +5,24 @@ import { useEffect } from 'react';
 import type { operations } from './schema';
 import { fileKeys, patchFile, refreshFiles, type FileStatus } from './files';
 import { useActiveWorkspace } from './hooks';
+import { liveKeys } from './live';
 
 /** One `file` event, as sotto-api documents it in openapi.json. */
 type FileEvent =
   operations['EventsController_stream']['responses'][200]['content']['application/json'];
 
 type Listener = (event: { fileId: string; status: FileStatus }) => void;
+
+/**
+ * Whether a file event can mean a live call started or ended: a file begins arriving (a call
+ * starts as one), finishes arriving or fails (the call was saved, or couldn't be), or goes away
+ * (a call where nothing was heard is discarded).
+ */
+export function startsOrEndsArriving(change: FileEvent['change'], status: FileStatus): boolean {
+  return (
+    change === 'removed' || status === 'uploading' || status === 'uploaded' || status === 'failed'
+  );
+}
 const listeners = new Set<Listener>();
 
 /** Hear about status changes elsewhere (the upload manager toasts when a file is Ready). */
@@ -37,7 +49,10 @@ export function useFileEvents() {
     let connected = false;
 
     source.addEventListener('ready', () => {
-      if (connected) void refreshFiles(client, ws);
+      if (connected) {
+        void refreshFiles(client, ws);
+        void client.invalidateQueries({ queryKey: liveKeys.active(ws) });
+      }
       connected = true;
     });
 
@@ -55,6 +70,11 @@ export function useFileEvents() {
         progress: event.progress,
         error: event.error,
       });
+      if (startsOrEndsArriving(event.change, status)) {
+        // A live call starts as a file arriving and ends when it has arrived (or is discarded):
+        // the Live now rows on Home and Meetings follow.
+        void client.invalidateQueries({ queryKey: liveKeys.active(ws) });
+      }
       if (event.change !== 'status' || status === 'ready' || status === 'failed') {
         // Titles, places and what a Ready file now has (pages, transcript, notes) come fresh.
         void client.invalidateQueries({ queryKey: fileKeys.lists(ws) });
