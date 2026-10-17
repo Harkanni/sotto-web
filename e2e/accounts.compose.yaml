@@ -76,7 +76,11 @@ services:
     image: axllent/mailpit:latest
     container_name: ${CI_NAME:-sotto-accounts}-mail
     ports: ['${SMTP_PORT:-1025}:1025', '${MAILPIT_PORT:-8025}:8025']
-    # Starts in well under a second. Its image ships a slow-interval healthcheck that would only
-    # make `up --wait` sit idle; the test's first email read is the real check.
+    # Mailpit's own readiness check, polled every 2 s. Not `disable: true`: Compose 2.38 (GitHub's
+    # runners) then fails `up --wait` with "no healthcheck configured". And not the image's
+    # default, whose 15 s interval leaves `up --wait` idle where Docker ignores start_interval.
     healthcheck:
-      disable: true
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 2s
+      timeout: 3s
+      retries: 20
